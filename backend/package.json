@@ -9,7 +9,9 @@
     "build-frontend": "cd ../frontend && npm run build-and-copy",
     "start-with-frontend": "npm run build-frontend && npm start",
     "start-prod": "npm run build-frontend && pm2 start src/index.js",
-    "restart-prod": "npm run build-frontend && pm2 restart src/index.js"
+    "restart-prod": "npm run build-frontend && pm2 restart src/index.js",
+    "setup-puppeteer": "sudo bash scripts/setup-puppeteer.sh",
+    "start-with-xvfb": "xvfb-run --server-args='-screen 0 1920x1080x24' npm start"
   },
   "keywords": [],
   "author": "",

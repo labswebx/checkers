@@ -25,6 +25,7 @@ class ScraperUtil {
       // Launch browser
       this.browser = await puppeteer.launch({
         headless: 'new',  // Use new headless mode
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null, // Allow custom Chrome path
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -34,13 +35,20 @@ class ScraperUtil {
           '--window-size=1920,1080',
           '--disable-web-security',
           '--disable-features=IsolateOrigins,site-per-process',
-          '--disable-site-isolation-trials'
+          '--disable-site-isolation-trials',
+          '--no-zygote',
+          '--single-process',
+          '--disable-setuid-sandbox'
         ],
         defaultViewport: {
           width: 1920,
           height: 1080
         },
-        ignoreHTTPSErrors: true
+        ignoreHTTPSErrors: true,
+        env: {
+          ...process.env,
+          DISPLAY: ':99'  // For Xvfb
+        }
       });
 
       logger.info('Browser launched successfully');
