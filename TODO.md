@@ -1,3 +1,4 @@
+- [ ] Setup automatic env detection on Frontend so that we don't have to change the URL everytime we deploy
 - [ ] Complete the withdrawal page as well. Keep it on a separate branch
 - [ ] Show proper error message in case of Login & register. Try register with duplicate email or try login with agent email.
 - [ ] For every franchise it is creating a new user. Verify why & how is this happening & whats the need for this.
