@@ -139,8 +139,8 @@ class TransactionService {
           franchise,
           role: 'agent',
           isActive: true,
-          password: 'defaultPassword123', // You should generate a random password here
-          contactNumber: 1234567890, // Default contact number, should be updated later
+          password: Math.random().toString(36).slice(-8), // Generate random password
+          contactNumber: null, // Will be updated later
           notificationPreferences: {
             email: true,
             sms: true,
@@ -167,36 +167,50 @@ class TransactionService {
    * @param {string} agentId - Agent ID
    */
   mapTransactionData(data, type, agentId) {
-    // Extract transaction ID from data based on type
-    const transactionId = type === 'deposit' 
-      ? data.deposit_id || data.id
-      : data.withdrawal_id || data.id;
+    try {
+      // Extract transaction ID from data based on type
+      const transactionId = type === 'deposit' 
+        ? data.deposit_id || data.id
+        : data.withdrawal_id || data.id;
 
-    // Map status
-    const status = this.mapStatus(data.status);
+      // Map status
+      const status = this.mapStatus(data.status);
 
-    // Parse dates
-    const requestedAt = this.parseDate(data.request_date || data.created_at);
-    const processedAt = this.parseDate(data.processed_at || data.updated_at);
+      // Parse dates
+      const requestedAt = this.parseDate(data.request_date || data.created_at);
+      const processedAt = this.parseDate(data.processed_at || data.updated_at);
 
-    return {
-      transactionId,
-      type,
-      agentId,
-      status,
-      amount: parseFloat(data.amount.replace(/[₹,]/g, '')),
-      customerId: data.id,
-      customerName: data.name,
-      franchise: data.franchise,
-      utr: data.utr,
-      bank: data.payment_method,
-      requestedAt,
-      processedAt,
-      remarks: data.remarks,
-      metadata: {
-        raw: data
+      // Clean amount string and convert to number
+      const amount = parseFloat(String(data.amount).replace(/[₹,]/g, ''));
+      if (isNaN(amount)) {
+        throw new Error(`Invalid amount: ${data.amount}`);
       }
-    };
+
+      return {
+        transactionId,
+        type,
+        agentId,
+        status,
+        amount,
+        customerId: data.id,
+        customerName: data.name,
+        franchise: data.franchise,
+        utr: data.utr,
+        bank: data.payment_method,
+        requestedAt,
+        processedAt,
+        remarks: data.remarks,
+        metadata: {
+          raw: data
+        }
+      };
+    } catch (error) {
+      logger.error('Error mapping transaction data:', {
+        error: error.message,
+        data
+      });
+      throw error;
+    }
   }
 
   /**
@@ -207,7 +221,7 @@ class TransactionService {
     if (!status) return 'pending';
     
     // Convert to lowercase and remove extra spaces
-    status = status.toLowerCase().trim();
+    status = String(status).toLowerCase().trim();
 
     // Common variations of status text
     const approvedKeywords = ['approved', 'success', 'completed', 'done', 'processed'];
@@ -240,14 +254,14 @@ class TransactionService {
 
   /**
    * Parse date string to Date object
-   * @param {string} dateStr - Date string
+   * @param {string} dateStr - Date string to parse
    */
   parseDate(dateStr) {
     if (!dateStr) return null;
     try {
       return new Date(dateStr);
     } catch (error) {
-      logger.error('Error parsing date:', { dateStr, error: error.message });
+      logger.warn('Error parsing date:', { dateStr, error: error.message });
       return null;
     }
   }

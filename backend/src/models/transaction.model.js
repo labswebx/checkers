@@ -5,7 +5,8 @@ const transactionSchema = new mongoose.Schema({
   transactionId: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    index: true
   },
   amount: {
     type: Number,
@@ -14,7 +15,8 @@ const transactionSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
-    required: true
+    required: true,
+    index: true
   },
   statusUpdatedAt: {
     type: Date
@@ -22,21 +24,25 @@ const transactionSchema = new mongoose.Schema({
   type: {
     type: String,
     enum: ['deposit', 'withdrawal'],
-    required: true
+    required: true,
+    index: true
   },
   agentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',  // Reference to User model instead of Agent
-    required: true
+    required: true,
+    index: true
   },
   customerId: {
     type: String,
-    required: true
+    required: true,
+    index: true
   },
   customerName: String,
   franchise: {
     type: String,
-    required: true
+    required: true,
+    index: true
   },
   utr: String,
   bank: String,
@@ -45,7 +51,8 @@ const transactionSchema = new mongoose.Schema({
   remarks: String,
   lastScrapedAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
+    index: true
   },
   metadata: {
     type: mongoose.Schema.Types.Mixed,
@@ -57,14 +64,6 @@ const transactionSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
-
-// Indexes for faster queries
-transactionSchema.index({ transactionId: 1 });
-transactionSchema.index({ agentId: 1, type: 1 });
-transactionSchema.index({ status: 1, type: 1 });
-transactionSchema.index({ franchise: 1 });
-transactionSchema.index({ lastScrapedAt: 1 });
-transactionSchema.index({ customerId: 1 });
 
 // Add soft delete functionality
 transactionSchema.plugin(mongooseDelete, { 
