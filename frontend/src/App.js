@@ -13,6 +13,7 @@ import Users from './pages/Users';
 import LoadingSpinner from './components/LoadingSpinner';
 import { LOCAL_STORAGE_KEYS } from './constants';
 import Deposits from './pages/Deposits';
+import StatusAnalysis from './pages/StatusAnalysis';
 
 // Create a theme instance
 const theme = createTheme({
@@ -147,6 +148,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Deposits />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/status-analysis"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <StatusAnalysis />
                 </Layout>
               </ProtectedRoute>
             }

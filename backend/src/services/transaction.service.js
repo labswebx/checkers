@@ -357,10 +357,12 @@ class TransactionService {
   }
 
   /**
-   * Get status update time statistics
-   * Groups transactions by how long they took to update status
+   * Get status update time statistics with filters
+   * @param {Object} filters - Filter parameters
+   * @param {string} filters.status - Transaction status filter
+   * @param {string} filters.timeFrame - Time frame filter (1h, 3h, 6h, 1d, 3d, 1w, 1m, all)
    */
-  async getStatusUpdateStats() {
+  async getStatusUpdateStats(filters = {}) {
     try {
       const timeSlabs = [
         { min: 2, max: 5, label: '2-5 minutes' },
@@ -376,11 +378,57 @@ class TransactionService {
         byAgent: {}
       };
 
+      // Build base match conditions
+      const baseMatch = {
+        statusUpdatedAt: { $exists: true }
+      };
+
+      // Add status filter if provided
+      if (filters.status && filters.status !== 'all') {
+        baseMatch.status = filters.status;
+      }
+
+      // Add time frame filter if provided
+      if (filters.timeFrame && filters.timeFrame !== 'all') {
+        const now = new Date();
+        let startDate;
+
+        switch (filters.timeFrame) {
+          case '1h':
+            startDate = new Date(now - 60 * 60 * 1000);
+            break;
+          case '3h':
+            startDate = new Date(now - 3 * 60 * 60 * 1000);
+            break;
+          case '6h':
+            startDate = new Date(now - 6 * 60 * 60 * 1000);
+            break;
+          case '1d':
+            startDate = new Date(now - 24 * 60 * 60 * 1000);
+            break;
+          case '3d':
+            startDate = new Date(now - 3 * 24 * 60 * 60 * 1000);
+            break;
+          case '1w':
+            startDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
+            break;
+          case '1m':
+            startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+            break;
+          default:
+            startDate = null;
+        }
+
+        if (startDate) {
+          baseMatch.createdAt = { $gte: startDate };
+        }
+      }
+
       for (const slab of timeSlabs) {
         // Calculate time difference in minutes between statusUpdatedAt and createdAt
         const matchStage = {
           $match: {
-            statusUpdatedAt: { $exists: true },
+            ...baseMatch,
             $expr: {
               $let: {
                 vars: {

@@ -31,7 +31,6 @@ import {
 } from 'chart.js';
 import { getDashboardStats } from '../services/dashboard.service';
 import { colors } from '../theme/colors';
-import StatusUpdateStats from '../components/StatusUpdateStats';
 
 // Register ChartJS components
 ChartJS.register(
@@ -173,46 +172,8 @@ const Dashboard = () => {
           </Grid>
         </Grid>
 
-        {/* Status Update Statistics */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h5" sx={{ mb: 2 }}>
-            Transaction Status Update Analysis
-          </Typography>
-          <StatusUpdateStats />
-        </Box>
-
         {/* Charts */}
         <Grid container spacing={3}>
-          {/* <Grid item xs={12} lg={8}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Transaction Trends (Last 7 Days)
-              </Typography>
-              <Box sx={{ height: 300 }}>
-                <Line
-                  data={lineChartData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        position: 'top'
-                      }
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        title: {
-                          display: true,
-                          text: 'Amount (₹)'
-                        }
-                      }
-                    }
-                  }}
-                />
-              </Box>
-            </Paper>
-          </Grid> */}
           <Grid item xs={12} lg={4}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>

@@ -135,7 +135,7 @@ const Dashboard = () => {
       </Grid>
 
       {/* Recent Payments and Chart */}
-      <Grid container spacing={2}>
+      <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Paper
             sx={{
@@ -143,20 +143,19 @@ const Dashboard = () => {
               p: { xs: 2, sm: 3 },
               borderRadius: '16px',
               boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
-              overflow: 'auto',
             }}
           >
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               Recent Payments
             </Typography>
-            <TableContainer sx={{ width: '100%' }}>
-              <Table sx={{ minWidth: 650 }}>
+            <TableContainer>
+              <Table>
                 <TableHead>
                   <TableRow>
                     <TableCell>Amount</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Agent</TableCell>
-                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Time</TableCell>
+                    <TableCell>Time</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -166,12 +165,12 @@ const Dashboard = () => {
                       <TableCell>
                         <Chip
                           label={payment.status}
-                          color={payment.status === 'Completed' ? 'success' : 'warning'}
                           size="small"
+                          color={payment.status === 'Completed' ? 'success' : 'warning'}
                         />
                       </TableCell>
                       <TableCell>{payment.agent}</TableCell>
-                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{payment.time}</TableCell>
+                      <TableCell>{payment.time}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -179,6 +178,7 @@ const Dashboard = () => {
             </TableContainer>
           </Paper>
         </Grid>
+
         <Grid item xs={12} md={4}>
           <Paper
             sx={{
