@@ -29,13 +29,15 @@ const depositSlice = createSlice({
     loading: false,
     error: null,
     totalPages: 0,
-    totalRecords: 0
+    totalRecords: 0,
+    timeSlabCounts: []
   },
   reducers: {
     clearDeposits: (state) => {
       state.deposits = [];
       state.totalPages = 0;
       state.totalRecords = 0;
+      state.timeSlabCounts = [];
     }
   },
   extraReducers: (builder) => {
@@ -49,6 +51,8 @@ const depositSlice = createSlice({
         state.deposits = action.payload.data;
         state.totalPages = action.payload.totalPages;
         state.totalRecords = action.payload.totalRecords;
+        state.timeSlabCounts = Array.isArray(action.payload.timeSlabCounts) ? 
+          action.payload.timeSlabCounts : [];
       })
       .addCase(fetchDeposits.rejected, (state, action) => {
         state.loading = false;

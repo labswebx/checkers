@@ -77,7 +77,7 @@ const REFRESH_INTERVAL = 10000; // 10 seconds
 const Deposits = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
-  const { deposits, loading, totalPages, totalRecords } = useSelector(state => state.deposits);
+  const { deposits, loading, totalPages, totalRecords, timeSlabCounts = [] } = useSelector(state => state.deposits);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -285,11 +285,42 @@ const Deposits = () => {
                 onChange={(e) => handleFilterChange('timeSlab', e.target.value)}
                 size="small"
               >
-                {timeSlabs.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
+                {timeSlabs.map((option) => {
+                  // Find count for this time slab
+                  const slabCount = option.value === 'all' ? totalRecords : 
+                    timeSlabCounts.find(s => s.label === option.value)?.count ?? 0;
+                    
+                  return (
+                    <MenuItem key={option.value} value={option.value}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        width: '100%', 
+                        alignItems: 'center',
+                        py: 0.5
+                      }}>
+                        <Typography>{option.label}</Typography>
+                        <Chip 
+                          label={slabCount.toLocaleString()} 
+                          size="small" 
+                          sx={{ 
+                            ml: 1,
+                            backgroundColor: option.value === 'all' ? 
+                              theme.palette.grey[200] : 
+                              theme.palette.primary.light,
+                            color: option.value === 'all' ? 
+                              theme.palette.text.secondary : 
+                              theme.palette.primary.contrastText,
+                            minWidth: 40,
+                            '& .MuiChip-label': {
+                              px: 1
+                            }
+                          }} 
+                        />
+                      </Box>
+                    </MenuItem>
+                  );
+                })}
               </TextField>
             </Grid>
           </Grid>

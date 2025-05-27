@@ -7,6 +7,15 @@ const { successResponse, errorResponse } = require('../utils/response.util');
 const { STATUS_CODES } = require('../constants');
 const logger = require('../utils/logger.util');
 
+// Time slab configurations
+const TIME_SLABS = [
+  { min: 2, max: 5, label: '2-5' },
+  { min: 5, max: 8, label: '5-8' },
+  { min: 8, max: 12, label: '8-12' },
+  { min: 12, max: 20, label: '12-20' },
+  { min: 20, max: 'above', label: '20-above' }
+];
+
 // Get deposits with filters and pagination
 router.get('/deposits', auth, async (req, res) => {
   try {
@@ -21,12 +30,12 @@ router.get('/deposits', auth, async (req, res) => {
       limit = 10
     } = req.query;
 
-    // Build query
-    const query = { type: 'deposit' };
+    // Build base query
+    const baseQuery = { type: 'deposit' };
 
-    // Add filters
+    // Add filters to base query
     if (search) {
-      query.$or = [
+      baseQuery.$or = [
         { transactionId: { $regex: search, $options: 'i' } },
         { customerName: { $regex: search, $options: 'i' } },
         { utr: { $regex: search, $options: 'i' } },
@@ -35,51 +44,100 @@ router.get('/deposits', auth, async (req, res) => {
     }
 
     if (status && status !== 'all') {
-      query.status = status;
+      baseQuery.status = status;
     }
 
-    // Add amount range filter
     if (amountRange && amountRange !== 'all') {
-      const [min, max] = amountRange.split('-').map(Number);
+      const [min, max] = amountRange.split('-');
       if (max === 'above') {
-        query.amount = { $gte: min };
+        baseQuery.amount = { $gte: Number(min) };
       } else {
-        query.amount = { $gte: min, $lte: max };
+        baseQuery.amount = { $gte: Number(min), $lte: Number(max) };
       }
     }
 
-    // Add time slab filter
+    // Calculate time slab counts using aggregation
+    const now = new Date();
+    const timeSlabPipeline = [
+      { $match: baseQuery },
+      {
+        $facet: {
+          ...TIME_SLABS.reduce((acc, slab) => {
+            const slabName = slab.label;
+            let timeMatch;
+
+            if (slab.max === 'above') {
+              // For 20+ mins
+              const timeAgo = new Date(now.getTime() - (slab.min * 60 * 1000));
+              timeMatch = {
+                createdAt: { $lt: timeAgo }
+              };
+            } else {
+              // For ranges like 2-5 mins
+              const maxTimeAgo = new Date(now.getTime() - (slab.min * 60 * 1000));
+              const minTimeAgo = new Date(now.getTime() - (slab.max * 60 * 1000));
+              timeMatch = {
+                createdAt: {
+                  $gte: minTimeAgo,
+                  $lt: maxTimeAgo
+                }
+              };
+            }
+
+            acc[slabName] = [
+              { $match: timeMatch },
+              { $count: 'count' }
+            ];
+            return acc;
+          }, {})
+        }
+      }
+    ];
+
+    const [timeSlabResults] = await Transaction.aggregate(timeSlabPipeline);
+
+    // Format time slab counts
+    const timeSlabCounts = TIME_SLABS.map(slab => ({
+      label: slab.label,
+      count: (timeSlabResults[slab.label][0]?.count || 0),
+      min: slab.min,
+      max: slab.max
+    }));
+
+    // Log the counts for debugging
+    logger.debug('Time slab counts:', {
+      timeSlabCounts,
+      baseQuery
+    });
+
+    // Add time slab filter for actual results if selected
     if (timeSlab && timeSlab !== 'all') {
-      const [min, max] = timeSlab.split('-').map(Number);
-      const now = new Date();
-      
+      const [min, max] = timeSlab.split('-');
       if (max === 'above') {
-        // 20+ mins: created more than 20 mins ago
-        const twentyMinsAgo = new Date(now.getTime() - (min * 60 * 1000));
-        query.createdAt = { $lt: twentyMinsAgo };
+        const timeAgo = new Date(now.getTime() - (Number(min) * 60 * 1000));
+        baseQuery.createdAt = { $lt: timeAgo };
       } else {
-        // For specific time ranges
-        const minTime = new Date(now.getTime() - (min * 60 * 1000));
-        const maxTime = new Date(now.getTime() - (max * 60 * 1000));
-        query.createdAt = { 
-          $gte: maxTime, // More recent timestamp (max minutes ago)
-          $lt: minTime  // Less recent timestamp (min minutes ago)
+        const maxTimeAgo = new Date(now.getTime() - (Number(min) * 60 * 1000));
+        const minTimeAgo = new Date(now.getTime() - (Number(max) * 60 * 1000));
+        baseQuery.createdAt = {
+          $gte: minTimeAgo,
+          $lt: maxTimeAgo
         };
       }
     }
 
     if (startDate || endDate) {
-      query.requestedAt = {};
-      if (startDate) query.requestedAt.$gte = new Date(startDate);
-      if (endDate) query.requestedAt.$lte = new Date(endDate);
+      baseQuery.requestedAt = {};
+      if (startDate) baseQuery.requestedAt.$gte = new Date(startDate);
+      if (endDate) baseQuery.requestedAt.$lte = new Date(endDate);
     }
 
-    // Get total count for pagination (before applying limit/skip)
-    const totalRecords = await Transaction.countDocuments(query);
+    // Get total count for pagination
+    const totalRecords = await Transaction.countDocuments(baseQuery);
     const totalPages = Math.ceil(totalRecords / limit);
 
     // Get paginated results
-    const deposits = await Transaction.find(query)
+    const deposits = await Transaction.find(baseQuery)
       .sort({ requestedAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -92,6 +150,7 @@ router.get('/deposits', auth, async (req, res) => {
 
     return successResponse(res, 'Deposits fetched successfully', {
       data: deposits,
+      timeSlabCounts,
       page: parseInt(page),
       limit: parseInt(limit),
       totalPages,
