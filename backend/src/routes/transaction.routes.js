@@ -54,16 +54,16 @@ router.get('/deposits', auth, async (req, res) => {
       const now = new Date();
       
       if (max === 'above') {
-        // 30+ mins: created more than 30 mins ago
-        const thirtyMinsAgo = new Date(now.getTime() - (30 * 60 * 1000));
-        query.createdAt = { $lte: thirtyMinsAgo };
+        // 20+ mins: created more than 20 mins ago
+        const twentyMinsAgo = new Date(now.getTime() - (min * 60 * 1000));
+        query.createdAt = { $lt: twentyMinsAgo };
       } else {
         // For specific time ranges
         const minTime = new Date(now.getTime() - (min * 60 * 1000));
         const maxTime = new Date(now.getTime() - (max * 60 * 1000));
         query.createdAt = { 
           $gte: maxTime, // More recent timestamp (max minutes ago)
-          $lte: minTime  // Less recent timestamp (min minutes ago)
+          $lt: minTime  // Less recent timestamp (min minutes ago)
         };
       }
     }
