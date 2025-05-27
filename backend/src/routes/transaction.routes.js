@@ -85,7 +85,8 @@ router.get('/deposits', auth, async (req, res) => {
 // Get status update time statistics
 router.get('/status-update-stats', auth, async (req, res) => {
   try {
-    const stats = await transactionService.getStatusUpdateStats();
+    const { status, timeFrame } = req.query;
+    const stats = await transactionService.getStatusUpdateStats({ status, timeFrame });
     return successResponse(res, 'Status update statistics fetched successfully', stats);
   } catch (error) {
     logger.error('Error fetching status update statistics:', error);

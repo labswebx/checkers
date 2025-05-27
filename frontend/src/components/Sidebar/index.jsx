@@ -15,6 +15,7 @@ import {
   Dashboard,
   People,
   AccountBalance,
+  Analytics
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -23,6 +24,7 @@ const drawerWidth = 240;
 const menuItems = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
   { text: 'Deposits', icon: <AccountBalance />, path: '/deposits' },
+  { text: 'Status Analysis', icon: <Analytics />, path: '/status-analysis' },
   { text: 'Users', icon: <People />, path: '/users' },
 ];
 
@@ -44,7 +46,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
+            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 onClick={() => {
                   navigate(item.path);
