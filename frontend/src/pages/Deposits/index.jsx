@@ -63,6 +63,15 @@ const amountRanges = [
   { label: '₹10,000+', value: '10000-above' }
 ];
 
+const timeSlabs = [
+  { label: 'All Time', value: 'all' },
+  { label: '2-5 mins', value: '2-5' },
+  { label: '5-8 mins', value: '5-8' },
+  { label: '8-12 mins', value: '8-12' },
+  { label: '12-20 mins', value: '12-20' },
+  { label: '20+ mins', value: '20-above' }
+];
+
 const REFRESH_INTERVAL = 10000; // 10 seconds
 
 const Deposits = () => {
@@ -77,6 +86,7 @@ const Deposits = () => {
     startDate: null,
     endDate: null,
     amountRange: 'all',
+    timeSlab: 'all',
     franchise: '',
     page: 1,
     limit: 10
@@ -265,6 +275,22 @@ const Deposits = () => {
                   slotProps={{ textField: { size: 'small', fullWidth: true } }}
                 />
               </LocalizationProvider>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                select
+                fullWidth
+                label="Time Slab"
+                value={filters.timeSlab}
+                onChange={(e) => handleFilterChange('timeSlab', e.target.value)}
+                size="small"
+              >
+                {timeSlabs.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
           </Grid>
         )}

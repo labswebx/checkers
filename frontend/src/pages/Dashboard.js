@@ -173,7 +173,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* Charts */}
-        <Grid container spacing={3}>
+        {/* <Grid container spacing={3}>
           <Grid item xs={12} lg={4}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
@@ -204,7 +204,7 @@ const Dashboard = () => {
               </Box>
             </Paper>
           </Grid>
-        </Grid>
+        </Grid> */}
 
         {/* Additional Statistics */}
         <Grid container spacing={3} sx={{ mt: 2 }}>

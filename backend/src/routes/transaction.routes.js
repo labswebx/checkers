@@ -16,6 +16,7 @@ router.get('/deposits', auth, async (req, res) => {
       startDate,
       endDate,
       amountRange,
+      timeSlab,
       page = 1,
       limit = 10
     } = req.query;
@@ -47,6 +48,26 @@ router.get('/deposits', auth, async (req, res) => {
       }
     }
 
+    // Add time slab filter
+    if (timeSlab && timeSlab !== 'all') {
+      const [min, max] = timeSlab.split('-').map(Number);
+      const now = new Date();
+      
+      if (max === 'above') {
+        // 30+ mins: created more than 30 mins ago
+        const thirtyMinsAgo = new Date(now.getTime() - (30 * 60 * 1000));
+        query.createdAt = { $lte: thirtyMinsAgo };
+      } else {
+        // For specific time ranges
+        const minTime = new Date(now.getTime() - (min * 60 * 1000));
+        const maxTime = new Date(now.getTime() - (max * 60 * 1000));
+        query.createdAt = { 
+          $gte: maxTime, // More recent timestamp (max minutes ago)
+          $lte: minTime  // Less recent timestamp (min minutes ago)
+        };
+      }
+    }
+
     if (startDate || endDate) {
       query.requestedAt = {};
       if (startDate) query.requestedAt.$gte = new Date(startDate);
@@ -65,7 +86,7 @@ router.get('/deposits', auth, async (req, res) => {
       .populate('agentId', 'name email franchise');
 
     logger.info('Deposits fetched successfully', {
-      filters: { search, status, startDate, endDate, amountRange },
+      filters: { search, status, startDate, endDate, amountRange, timeSlab },
       pagination: { page, limit, totalRecords, totalPages }
     });
 

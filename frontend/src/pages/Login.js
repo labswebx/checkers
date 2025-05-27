@@ -74,11 +74,22 @@ const Login = () => {
 
   return (
     <GradientBackground>
-      <Container component="main" maxWidth="xs">
+      <Container 
+        component="main" 
+        maxWidth="xs" 
+        sx={{ 
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          py: { xs: 2, sm: 4 }
+        }}
+      >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
+          style={{ width: '100%' }}
         >
           <Paper 
             elevation={2}
@@ -89,6 +100,8 @@ const Login = () => {
               borderRadius: 2,
               position: 'relative',
               overflow: 'hidden',
+              maxHeight: { xs: 'calc(100vh - 32px)', sm: 'none' },
+              overflowY: 'auto'
             }}
           >
             <Box
