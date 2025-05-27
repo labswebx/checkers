@@ -354,9 +354,13 @@ class ScraperUtil {
         return false;
       }
 
+      // Ensure screenshots directory exists before taking screenshot
+      const screenshotsDir = path.join(process.cwd(), 'logs', 'screenshots');
+      await this.ensureDirectoryExists(screenshotsDir);
+
       // Take a screenshot for debugging if needed
       await this.page.screenshot({ 
-        path: `logs/screenshots/login-success-${Date.now()}.png`,
+        path: path.join(screenshotsDir, `login-success-${Date.now()}.png`),
         fullPage: true 
       });
       logger.debug('Saved login success screenshot');
@@ -381,9 +385,13 @@ class ScraperUtil {
       // Wait for content to load
       await this.page.waitForSelector('body', { timeout: 5000 });
       
+      // Ensure screenshots directory exists before taking screenshot
+      const screenshotsDir = path.join(process.cwd(), 'logs', 'screenshots');
+      await this.ensureDirectoryExists(screenshotsDir);
+      
       // Take a screenshot for debugging
       await this.page.screenshot({ 
-        path: `logs/screenshots/dashboard-${Date.now()}.png`,
+        path: path.join(screenshotsDir, `dashboard-${Date.now()}.png`),
         fullPage: true 
       });
 
@@ -834,6 +842,24 @@ class ScraperUtil {
     }
 
     throw lastError;
+  }
+
+  /**
+   * Ensure the screenshots directory exists
+   * @param {string} dirPath - Directory path to create
+   * @returns {Promise<void>}
+   */
+  async ensureDirectoryExists(dirPath) {
+    try {
+      await fs.promises.mkdir(dirPath, { recursive: true });
+      logger.debug('Directory created/verified:', { path: dirPath });
+    } catch (error) {
+      logger.error('Error creating directory:', { 
+        path: dirPath,
+        error: error.message 
+      });
+      throw error;
+    }
   }
 }
 
