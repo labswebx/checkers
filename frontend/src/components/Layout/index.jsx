@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Box, AppBar, Toolbar, Typography, useTheme, IconButton, Avatar, useMediaQuery, Menu, MenuItem, ListItemIcon } from '@mui/material';
-import { NotificationsNone, Person, Menu as MenuIcon, Logout } from '@mui/icons-material';
+import { Box, AppBar, Toolbar, Typography, useTheme, IconButton, Avatar, Menu, MenuItem, ListItemIcon } from '@mui/material';
+import { Menu as MenuIcon, Logout } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';

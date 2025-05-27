@@ -3,7 +3,6 @@ import {
   Box,
   Container,
   Grid,
-  Paper,
   Typography,
   CircularProgress,
   Card,
@@ -16,7 +15,6 @@ import {
   PendingActions,
   CancelOutlined
 } from '@mui/icons-material';
-import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -98,48 +96,6 @@ const Dashboard = () => {
       </Box>
     );
   }
-
-  // Prepare data for the line chart
-  const dates = [...new Set(stats.trends.daily.map(item => item._id.date))];
-  const lineChartData = {
-    labels: dates,
-    datasets: [
-      {
-        label: 'Approved',
-        data: dates.map(date => {
-          const dayData = stats.trends.daily.find(
-            item => item._id.date === date && item._id.status === 'APPROVED'
-          );
-          return dayData ? dayData.totalAmount : 0;
-        }),
-        borderColor: colors.success.main,
-        tension: 0.4
-      },
-      {
-        label: 'Pending',
-        data: dates.map(date => {
-          const dayData = stats.trends.daily.find(
-            item => item._id.date === date && item._id.status === 'PENDING'
-          );
-          return dayData ? dayData.totalAmount : 0;
-        }),
-        borderColor: colors.warning.main,
-        tension: 0.4
-      }
-    ]
-  };
-
-  // Prepare data for the bar chart (top agents)
-  const barChartData = {
-    labels: stats.topAgents.map(agent => agent.agentName),
-    datasets: [
-      {
-        label: 'Total Amount',
-        data: stats.topAgents.map(agent => agent.totalAmount),
-        backgroundColor: colors.primary.main
-      }
-    ]
-  };
 
   return (
     <Container maxWidth="xl">
