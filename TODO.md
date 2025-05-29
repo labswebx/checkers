@@ -1,5 +1,4 @@
 - [ ] Setup automatic env detection on Frontend so that we don't have to change the URL everytime we deploy
-- [ ] Complete the withdrawal page as well. Keep it on a separate branch
 - [ ] Show proper error message in case of Login & register. Try register with duplicate email or try login with agent email.
 - [ ] For every franchise it is creating a new user. Verify why & how is this happening & whats the need for this.
 
@@ -24,3 +23,4 @@
 - [x] Make home page analytics APIs
 - [x] Add a page where we can show the performance of every franchise
 - [x] We need to keep a track of the time when the status was updated, will be helpful in performance page.
+- [x] Complete the withdrawal page as well. Keep it on a separate branch
