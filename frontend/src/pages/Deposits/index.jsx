@@ -375,7 +375,7 @@ const Deposits = () => {
                             {deposit.transactionId}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {format(new Date(deposit.createdAt), 'dd MMM yyyy')}
+                            {formatDate(deposit.createdAt)}
                           </Typography>
                         </Box>
                       </Tooltip>
@@ -434,15 +434,15 @@ const Deposits = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Receipt fontSize="small" color="action" />
                           <Typography variant="caption">
-                            Requested: {formatDate(deposit.requestedAt)}
+                            Created: {formatDate(deposit.createdAt)}
                           </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {/* <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <CalendarToday fontSize="small" color="action" />
                           <Typography variant="caption">
-                            Processed: {formatDate(deposit.processedAt)}
+                            Requested: {formatDate(deposit.requestedAt)}
                           </Typography>
-                        </Box>
+                        </Box> */}
                       </Stack>
                     </TableCell>
                   </TableRow>

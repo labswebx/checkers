@@ -138,7 +138,7 @@ router.get('/deposits', auth, async (req, res) => {
 
     // Get paginated results
     const deposits = await Transaction.find(baseQuery)
-      .sort({ requestedAt: -1 })
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .populate('agentId', 'name email franchise');
