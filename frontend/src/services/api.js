@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { LOCAL_STORAGE_KEYS } from '../constants/index';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://46.28.44.112:4000';
+const API_URL = process.env.REACT_APP_API_URL || 'http://46.28.44.112:80';
 
 const api = axios.create({
   baseURL: API_URL,
