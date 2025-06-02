@@ -42,7 +42,7 @@ app.get('/ping', (req, res) => {
 });
 
 // Start scheduled jobs
-// scheduler.startJobs();
+scheduler.startJobs();
 
 // Serve React App for all other routes
 app.get('*', (req, res) => {

@@ -2,6 +2,7 @@ const User = require('../models/user.model');
 const Transaction = require('../models/transaction.model');
 const whatsapp = require('../utils/whatsapp.util');
 const logger = require('../utils/logger.util');
+const { TRANSACTION_STATUS } = require('../constants');
 
 class TransactionService {
   /**
@@ -58,12 +59,7 @@ class TransactionService {
               results.statusChanged++;
 
               // Log status change for monitoring
-              logger.info('Transaction status changed', {
-                transactionId: mappedData.transactionId,
-                oldStatus: existingTransaction.status,
-                newStatus: mappedData.status,
-                timeTaken: updateData.statusUpdatedAt - existingTransaction.createdAt
-              });
+              logger.info('Transaction status changed');
             }
 
             // Update with validation
@@ -106,10 +102,7 @@ class TransactionService {
       }
 
       // Log detailed results
-      logger.info('Transaction processing complete', { 
-        results,
-        errorSummary: results.errors.length > 0 ? results.errors : 'No errors'
-      });
+      logger.info('Transaction processing complete');
 
       return results;
     } catch (error) {
@@ -147,7 +140,7 @@ class TransactionService {
             whatsapp: false
           }
         });
-        logger.info('New agent user created', { franchise });
+        logger.info('New agent user created');
       }
 
       return agent;
@@ -230,26 +223,26 @@ class TransactionService {
 
     // Check for approved status
     if (approvedKeywords.some(keyword => status.includes(keyword))) {
-      return 'approved';
+      return TRANSACTION_STATUS.APPROVED;
     }
 
     // Check for rejected status
     if (rejectedKeywords.some(keyword => status.includes(keyword))) {
-      return 'rejected';
+      return TRANSACTION_STATUS.REJECTED;
     }
 
     // Check for pending status
     if (pendingKeywords.some(keyword => status.includes(keyword))) {
-      return 'pending';
+      return TRANSACTION_STATUS.PENDING;
     }
 
     // Log unknown status for monitoring
     logger.warn('Unknown transaction status encountered', { 
       rawStatus: status,
-      defaultingTo: 'pending'
+      defaultingTo: TRANSACTION_STATUS.PENDING
     });
 
-    return 'pending';
+    return TRANSACTION_STATUS.PENDING;
   }
 
   /**
@@ -317,15 +310,13 @@ class TransactionService {
       const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
 
       const pendingTransactions = await Transaction.find({
-        status: 'pending',
+        status: TRANSACTION_STATUS.PENDING,
         requestedAt: { $lte: twoMinutesAgo },
         $or: [
           { lastNotificationSent: { $exists: false } },
           { lastNotificationSent: { $lte: thirtyMinutesAgo } }
         ]
       }).populate('agentId');
-
-      logger.info(`Found ${pendingTransactions.length} pending transactions to send notifications for`);
 
       // Send notifications for each transaction
       for (const transaction of pendingTransactions) {
@@ -337,17 +328,7 @@ class TransactionService {
             await Transaction.findByIdAndUpdate(transaction._id, {
               lastNotificationSent: new Date()
             });
-
-            logger.info('Notification sent for transaction', {
-              transactionId: transaction.transactionId,
-              agent: transaction.agentId.name
-            });
-          } catch (error) {
-            logger.error('Error sending notification for transaction', {
-              transactionId: transaction.transactionId,
-              error: error.message
-            });
-          }
+          } catch (error) {}
         }
       }
     } catch (error) {

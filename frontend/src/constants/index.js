@@ -19,6 +19,12 @@ export const API_ENDPOINTS = {
   DASHBOARD_STATUS_UPDATE_STATS: '/api/transactions/status-update-stats'
 };
 
+export const TRANSACTION_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected'
+}
+
 export const LOCAL_STORAGE_KEYS = {
   TOKEN: 'token'
 };

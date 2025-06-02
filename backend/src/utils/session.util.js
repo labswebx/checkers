@@ -164,9 +164,7 @@ class SessionUtil {
         lastUsed: { $lt: expiryTime }
       });
 
-      logger.info('Cleaned up expired sessions', {
-        deletedCount: result.deletedCount
-      });
+      logger.info('Cleaned up expired sessions');
       return result.deletedCount;
     } catch (error) {
       logger.error('Error cleaning up sessions:', {

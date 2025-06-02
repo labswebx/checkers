@@ -13,6 +13,8 @@ import Users from './pages/Users';
 import LoadingSpinner from './components/LoadingSpinner';
 import { LOCAL_STORAGE_KEYS } from './constants';
 import Deposits from './pages/Deposits';
+import ApprovedDeposits from './pages/ApprovedDeposits';
+import RejectedDeposits from './pages/RejectedDeposits';
 import StatusAnalysis from './pages/StatusAnalysis';
 
 // Create a theme instance
@@ -143,11 +145,31 @@ function App() {
             }
           />
           <Route
-            path="/deposits"
+            path="/pending-deposits"
             element={
               <ProtectedRoute>
                 <Layout>
                   <Deposits />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/approved-deposits"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ApprovedDeposits />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rejected-deposits"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <RejectedDeposits />
                 </Layout>
               </ProtectedRoute>
             }

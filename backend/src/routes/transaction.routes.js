@@ -5,7 +5,6 @@ const Transaction = require('../models/transaction.model');
 const transactionService = require('../services/transaction.service');
 const { successResponse, errorResponse } = require('../utils/response.util');
 const { STATUS_CODES } = require('../constants');
-const logger = require('../utils/logger.util');
 
 // Time slab configurations
 const TIME_SLABS = [
@@ -56,8 +55,12 @@ router.get('/deposits', auth, async (req, res) => {
       }
     }
 
-    // Calculate time slab counts using aggregation
+    // Always add 24 hours filter
     const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+    baseQuery.createdAt = { $gte: twentyFourHoursAgo };
+
+    // Calculate time slab counts using aggregation
     const timeSlabPipeline = [
       { $match: baseQuery },
       {
@@ -70,7 +73,7 @@ router.get('/deposits', auth, async (req, res) => {
               // For 20+ mins
               const timeAgo = new Date(now.getTime() - (slab.min * 60 * 1000));
               timeMatch = {
-                createdAt: { $lt: timeAgo }
+                createdAt: { $lt: timeAgo, $gte: twentyFourHoursAgo }
               };
             } else {
               // For ranges like 2-5 mins
@@ -104,18 +107,12 @@ router.get('/deposits', auth, async (req, res) => {
       max: slab.max
     }));
 
-    // Log the counts for debugging
-    logger.debug('Time slab counts:', {
-      timeSlabCounts,
-      baseQuery
-    });
-
     // Add time slab filter for actual results if selected
     if (timeSlab && timeSlab !== 'all') {
       const [min, max] = timeSlab.split('-');
       if (max === 'above') {
         const timeAgo = new Date(now.getTime() - (Number(min) * 60 * 1000));
-        baseQuery.createdAt = { $lt: timeAgo };
+        baseQuery.createdAt = { $lt: timeAgo, $gte: twentyFourHoursAgo };
       } else {
         const maxTimeAgo = new Date(now.getTime() - (Number(min) * 60 * 1000));
         const minTimeAgo = new Date(now.getTime() - (Number(max) * 60 * 1000));
@@ -141,12 +138,7 @@ router.get('/deposits', auth, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
-      .populate('agentId', 'name email franchise');
-
-    logger.info('Deposits fetched successfully', {
-      filters: { search, status, startDate, endDate, amountRange, timeSlab },
-      pagination: { page, limit, totalRecords, totalPages }
-    });
+      .populate('agentId');
 
     return successResponse(res, 'Deposits fetched successfully', {
       data: deposits,
@@ -157,7 +149,6 @@ router.get('/deposits', auth, async (req, res) => {
       totalRecords
     });
   } catch (error) {
-    logger.error('Error fetching deposits:', error);
     return errorResponse(res, 'Error fetching deposits', error, STATUS_CODES.INTERNAL_SERVER_ERROR);
   }
 });
@@ -169,7 +160,6 @@ router.get('/status-update-stats', auth, async (req, res) => {
     const stats = await transactionService.getStatusUpdateStats({ status, timeFrame });
     return successResponse(res, 'Status update statistics fetched successfully', stats);
   } catch (error) {
-    logger.error('Error fetching status update statistics:', error);
     return errorResponse(res, 'Error fetching status update statistics', error, STATUS_CODES.SERVER_ERROR);
   }
 });

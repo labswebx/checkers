@@ -18,7 +18,6 @@ class SchedulerUtil {
     this.jobs.set('sessionCleanup', cron.schedule('0 * * * *', async () => {
       logger.info('Running scheduled session cleanup');
       const deletedCount = await sessionUtil.cleanupExpiredSessions();
-      logger.info('Session cleanup complete', { deletedCount });
     }));
 
     // Scrape deposits every 20 seconds
@@ -48,10 +47,7 @@ class SchedulerUtil {
         // First, get pending deposits
         logger.info('Scraping pending deposits');
         const pendingResult = await scraperUtil.getAllDepositApprovalData();
-        logger.info('Pending deposits scraping complete', {
-          totalRecords: pendingResult.data.totalRecords,
-          processResult: pendingResult.data.processResult
-        });
+        logger.info('Pending deposits scraping complete');
 
         // Then, get approved deposits with retry
         logger.info('Scraping approved deposits');
@@ -59,10 +55,7 @@ class SchedulerUtil {
           () => scraperUtil.getAllRecentDepositData('approved'),
           3
         );
-        logger.info('Approved deposits scraping complete', {
-          totalRecords: approvedResult.data.totalRecords,
-          processResult: approvedResult.data.processResult
-        });
+        logger.info('Approved deposits scraping complete');
 
         // Finally, get rejected deposits with retry
         logger.info('Scraping rejected deposits');
@@ -70,10 +63,7 @@ class SchedulerUtil {
           () => scraperUtil.getAllRecentDepositData('rejected'),
           3
         );
-        logger.info('Rejected deposits scraping complete', {
-          totalRecords: rejectedResult.data.totalRecords,
-          processResult: rejectedResult.data.processResult
-        });
+        logger.info('Rejected deposits scraping complete');
 
         // Log overall results
         const totalRecords = 
@@ -81,17 +71,7 @@ class SchedulerUtil {
           approvedResult.data.totalRecords + 
           rejectedResult.data.totalRecords;
 
-        logger.info('All deposit scraping complete', {
-          totalRecords,
-          pendingCount: pendingResult.data.totalRecords,
-          approvedCount: approvedResult.data.totalRecords,
-          rejectedCount: rejectedResult.data.totalRecords,
-          statusChanges: {
-            pending: pendingResult.data.processResult?.statusChanged || 0,
-            approved: approvedResult.data.processResult?.statusChanged || 0,
-            rejected: rejectedResult.data.processResult?.statusChanged || 0
-          }
-        });
+        logger.info('All deposit scraping complete');
       } catch (error) {
         logger.error('Scheduled deposit scraping failed:', {
           error: error.message,

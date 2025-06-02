@@ -29,7 +29,6 @@ class ScraperUtil {
 
     for (const browserPath of possiblePaths) {
       if (browserPath && fs.existsSync(browserPath)) {
-        logger.info('Found Chrome/Chromium at:', browserPath);
         return browserPath;
       }
     }
@@ -46,8 +45,6 @@ class ScraperUtil {
         logger.error('No valid Chrome installation found');
         throw new Error('No valid Chrome installation found. Please install Google Chrome.');
       }
-
-      logger.info(`Using Chrome at: ${executablePath}`);
 
       // Launch browser with multiple retries
       let retries = 3;
@@ -92,7 +89,6 @@ class ScraperUtil {
 
           // Verify browser is running
           const version = await this.browser.version();
-          logger.info(`Browser launched successfully. Version: ${version}`);
           break;
         } catch (error) {
           lastError = error;
@@ -113,15 +109,12 @@ class ScraperUtil {
 
       // Create new page
       this.page = await this.browser.newPage();
-      logger.debug('New page created');
 
       // Set viewport
       await this.page.setViewport({ width: 1920, height: 1080 });
-      logger.debug('Viewport set to 1920x1080');
 
       // Set user agent to latest Chrome
       await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
-      logger.debug('User agent set');
 
       // Set extra headers
       await this.page.setExtraHTTPHeaders({
@@ -130,37 +123,11 @@ class ScraperUtil {
         'Accept-Encoding': 'gzip, deflate, br'
       });
 
-      // Enable request interception for better logging
       await this.page.setRequestInterception(true);
       this.page.on('request', request => {
-        logger.debug('Outgoing request:', { 
-          url: request.url(),
-          method: request.method(),
-          resourceType: request.resourceType()
-        });
         request.continue();
       });
-
-      this.page.on('response', response => {
-        logger.debug('Incoming response:', { 
-          url: response.url(),
-          status: response.status()
-        });
-      });
-
-      this.page.on('console', msg => {
-        logger.debug('Browser console:', msg.text());
-      });
-
-      this.page.on('error', err => {
-        logger.error('Page error:', err);
-      });
-
-      this.page.on('pageerror', err => {
-        logger.error('Page error:', err);
-      });
-
-      logger.info('Scraper initialized successfully');
+      
       return true;
     } catch (error) {
       logger.error('Error initializing scraper:', { 
@@ -263,7 +230,6 @@ class ScraperUtil {
       // Extract data after successful login
       logger.info('Extracting dashboard data');
       const dashboardData = await this.extractDashboardData();
-      logger.debug('Dashboard data extracted:', { dashboardData });
 
       logger.info('Login successful');
       this.isLoggedIn = true;
@@ -452,7 +418,7 @@ class ScraperUtil {
         throw new Error('Not logged in. Please login first.');
       }
 
-      logger.info('Navigating to deposit approval page', { page });
+      logger.info('Navigating to deposit approval page');
       await this.page.goto(`https://dwpanell100.online/admin/deposit/deposit-approval?page=${page}`, {
         waitUntil: 'networkidle0',
         timeout: 30000
@@ -508,11 +474,7 @@ class ScraperUtil {
         };
       });
 
-      logger.info('Deposit approval data extracted successfully', {
-        page: data.pagination.currentPage,
-        totalPages: data.pagination.totalPages,
-        rowsCount: data.rows.length
-      });
+      logger.info('Deposit approval data extracted successfully');
 
       return {
         success: true,
@@ -552,7 +514,7 @@ class ScraperUtil {
       
       // Process transactions
       const processResult = await transactionService.processTransactions(allRows, 'deposit');
-      logger.info('Transaction processing complete', { processResult });
+      logger.info('Transaction processing complete');
 
       return {
         success: true,
@@ -590,7 +552,7 @@ class ScraperUtil {
           throw new Error('Not logged in. Please login first.');
         }
 
-        logger.info('Navigating to recent deposit page', { status, page, attempt });
+        logger.info('Navigating to recent deposit page');
         const url = `https://dwpanell100.online/admin/deposit/recent-deposit?status=${status}&page=${page}`;
         
         // Navigate with longer timeout
@@ -701,11 +663,7 @@ class ScraperUtil {
       const firstPage = await this.getRecentDepositData(status, 1);
       const totalPages = firstPage.data.pagination.totalPages;
       
-      logger.info('Starting full recent deposit data extraction', { 
-        status, 
-        totalPages,
-        firstPageRows: firstPage.data.rows.length 
-      });
+      logger.info('Starting full recent deposit data extraction');
       
       const allData = [firstPage.data.rows];
       let successfulPages = 1;
@@ -743,14 +701,7 @@ class ScraperUtil {
       
       // Process transactions
       const processResult = await transactionService.processTransactions(allRows, 'deposit');
-      logger.info('Recent deposit processing complete', { 
-        status, 
-        processResult,
-        totalPagesAttempted: totalPages,
-        successfulPages,
-        failedPages,
-        totalRowsProcessed: allRows.length
-      });
+      logger.info('Recent deposit processing complete');
 
       return {
         success: true,

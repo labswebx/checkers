@@ -5,13 +5,13 @@ import {
   Paper,
   TextField,
   Grid,
-  Chip,
   IconButton,
   InputAdornment,
   useTheme,
   Button,
   Stack,
   Tooltip,
+  Chip
 } from '@mui/material';
 import { 
   Search, 
@@ -34,7 +34,7 @@ const timeSlabs = [
 
 const REFRESH_INTERVAL = 10000; // 10 seconds
 
-const Deposits = () => {
+const RejectedDeposits = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const { deposits, loading, totalPages, totalRecords, timeSlabCounts = [] } = useSelector(state => state.deposits);
@@ -42,7 +42,7 @@ const Deposits = () => {
   // Filter states
   const [filters, setFilters] = useState({
     search: '',
-    status: TRANSACTION_STATUS.PENDING,
+    status: TRANSACTION_STATUS.REJECTED, // Set default status to rejected
     timeSlab: 'all',
     page: 1,
     limit: 10
@@ -71,7 +71,6 @@ const Deposits = () => {
       }, REFRESH_INTERVAL);
     }
 
-    // Cleanup interval on component unmount or when autoRefresh changes
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
@@ -105,7 +104,7 @@ const Deposits = () => {
           fontSize: { xs: '1.5rem', sm: '2rem' },
           color: theme.palette.primary.main 
         }}>
-          Pending Deposits
+          Rejected Deposits
         </Typography>
         <Stack direction="row" spacing={2} alignItems="center">
           <Tooltip title={autoRefresh ? "Auto-refresh is ON" : "Auto-refresh is OFF"}>
@@ -211,7 +210,6 @@ const Deposits = () => {
         )}
       </Paper>
 
-      {/* Deposits Table */}
       <DepositsTable
         deposits={deposits}
         loading={loading}
@@ -224,4 +222,4 @@ const Deposits = () => {
   );
 };
 
-export default Deposits; 
+export default RejectedDeposits; 

@@ -15,7 +15,9 @@ import {
   Dashboard,
   People,
   AccountBalance,
-  Analytics
+  Analytics,
+  CheckCircle,
+  Cancel
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -23,7 +25,9 @@ const drawerWidth = 240;
 
 const menuItems = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-  { text: 'Deposits', icon: <AccountBalance />, path: '/deposits' },
+  { text: 'Pending Deposits', icon: <AccountBalance />, path: '/pending-deposits' },
+  { text: 'Approved Deposits', icon: <CheckCircle />, path: '/approved-deposits' },
+  { text: 'Rejected Deposits', icon: <Cancel />, path: '/rejected-deposits' },
   { text: 'Status Analysis', icon: <Analytics />, path: '/status-analysis' },
   { text: 'Users', icon: <People />, path: '/users' },
 ];

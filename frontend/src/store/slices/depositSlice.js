@@ -10,9 +10,9 @@ export const fetchDeposits = createAsyncThunk(
     
     if (filters.search) queryParams.append('search', filters.search);
     if (filters.status !== 'all') queryParams.append('status', filters.status);
-    if (filters.startDate) queryParams.append('startDate', filters.startDate.toISOString());
-    if (filters.endDate) queryParams.append('endDate', filters.endDate.toISOString());
-    if (filters.amountRange !== 'all') queryParams.append('amountRange', filters.amountRange);
+    // if (filters.startDate) queryParams.append('startDate', filters.startDate.toISOString());
+    // if (filters.endDate) queryParams.append('endDate', filters.endDate.toISOString());
+    // if (filters.amountRange !== 'all') queryParams.append('amountRange', filters.amountRange);
     if (filters.timeSlab !== 'all') queryParams.append('timeSlab', filters.timeSlab);
     if (filters.page) queryParams.append('page', filters.page);
     if (filters.limit) queryParams.append('limit', filters.limit);
