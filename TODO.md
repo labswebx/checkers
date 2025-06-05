@@ -4,6 +4,8 @@
 
 - [ ] Remove auth from scraping APIs
 - [ ] Backend code is not properly modularised. All the logic is in routes or controllers.
+- [ ] Remove all loggers
+- [ ] Prod is taking a lot of storage, fix it
 
 
 

@@ -45,33 +45,33 @@ class SchedulerUtil {
         );
 
         // First, get pending deposits
-        logger.info('Scraping pending deposits');
+        // logger.info('Scraping pending deposits');
         const pendingResult = await scraperUtil.getAllDepositApprovalData();
-        logger.info('Pending deposits scraping complete');
+        // logger.info('Pending deposits scraping complete');
 
         // Then, get approved deposits with retry
-        logger.info('Scraping approved deposits');
+        // logger.info('Scraping approved deposits');
         const approvedResult = await this.retryOperation(
           () => scraperUtil.getAllRecentDepositData('approved'),
           3
         );
-        logger.info('Approved deposits scraping complete');
+        // logger.info('Approved deposits scraping complete');
 
         // Finally, get rejected deposits with retry
-        logger.info('Scraping rejected deposits');
+        // logger.info('Scraping rejected deposits');
         const rejectedResult = await this.retryOperation(
           () => scraperUtil.getAllRecentDepositData('rejected'),
           3
         );
-        logger.info('Rejected deposits scraping complete');
+        // logger.info('Rejected deposits scraping complete');
 
         // Log overall results
-        const totalRecords = 
-          pendingResult.data.totalRecords + 
-          approvedResult.data.totalRecords + 
-          rejectedResult.data.totalRecords;
+        // const totalRecords = 
+        //   pendingResult.data.totalRecords + 
+        //   approvedResult.data.totalRecords + 
+        //   rejectedResult.data.totalRecords;
 
-        logger.info('All deposit scraping complete');
+        // logger.info('All deposit scraping complete');
       } catch (error) {
         logger.error('Scheduled deposit scraping failed:', {
           error: error.message,
@@ -100,7 +100,7 @@ class SchedulerUtil {
       }
     }));
 
-    logger.info('Scheduled jobs started');
+    // logger.info('Scheduled jobs started');
   }
 
   /**

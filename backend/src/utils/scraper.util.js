@@ -37,7 +37,7 @@ class ScraperUtil {
 
   async initialize() {
     try {
-      logger.info('Initializing scraper browser');
+      // logger.info('Initializing scraper browser');
       
       // Find Chrome executable
       const executablePath = await this.findChromiumPath();
@@ -52,7 +52,7 @@ class ScraperUtil {
 
       while (retries > 0) {
         try {
-          logger.info(`Attempting to launch browser (attempt ${4-retries}/3)`);
+          // logger.info(`Attempting to launch browser (attempt ${4-retries}/3)`);
           
           this.browser = await puppeteer.launch({
             headless: 'new',
@@ -147,45 +147,45 @@ class ScraperUtil {
    */
   async login(userId, username, password) {
     try {
-      logger.info('Starting login process');
+      // logger.info('Starting login process');
       this.currentUserId = userId;
 
       if (!this.page) {
-        logger.debug('Page not initialized, initializing now');
+        // logger.debug('Page not initialized, initializing now');
         await this.initialize();
       }
 
       // Try to restore session first
       const sessionRestored = await sessionUtil.restoreSession(userId, this.page);
       if (sessionRestored) {
-        logger.info('Session restored, validating...');
+        // logger.info('Session restored, validating...');
         const isValid = await this.validateSession();
         if (isValid) {
-          logger.info('Session validated successfully');
+          // logger.info('Session validated successfully');
           this.isLoggedIn = true;
           return {
             success: true,
             data: await this.extractDashboardData()
           };
         }
-        logger.info('Session invalid, proceeding with fresh login');
+        // logger.info('Session invalid, proceeding with fresh login');
       }
 
       const loginUrl = process.env.SCRAPING_WEBSITE_URL;
-      logger.info('Navigating to login page:', { url: loginUrl });
+      // logger.info('Navigating to login page:', { url: loginUrl });
       
       // Navigate to login page
       await this.page.goto(loginUrl, { 
         waitUntil: 'networkidle0',
         timeout: 30000 
       });
-      logger.debug('Navigation complete');
+      // logger.debug('Navigation complete');
 
       // Wait for form elements and fill them
-      logger.debug('Waiting for login form elements');
+      // logger.debug('Waiting for login form elements');
       await this.page.waitForSelector('input[type="text"]', { visible: true, timeout: 5000 });
       await this.page.waitForSelector('input[type="password"]', { visible: true, timeout: 5000 });
-      logger.debug('Form elements found');
+      // logger.debug('Form elements found');
 
       // Clear existing values
       await this.page.evaluate(() => {
@@ -194,12 +194,12 @@ class ScraperUtil {
       });
 
       // Type credentials (using type instead of fill for more human-like behavior)
-      logger.debug('Typing credentials');
+      // logger.debug('Typing credentials');
       await this.page.type('input[type="text"]', username, { delay: 100 });
       await this.page.type('input[type="password"]', password, { delay: 100 });
 
       // Find and click the login button
-      logger.debug('Looking for login button');
+      // logger.debug('Looking for login button');
       const loginButton = await this.page.$('button[type="submit"]');
       if (!loginButton) {
         logger.error('Login button not found on page');
@@ -207,7 +207,7 @@ class ScraperUtil {
       }
 
       // Click the login button and wait for navigation
-      logger.info('Submitting login form');
+      // logger.info('Submitting login form');
       await Promise.all([
         this.page.waitForNavigation({ 
           waitUntil: 'networkidle0',
@@ -215,7 +215,7 @@ class ScraperUtil {
         }),
         loginButton.click()
       ]);
-      logger.debug('Form submitted, navigation complete');
+      // logger.debug('Form submitted, navigation complete');
 
       // Check if login was successful
       const isSuccess = await this.checkLoginSuccess();
@@ -228,10 +228,10 @@ class ScraperUtil {
       await sessionUtil.saveSession(userId, this.page);
 
       // Extract data after successful login
-      logger.info('Extracting dashboard data');
+      // logger.info('Extracting dashboard data');
       const dashboardData = await this.extractDashboardData();
 
-      logger.info('Login successful');
+      // logger.info('Login successful');
       this.isLoggedIn = true;
       return {
         success: true,
@@ -392,7 +392,7 @@ class ScraperUtil {
       data.url = currentUrl;
       data.title = pageTitle;
 
-      logger.info('Dashboard data extracted successfully', { url: currentUrl });
+      // logger.info('Dashboard data extracted successfully', { url: currentUrl });
       return data;
     } catch (error) {
       logger.error('Error extracting dashboard data:', {
@@ -418,7 +418,7 @@ class ScraperUtil {
         throw new Error('Not logged in. Please login first.');
       }
 
-      logger.info('Navigating to deposit approval page');
+      logger.info('Navigating to deposit approval page', { page });
       await this.page.goto(`https://dwpanell100.online/admin/deposit/deposit-approval?page=${page}`, {
         waitUntil: 'networkidle0',
         timeout: 30000
@@ -455,7 +455,7 @@ class ScraperUtil {
                 // Get button text/status if present
                 const button = cell.querySelector('button');
                 const value = button ? {
-                  text: getText(button),
+                  text: getText(button), // TODO
                   status: button.className.includes('success') ? 'success' : 
                          button.className.includes('danger') ? 'danger' : 'default'
                 } : getText(cell);
@@ -497,6 +497,7 @@ class ScraperUtil {
     try {
       // Get first page and pagination info
       const firstPage = await this.getDepositApprovalData(1);
+      console.log('First page -----------------------------------------------------', firstPage.data.rows);
       const totalPages = firstPage.data.pagination.totalPages;
       
       logger.info('Starting full data extraction', { totalPages });
@@ -659,11 +660,11 @@ class ScraperUtil {
   async getAllRecentDepositData(status) {
     try {
       // Get first page and pagination info with retries
-      logger.info('Fetching first page of recent deposits', { status });
+      // logger.info('Fetching first page of recent deposits', { status });
       const firstPage = await this.getRecentDepositData(status, 1);
       const totalPages = firstPage.data.pagination.totalPages;
       
-      logger.info('Starting full recent deposit data extraction');
+      // logger.info('Starting full recent deposit data extraction');
       
       const allData = [firstPage.data.rows];
       let successfulPages = 1;
@@ -672,16 +673,16 @@ class ScraperUtil {
       // Get remaining pages with individual retries
       for(let page = 2; page <= totalPages; page++) {
         try {
-          logger.info(`Fetching page ${page}/${totalPages} for ${status} transactions`);
+          // logger.info(`Fetching page ${page}/${totalPages} for ${status} transactions`);
           const pageData = await this.getRecentDepositData(status, page);
           allData.push(pageData.data.rows);
           successfulPages++;
           
-          logger.info(`Successfully extracted page ${page}/${totalPages}`, {
-            status,
-            rowsInThisPage: pageData.data.rows.length,
-            totalRowsSoFar: allData.flat().length
-          });
+          // logger.info(`Successfully extracted page ${page}/${totalPages}`, {
+          //   status,
+          //   rowsInThisPage: pageData.data.rows.length,
+          //   totalRowsSoFar: allData.flat().length
+          // });
           
           // Add a small delay between pages to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -701,7 +702,7 @@ class ScraperUtil {
       
       // Process transactions
       const processResult = await transactionService.processTransactions(allRows, 'deposit');
-      logger.info('Recent deposit processing complete');
+      // logger.info('Recent deposit processing complete');
 
       return {
         success: true,

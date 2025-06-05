@@ -17,12 +17,61 @@ import {
 import {
   Person,
   Receipt,
-  WhatsApp
+  WhatsApp,
+  Timer
 } from '@mui/icons-material'
 import Pagination from './Pagination';
 import LoadingSpinner from './LoadingSpinner';
-import { format } from 'date-fns';
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import { formatToUAETime, getElapsedTimeInUAE } from '../utils/timezone.util';
+
+const ElapsedTimer = ({ createdAt }) => {
+  const [elapsedTime, setElapsedTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  const theme = useTheme();
+
+  useEffect(() => {
+    const updateTimer = () => {
+      setElapsedTime(getElapsedTimeInUAE(createdAt));
+    };
+    updateTimer();
+    const intervalId = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [createdAt]);
+
+  const getTimerColor = () => {
+    const totalMinutes = elapsedTime.hours * 60 + elapsedTime.minutes;
+    if (totalMinutes < 5) return theme.palette.success.main;
+    if (totalMinutes < 10) return theme.palette.warning.main;
+    return theme.palette.error.main;
+  };
+
+  return (
+    <Box sx={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: 1,
+      backgroundColor: `${getTimerColor()}15`, // 15% opacity of the color
+      padding: '4px 8px',
+      borderRadius: '4px',
+      border: `1px solid ${getTimerColor()}40`, // 40% opacity border
+    }}>
+      <Timer fontSize="small" sx={{ color: getTimerColor() }} />
+      <Typography 
+        variant="body2" 
+        sx={{ 
+          fontWeight: 'medium',
+          color: getTimerColor(),
+          fontFamily: 'monospace', // Use monospace for better number alignment
+        }}
+      >
+        {String(elapsedTime.hours).padStart(2, '0')}:
+        {String(elapsedTime.minutes).padStart(2, '0')}:
+        {String(elapsedTime.seconds).padStart(2, '0')}
+      </Typography>
+    </Box>
+  );
+};
 
 export default function DepositsTable({ deposits, loading, totalPages, totalRecords, filters, handleFilterChange }) {
   const theme = useTheme();
@@ -53,10 +102,6 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
     }).format(amount);
   };
 
-  const formatDate = (date) => {
-    return date ? format(new Date(date), 'MMM dd, yyyy HH:mm') : '-';
-  };
-
   const handleWhatsAppClick = (deposit) => {
     const message = `Transaction Details:
     ID: ${deposit.transactionId}
@@ -64,7 +109,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
     Amount: ${formatAmount(deposit.amount)}
     UTR: ${deposit.utr || 'N/A'}
     Status: ${deposit.status}
-    Created: ${formatDate(deposit.createdAt)}`;
+    Created: ${formatToUAETime(deposit.createdAt)}`;
 
     const phone = deposit.agentId?.contactNumber.toString()
     if (!phone) {
@@ -125,7 +170,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                         {deposit.transactionId}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {formatDate(deposit.createdAt)}
+                        {formatToUAETime(deposit.createdAt)}
                       </Typography>
                     </Box>
                   </Tooltip>
@@ -181,10 +226,13 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                 </TableCell>
                 <TableCell>
                   <Stack spacing={0.5}>
+                    {deposit.status === 'pending' && (
+                      <ElapsedTimer createdAt={formatToUAETime(deposit.createdAt)} />
+                    )}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Receipt fontSize="small" color="action" />
                       <Typography variant="caption">
-                        Created: {formatDate(deposit.createdAt)}
+                        Created: {formatToUAETime(deposit.createdAt)}
                       </Typography>
                     </Box>
                   </Stack>

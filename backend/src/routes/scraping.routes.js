@@ -49,14 +49,14 @@ router.post('/test-login', auth, isAdmin, async (req, res) => {
 
 // Get deposit approval data
 router.get('/deposit-approval', auth, isAdmin, async (req, res) => {
-  logger.info('Received deposit approval data request');
+  // logger.info('Received deposit approval data request');
 
   try {
     // Initialize scraper and login
-    logger.debug('Initializing scraper');
+    // logger.debug('Initializing scraper');
     await scraperUtil.initialize();
     
-    logger.info('Attempting login');
+    // logger.info('Attempting login');
     const userId = req.user.id;
     await scraperUtil.login(
       userId,
@@ -78,13 +78,13 @@ router.get('/deposit-approval', auth, isAdmin, async (req, res) => {
     }
     
     // Close the browser
-    logger.debug('Data fetched, closing browser');
+    // logger.debug('Data fetched, closing browser');
     await scraperUtil.close();
 
-    logger.info('Deposit approval data fetched successfully', { 
-      totalRecords: result.data.rows.length,
-      page: allPages ? 'all' : page 
-    });
+    // logger.info('Deposit approval data fetched successfully', { 
+    //   totalRecords: result.data.rows.length,
+    //   page: allPages ? 'all' : page 
+    // });
     
     return successResponse(res, 'Deposit approval data fetched successfully');
   } catch (error) {

@@ -10,7 +10,7 @@ class WhatsAppService {
 
   async sendMessage(to, message) {
     try {
-      logger.info(`WHATSAPP MESSGAE SENT TO - ${to}, MESSAGE ${message}`)
+      // logger.info(`WHATSAPP MESSGAE SENT TO - ${to}, MESSAGE ${message}`)
       // const response = await axios.post(
       //   `${this.apiUrl}/${this.fromNumberId}/messages`,
       //   {

@@ -3,6 +3,7 @@ const Transaction = require('../models/transaction.model');
 const whatsapp = require('../utils/whatsapp.util');
 const logger = require('../utils/logger.util');
 const { TRANSACTION_STATUS } = require('../constants');
+const { convertToUAETime, convertFromUAETime } = require('../config/timezone.config');
 
 class TransactionService {
   /**
@@ -50,16 +51,16 @@ class TransactionService {
           if (existingTransaction) {
             const updateData = {
               ...mappedData,
-              lastScrapedAt: new Date()
+              lastScrapedAt: convertToUAETime(new Date())
             };
 
             // Only update statusUpdatedAt if status has changed
             if (existingTransaction.status !== mappedData.status) {
-              updateData.statusUpdatedAt = new Date();
+              updateData.statusUpdatedAt = convertToUAETime(new Date());
               results.statusChanged++;
 
               // Log status change for monitoring
-              logger.info('Transaction status changed');
+              // logger.info('Transaction status changed');
             }
 
             // Update with validation
@@ -81,8 +82,8 @@ class TransactionService {
             try {
               await Transaction.create({
                 ...mappedData,
-                lastScrapedAt: new Date(),
-                statusUpdatedAt: new Date() // Set initial statusUpdatedAt
+                lastScrapedAt: convertToUAETime(new Date()),
+                statusUpdatedAt: convertToUAETime(new Date()) // Set initial statusUpdatedAt
               });
               results.created++;
             } catch (createError) {
@@ -102,7 +103,7 @@ class TransactionService {
       }
 
       // Log detailed results
-      logger.info('Transaction processing complete');
+      // logger.info('Transaction processing complete');
 
       return results;
     } catch (error) {
@@ -140,7 +141,7 @@ class TransactionService {
             whatsapp: false
           }
         });
-        logger.info('New agent user created');
+        // logger.info('New agent user created');
       }
 
       return agent;
@@ -237,22 +238,23 @@ class TransactionService {
     }
 
     // Log unknown status for monitoring
-    logger.warn('Unknown transaction status encountered', { 
-      rawStatus: status,
-      defaultingTo: TRANSACTION_STATUS.PENDING
-    });
+    // logger.warn('Unknown transaction status encountered', { 
+    //   rawStatus: status,
+    //   defaultingTo: TRANSACTION_STATUS.PENDING
+    // });
 
     return TRANSACTION_STATUS.PENDING;
   }
 
   /**
-   * Parse date string to Date object
+   * Parse date string to Date object in UAE timezone
    * @param {string} dateStr - Date string to parse
    */
   parseDate(dateStr) {
     if (!dateStr) return null;
     try {
-      return new Date(dateStr);
+      const date = new Date(dateStr);
+      return convertToUAETime(date);
     } catch (error) {
       logger.warn('Error parsing date:', { dateStr, error: error.message });
       return null;
