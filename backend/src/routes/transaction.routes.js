@@ -29,7 +29,9 @@ router.get('/deposits', auth, async (req, res) => {
     } = req.query;
 
     // Build base query
-    const baseQuery = {};
+    const baseQuery = {
+      amount: { $gte: 0 }  // Only return transactions with non-negative amounts
+    };
 
     // Always add 24 hours filter
     const now = new Date();
