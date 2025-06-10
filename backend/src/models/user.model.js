@@ -104,7 +104,7 @@ userSchema.plugin(mongooseDelete, {
   overrideMethods: true 
 });
 
-mongoose.set('debug', true);
+// mongoose.set('debug', true);
 const User = mongoose.model('User', userSchema);
 
 module.exports = User; 

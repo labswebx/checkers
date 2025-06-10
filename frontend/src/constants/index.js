@@ -20,7 +20,7 @@ export const API_ENDPOINTS = {
 };
 
 export const TRANSACTION_STATUS = {
-  PENDING: 'pending',
+  PENDING: 'Pending',
   APPROVED: 'approved',
   REJECTED: 'rejected'
 }

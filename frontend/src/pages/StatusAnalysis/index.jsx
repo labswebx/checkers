@@ -36,7 +36,7 @@ const timeFrameOptions = [
 
 const statusOptions = [
   { value: 'all', label: 'All Status' },
-  { value: 'pending', label: 'Pending' },
+  { value: 'Pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' }
 ];

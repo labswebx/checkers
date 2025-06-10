@@ -9,16 +9,20 @@ const userRoutes = require('./routes/user.routes');
 const scrapingRoutes = require('./routes/scraping.routes');
 const transactionRoutes = require('./routes/transaction.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
-const scheduler = require('./utils/scheduler.util');
+const { schedulerUtil, depositListTask, recentDepositsTask } = require('./utils/scheduler.util');
 
 // Load environment variables
 dotenv.config();
 const app = express();
-app.use(morgan('combined'));
+// app.use(morgan('combined'));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
+  .then(() => {
+    console.log('Connected to MongoDB');
+    // Start the schedulers after MongoDB connection is established
+    schedulerUtil.startJobs();
+  })
   .catch(err => console.error('MongoDB connection error:', err));
 
 // Middleware
@@ -41,9 +45,6 @@ app.get('/ping', (req, res) => {
   res.json({ success: true, message: 'Server is running' });
 });
 
-// Start scheduled jobs
-scheduler.startJobs();
-
 // Serve React App for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
@@ -57,6 +58,20 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received. Closing HTTP server...');
+  server.close(() => {
+    console.log('HTTP server closed');
+    schedulerUtil.stopJobs().then(() => {
+      mongoose.connection.close(false, () => {
+        console.log('MongoDB connection closed');
+        process.exit(0);
+      });
+    });
+  });
 }); 

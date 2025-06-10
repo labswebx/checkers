@@ -10,62 +10,85 @@ const { STATUS_CODES, USER_ROLES, TRANSACTION_STATUS } = require('../constants')
  */
 const getDashboardStats = async (req, res) => {
   try {
+    // Calculate the date 24 hours ago
+    const last24Hours = new Date();
+    last24Hours.setHours(last24Hours.getHours() - 24);
+
     // Get user statistics
     const totalUsers = await User.countDocuments({ isActive: true });
     const totalAdmins = await User.countDocuments({ role: USER_ROLES.ADMIN, isActive: true });
     const totalAgents = await User.countDocuments({ role: USER_ROLES.AGENT, isActive: true });
 
-    // Get transaction statistics
-    const totalTransactions = await Transaction.countDocuments();
-    const pendingTransactions = await Transaction.countDocuments({ status: TRANSACTION_STATUS.PENDING });
-    const approvedTransactions = await Transaction.countDocuments({ status: TRANSACTION_STATUS.APPROVED });
-    const rejectedTransactions = await Transaction.countDocuments({ status: TRANSACTION_STATUS.REJECTED });
+    // Get transaction statistics for last 24 hours
+    const totalTransactions = await Transaction.countDocuments({ createdAt: { $gte: last24Hours } });
+    const pendingTransactions = await Transaction.countDocuments({ 
+      transactionStatus: 'Pending',
+      createdAt: { $gte: last24Hours }
+    });
+    const approvedTransactions = await Transaction.countDocuments({ 
+      transactionStatus: 'Success',
+      createdAt: { $gte: last24Hours }
+    });
+    const rejectedTransactions = await Transaction.countDocuments({ 
+      transactionStatus: 'Rejected',
+      createdAt: { $gte: last24Hours }
+    });
 
-    // Calculate total amounts
+    console.log('Total Transactions (24h): ', totalTransactions);
+    console.log('Pending Transactions (24h): ', pendingTransactions);
+    console.log('Approved Transactions (24h): ', approvedTransactions);
+    console.log('Rejected Transactions (24h): ', rejectedTransactions);
+
+    // Calculate total amounts for last 24 hours
     const totalAmountStats = await Transaction.aggregate([
       {
+        $match: {
+          createdAt: { $gte: last24Hours }
+        }
+      },
+      {
         $group: {
-          _id: '$status',
-          totalAmount: { $sum: '$amount' }
+          _id: '$transactionStatus',
+          totalAmount: { $sum: { $toDouble: '$amount' } }
         }
       }
     ]);
 
-    // Get transaction trends (last 7 days)
-    const last7Days = new Date();
-    last7Days.setDate(last7Days.getDate() - 7);
-
-    const dailyTrends = await Transaction.aggregate([
+    // Get hourly trends for last 24 hours
+    const hourlyTrends = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: last7Days }
+          createdAt: { $gte: last24Hours }
         }
       },
       {
         $group: {
           _id: {
-            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-            status: '$status'
+            hour: { $dateToString: { format: '%Y-%m-%d %H:00', date: '$createdAt' } },
+            status: '$transactionStatus'
           },
           count: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
+          totalAmount: { $sum: { $toDouble: '$amount' } }
         }
       },
       {
-        $sort: { '_id.date': 1 }
+        $sort: { '_id.hour': 1 }
       }
     ]);
 
-    // Get top performing agents
+    // Get top performing agents in last 24 hours
     const topAgents = await Transaction.aggregate([
       {
-        $match: { status: TRANSACTION_STATUS.APPROVED }
+        $match: { 
+          transactionStatus: 'Success',
+          createdAt: { $gte: last24Hours }
+        }
       },
       {
         $group: {
           _id: '$agentId',
           totalTransactions: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
+          totalAmount: { $sum: { $toDouble: '$amount' } }
         }
       },
       {
@@ -114,12 +137,12 @@ const getDashboardStats = async (req, res) => {
         rejected: rejectedTransactions
       },
       amounts: {
-        total: amountsByStatus.approved || 0,
+        total: amountsByStatus.success || 0,
         pending: amountsByStatus.pending || 0,
         rejected: amountsByStatus.rejected || 0
       },
       trends: {
-        daily: dailyTrends
+        hourly: hourlyTrends
       },
       topAgents
     }, STATUS_CODES.OK);

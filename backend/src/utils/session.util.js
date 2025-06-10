@@ -62,7 +62,7 @@ class SessionUtil {
       }
 
       // First navigate to the login page to ensure we have a valid context
-      await page.goto(process.env.SCRAPING_WEBSITE_URL, {
+      await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
         waitUntil: 'networkidle0',
         timeout: 30000
       });

@@ -134,7 +134,7 @@ class TransactionService {
           role: 'agent',
           isActive: true,
           password: Math.random().toString(36).slice(-8), // Generate random password
-          contactNumber: null, // Will be updated later
+          contactNumber: 1234567891, // Will be updated later
           notificationPreferences: {
             email: true,
             sms: true,
@@ -212,7 +212,7 @@ class TransactionService {
    * @param {string} status - Raw status
    */
   mapStatus(status) {
-    if (!status) return 'pending';
+    if (!status) return 'Pending';
     
     // Convert to lowercase and remove extra spaces
     status = String(status).toLowerCase().trim();
@@ -220,7 +220,7 @@ class TransactionService {
     // Common variations of status text
     const approvedKeywords = ['approved', 'success', 'completed', 'done', 'processed'];
     const rejectedKeywords = ['rejected', 'failed', 'cancelled', 'declined', 'error'];
-    const pendingKeywords = ['pending', 'statuspen', 'processing', 'in progress', 'waiting'];
+    const pendingKeywords = ['Pending', 'statuspen', 'processing', 'in progress', 'waiting'];
 
     // Check for approved status
     if (approvedKeywords.some(keyword => status.includes(keyword))) {
@@ -362,13 +362,11 @@ class TransactionService {
       };
 
       // Build base match conditions
-      const baseMatch = {
-        statusUpdatedAt: { $exists: true }
-      };
+      const baseMatch = {};
 
       // Add status filter if provided
       if (filters.status && filters.status !== 'all') {
-        baseMatch.status = filters.status;
+        baseMatch.transactionStatus = filters.status;
       }
 
       // Add time frame filter if provided
@@ -399,41 +397,91 @@ class TransactionService {
             startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
             break;
           default:
-            startDate = null;
+            startDate = new Date(now - 24 * 60 * 60 * 1000); // Default to last 24 hours
         }
 
-        if (startDate) {
-          baseMatch.createdAt = { $gte: startDate };
-        }
+        baseMatch.requestDate = { $gte: startDate };
+      } else {
+        // Default to last 24 hours if no timeFrame specified
+        const last24Hours = new Date();
+        last24Hours.setHours(last24Hours.getHours() - 24);
+        baseMatch.requestDate = { $gte: last24Hours };
+      }
+
+      // Debug: Check total transactions matching base criteria
+      const totalTransactions = await Transaction.countDocuments(baseMatch);
+      logger.info('Total transactions matching base criteria:', {
+        baseMatch,
+        count: totalTransactions
+      });
+
+      // Get a sample transaction to verify fields
+      const sampleTransaction = await Transaction.findOne(baseMatch);
+      if (sampleTransaction) {
+        logger.info('Sample transaction:', {
+          id: sampleTransaction._id,
+          requestDate: sampleTransaction.requestDate,
+          approvedOn: sampleTransaction.approvedOn,
+          rejectedOn: sampleTransaction.rejectedOn,
+          transactionStatus: sampleTransaction.transactionStatus,
+          franchiseName: sampleTransaction.franchiseName
+        });
       }
 
       for (const slab of timeSlabs) {
-        // Calculate time difference in minutes between statusUpdatedAt and createdAt
+        // Calculate time difference in minutes between status update and request date
         const matchStage = {
           $match: {
             ...baseMatch,
             $expr: {
-              $let: {
-                vars: {
-                  timeDiffMinutes: {
-                    $divide: [
-                      { $subtract: ['$statusUpdatedAt', '$createdAt'] },
-                      60000 // Convert ms to minutes
-                    ]
+              $and: [
+                { $ne: ['$transactionStatus', 'Pending'] },
+                {
+                  $let: {
+                    vars: {
+                      timeDiffMinutes: {
+                        $divide: [
+                          {
+                            $subtract: [
+                              {
+                                $cond: {
+                                  if: { $eq: ['$transactionStatus', 'Success'] },
+                                  then: '$approvedOn',
+                                  else: {
+                                    $cond: {
+                                      if: { $eq: ['$transactionStatus', 'Rejected'] },
+                                      then: '$rejectedOn',
+                                      else: null
+                                    }
+                                  }
+                                }
+                              },
+                              '$requestDate'
+                            ]
+                          },
+                          60000 // Convert ms to minutes
+                        ]
+                      }
+                    },
+                    in: slab.max
+                      ? {
+                          $and: [
+                            { $gte: ['$$timeDiffMinutes', slab.min] },
+                            { $lt: ['$$timeDiffMinutes', slab.max] }
+                          ]
+                        }
+                      : { $gte: ['$$timeDiffMinutes', slab.min] }
                   }
-                },
-                in: slab.max 
-                  ? {
-                      $and: [
-                        { $gte: ['$$timeDiffMinutes', slab.min] },
-                        { $lt: ['$$timeDiffMinutes', slab.max] }
-                      ]
-                    }
-                  : { $gte: ['$$timeDiffMinutes', slab.min] }
-              }
+                }
+              ]
             }
           }
         };
+
+        // Debug: Log the match stage for this slab
+        logger.info(`Match stage for slab ${slab.label}:`, {
+          matchStage: JSON.stringify(matchStage)
+        });
 
         // Get overall count for this time slab
         const overallCount = await Transaction.aggregate([
@@ -446,6 +494,11 @@ class TransactionService {
           }
         ]);
 
+        // Debug: Log the results for this slab
+        logger.info(`Results for slab ${slab.label}:`, {
+          overallCount
+        });
+
         results.overall[slab.label] = overallCount[0]?.count || 0;
 
         // Get agent-wise breakdown for this time slab
@@ -453,29 +506,23 @@ class TransactionService {
           matchStage,
           {
             $group: {
-              _id: '$agentId',
+              _id: '$franchiseName',
               count: { $sum: 1 }
             }
           },
           {
-            $lookup: {
-              from: 'users',
-              localField: '_id',
-              foreignField: '_id',
-              as: 'agent'
-            }
-          },
-          {
-            $unwind: '$agent'
-          },
-          {
             $project: {
-              agentName: '$agent.name',
-              franchise: '$agent.franchise',
+              agentName: { $arrayElemAt: [{ $split: ['$_id', ' ('] }, 0] },
+              franchise: '$_id',
               count: 1
             }
           }
         ]);
+
+        // Debug: Log agent stats for this slab
+        logger.info(`Agent stats for slab ${slab.label}:`, {
+          agentStats
+        });
 
         // Organize agent stats
         agentStats.forEach(stat => {
@@ -490,9 +537,17 @@ class TransactionService {
         });
       }
 
+      // Debug: Log final results
+      logger.info('Final results:', {
+        results
+      });
+
       return results;
     } catch (error) {
-      logger.error('Error getting status update stats:', error);
+      logger.error('Error getting status update stats:', {
+        error: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   }

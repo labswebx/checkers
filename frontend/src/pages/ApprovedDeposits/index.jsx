@@ -39,7 +39,7 @@ const ApprovedDeposits = () => {
   // Filter states
   const [filters, setFilters] = useState({
     search: '',
-    status: TRANSACTION_STATUS.APPROVED,
+    status: 'Success',
     timeSlab: 'all',
     page: 1,
     limit: 10

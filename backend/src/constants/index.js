@@ -20,7 +20,7 @@ const STATUS_CODES = {
 };
 
 const TRANSACTION_STATUS = {
-  PENDING: 'pending',
+  PENDING: 'Pending',
   APPROVED: 'approved',
   REJECTED: 'rejected'
 }

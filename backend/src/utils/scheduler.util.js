@@ -1,154 +1,163 @@
 const cron = require('node-cron');
 const logger = require('./logger.util');
 const sessionUtil = require('./session.util');
-const scraperUtil = require('./scraper.util');
+const networkInterceptor = require('./network-interceptor.util');
 const transactionService = require('../services/transaction.service');
+
+class Task {
+  constructor(name, interval, action) {
+    this.name = name;
+    this.interval = interval;
+    this.action = action;
+    this.isRunning = false;
+    this.job = null;
+  }
+
+  async _execution() {
+    // if (this.isRunning) {
+    //   logger.info(`Task ${this.name} is already running, skipping this execution`);
+    //   return;
+    // }
+
+    this.isRunning = true;
+    try {
+      await this.action();
+    } catch (error) {
+      logger.error(`Error executing task ${this.name}:`, error);
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  start() {
+    if (this.job) {
+      logger.warn(`Task ${this.name} is already scheduled`);
+      return;
+    }
+
+    this.job = cron.schedule(this.interval, () => this._execution());
+    logger.info(`Task ${this.name} scheduled successfully`);
+  }
+
+  stop() {
+    if (this.job) {
+      this.job.stop();
+      this.job = null;
+      logger.info(`Task ${this.name} stopped`);
+    }
+  }
+}
+
+// Create task instances
+const depositListTask = new Task(
+  'Deposit List Monitor',
+  '*/20 * * * * *', // Every 20 seconds
+  async () => {
+    try {
+      await networkInterceptor.monitorPendingDeposits();
+    } catch (error) {
+      logger.error('Error in deposit list monitoring task:', error);
+      await networkInterceptor.cleanup();
+    }
+  }
+);
+
+const recentDepositsTask = new Task(
+  'Recent Deposits Monitor',
+  '*/30 * * * * *', // Every 30 seconds
+  async () => {
+    try {
+      await networkInterceptor.monitorRecentDeposits();
+    } catch (error) {
+      logger.error('Error in recent deposits monitoring task:', error);
+      await networkInterceptor.cleanup();
+    }
+  }
+);
+
+const rejectedDepositsTask = new Task(
+  'Rejected Deposits Monitor',
+  '*/20 * * * * *', // Every 20 seconds
+  async () => {
+    try {
+      await networkInterceptor.monitorRejectedDeposits();
+    } catch (error) {
+      logger.error('Error in rejected deposits monitoring task:', error);
+      await networkInterceptor.cleanup();
+    }
+  }
+);
 
 class SchedulerUtil {
   constructor() {
     this.jobs = new Map();
-    this.isScrapingInProgress = false;
   }
 
-  /**
-   * Start all scheduled jobs
-   */
-  startJobs() {
+  async startJobs() {
     // Cleanup expired sessions every hour
     this.jobs.set('sessionCleanup', cron.schedule('0 * * * *', async () => {
       logger.info('Running scheduled session cleanup');
-      const deletedCount = await sessionUtil.cleanupExpiredSessions();
+      await sessionUtil.cleanupExpiredSessions();
     }));
 
-    // Scrape deposits every 20 seconds
-    this.jobs.set('depositScraper', cron.schedule('*/20 * * * * *', async () => {
-      // Skip if previous scraping is still in progress
-      if (this.isScrapingInProgress) {
-        logger.warn('Previous scraping job still in progress, skipping this run');
-        return;
-      }
-
-      this.isScrapingInProgress = true;
-      let browserInitialized = false;
-
-      try {
-        logger.info('Starting scheduled deposit scraping');
-        
-        // Initialize scraper and login
-        await scraperUtil.initialize();
-        browserInitialized = true;
-        
-        await scraperUtil.login(
-          process.env.ADMIN_USER_ID,
-          process.env.SCRAPING_USERNAME,
-          process.env.SCRAPING_PASSWORD
-        );
-
-        // First, get pending deposits
-        // logger.info('Scraping pending deposits');
-        const pendingResult = await scraperUtil.getAllDepositApprovalData();
-        // logger.info('Pending deposits scraping complete');
-
-        // Then, get approved deposits with retry
-        // logger.info('Scraping approved deposits');
-        const approvedResult = await this.retryOperation(
-          () => scraperUtil.getAllRecentDepositData('approved'),
-          3
-        );
-        // logger.info('Approved deposits scraping complete');
-
-        // Finally, get rejected deposits with retry
-        // logger.info('Scraping rejected deposits');
-        const rejectedResult = await this.retryOperation(
-          () => scraperUtil.getAllRecentDepositData('rejected'),
-          3
-        );
-        // logger.info('Rejected deposits scraping complete');
-
-        // Log overall results
-        // const totalRecords = 
-        //   pendingResult.data.totalRecords + 
-        //   approvedResult.data.totalRecords + 
-        //   rejectedResult.data.totalRecords;
-
-        // logger.info('All deposit scraping complete');
-      } catch (error) {
-        logger.error('Scheduled deposit scraping failed:', {
-          error: error.message,
-          stack: error.stack
-        });
-      } finally {
-        // Always cleanup browser
-        if (browserInitialized) {
-          try {
-            await scraperUtil.close();
-          } catch (closeError) {
-            logger.error('Error closing browser:', closeError);
-          }
-        }
-        this.isScrapingInProgress = false;
-      }
-    }));
-
-    // Check pending transactions every minute
+    // Send whatsApp message for pending transactions every minute
     this.jobs.set('pendingCheck', cron.schedule('* * * * *', async () => {
       try {
-        logger.info('Running pending transactions check...');
+        logger.info('Sending pending transactions WhatsApp message...');
         await transactionService.checkPendingTransactions();
       } catch (error) {
         logger.error('Error in pending transactions check job:', error);
       }
     }));
 
-    // logger.info('Scheduled jobs started');
-  }
+    // Start tasks with proper delays and error handling
+    try {
+      // Start deposit list task first
+      logger.info('Started deposit list monitoring task');
+      depositListTask.start();
 
-  /**
-   * Helper method to retry operations with delay
-   * @param {Function} operation - Operation to retry
-   * @param {number} maxRetries - Maximum number of retries
-   * @param {number} delayMs - Delay between retries in milliseconds
-   */
-  async retryOperation(operation, maxRetries = 3, delayMs = 2000) {
-    let lastError;
+      // Wait 10 seconds before starting recent deposits task
+      // await new Promise(resolve => setTimeout(resolve, 10000));
+      logger.info('Started recent deposits monitoring task');
+      recentDepositsTask.start();
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        lastError = error;
-        logger.warn(`Attempt ${attempt}/${maxRetries} failed:`, {
-          error: error.message
-        });
+      // Wait another 10 seconds before starting rejected deposits task
+      // await new Promise(resolve => setTimeout(resolve, 10000));
+      logger.info('Started rejected deposits monitoring task');
+      rejectedDepositsTask.start();
 
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-          
-          // Re-initialize browser if needed
-          await scraperUtil.initialize();
-          await scraperUtil.login(
-            process.env.ADMIN_USER_ID,
-            process.env.SCRAPING_USERNAME,
-            process.env.SCRAPING_PASSWORD
-          );
-        }
-      }
+      // logger.info('All scheduled jobs started successfully');
+    } catch (error) {
+      logger.error('Error starting scheduled jobs:', error);
+      throw error;
     }
-
-    throw lastError;
   }
 
-  /**
-   * Stop all scheduled jobs
-   */
-  stopJobs() {
+  async stopJobs() {
     for (const [name, job] of this.jobs) {
       logger.info(`Stopping ${name} job`);
       job.stop();
     }
     this.jobs.clear();
+
+    // Stop the monitoring tasks
+    depositListTask.stop();
+    recentDepositsTask.stop();
+    rejectedDepositsTask.stop();
+
+    // Cleanup browser when stopping jobs
+    try {
+      await networkInterceptor.cleanup();
+    } catch (error) {
+      logger.error('Error cleaning up network interceptor:', error);
+    }
   }
 }
 
-// Export singleton instance
-module.exports = new SchedulerUtil(); 
+// Export both the scheduler util instance and the tasks
+module.exports = {
+  schedulerUtil: new SchedulerUtil(),
+  depositListTask,
+  recentDepositsTask,
+  rejectedDepositsTask
+}; 

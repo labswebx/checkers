@@ -171,7 +171,7 @@ class ScraperUtil {
         // logger.info('Session invalid, proceeding with fresh login');
       }
 
-      const loginUrl = process.env.SCRAPING_WEBSITE_URL;
+      const loginUrl = `${process.env.SCRAPING_WEBSITE_URL}/login`;
       // logger.info('Navigating to login page:', { url: loginUrl });
       
       // Navigate to login page
@@ -321,14 +321,14 @@ class ScraperUtil {
       }
 
       // Ensure screenshots directory exists before taking screenshot
-      const screenshotsDir = path.join(process.cwd(), 'logs', 'screenshots');
-      await this.ensureDirectoryExists(screenshotsDir);
+      // const screenshotsDir = path.join(process.cwd(), 'logs', 'screenshots');
+      // await this.ensureDirectoryExists(screenshotsDir);
 
       // Take a screenshot for debugging if needed
-      await this.page.screenshot({ 
-        path: path.join(screenshotsDir, `login-success-${Date.now()}.png`),
-        fullPage: true 
-      });
+      // await this.page.screenshot({ 
+      //   path: path.join(screenshotsDir, `login-success-${Date.now()}.png`),
+      //   fullPage: true 
+      // });
       logger.debug('Saved login success screenshot');
 
       logger.info('Login success verification complete');
@@ -352,14 +352,14 @@ class ScraperUtil {
       await this.page.waitForSelector('body', { timeout: 5000 });
       
       // Ensure screenshots directory exists before taking screenshot
-      const screenshotsDir = path.join(process.cwd(), 'logs', 'screenshots');
-      await this.ensureDirectoryExists(screenshotsDir);
+      // const screenshotsDir = path.join(process.cwd(), 'logs', 'screenshots');
+      // await this.ensureDirectoryExists(screenshotsDir);
       
-      // Take a screenshot for debugging
-      await this.page.screenshot({ 
-        path: path.join(screenshotsDir, `dashboard-${Date.now()}.png`),
-        fullPage: true 
-      });
+      // // Take a screenshot for debugging
+      // await this.page.screenshot({ 
+      //   path: path.join(screenshotsDir, `dashboard-${Date.now()}.png`),
+      //   fullPage: true 
+      // });
 
       // Get the current URL and HTML content
       const currentUrl = this.page.url();
@@ -497,7 +497,6 @@ class ScraperUtil {
     try {
       // Get first page and pagination info
       const firstPage = await this.getDepositApprovalData(1);
-      console.log('First page -----------------------------------------------------', firstPage.data.rows);
       const totalPages = firstPage.data.pagination.totalPages;
       
       logger.info('Starting full data extraction', { totalPages });

@@ -1,75 +1,77 @@
 const mongoose = require('mongoose');
-const mongooseDelete = require('mongoose-delete');
-const { TRANSACTION_STATUS } = require('../constants');
 
 const transactionSchema = new mongoose.Schema({
-  transactionId: {
+  orderId: {
     type: String,
     required: true,
-    unique: true,
-    index: true
+    unique: true
+  },
+  userId: {
+    type: String,
+    required: true
+  },
+  userName: {
+    type: String,
+    required: true
+  },
+  name: String,
+  statusId: Number,
+  transactionStatus: {
+    type: String,
+    required: true,
+    default: 'Pending'
   },
   amount: {
     type: Number,
     required: true
   },
-  status: {
-    type: String,
-    enum: [TRANSACTION_STATUS.PENDING, TRANSACTION_STATUS.APPROVED, TRANSACTION_STATUS.REJECTED],
-    required: true,
-    index: true
-  },
-  statusUpdatedAt: {
-    type: Date
-  },
-  type: {
-    type: String,
-    enum: ['deposit', 'withdrawal'],
-    required: true,
-    index: true
-  },
-  agentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',  // Reference to User model instead of Agent
-    required: true,
-    index: true
-  },
-  customerId: {
-    type: String,
-    required: true,
-    index: true
-  },
-  customerName: String,
-  franchise: {
-    type: String,
-    required: true,
-    index: true
-  },
-  utr: String,
-  bank: String,
-  requestedAt: Date,
-  processedAt: Date,
-  remarks: String,
-  lastScrapedAt: {
+  requestDate: {
     type: Date,
-    default: Date.now,
-    index: true
+    required: true
   },
-  metadata: {
-    type: mongoose.Schema.Types.Mixed,
-    default: {}
+  paymentMethod: String,
+  holderName: String,
+  bankName: String,
+  accountNumber: String,
+  iban: String,
+  cardNo: String,
+  utr: String,
+  approvedOn: Date,
+  rejectedOn: Date,
+  firstDeposit: {
+    type: Boolean,
+    default: false
   },
-  lastNotificationSent: {
-    type: Date
-  }
+  approvedBy: String,
+  franchiseName: String,
+  remarks: String,
+  bonusIncluded: {
+    type: Number,
+    default: 0
+  },
+  bonusExcluded: {
+    type: Number,
+    default: 0
+  },
+  bonusThreshold: {
+    type: Number,
+    default: 0
+  },
+  lastUpdatedUTROn: Date,
+  auditStatusId: Number,
+  auditStatus: String,
+  authorizedUserRemarks: String,
+  isImageAvailable: {
+    type: Boolean,
+    default: false
+  },
+  imageUrl: String,
+  imageLastUpdated: Date
 }, {
   timestamps: true
 });
 
-// Add soft delete functionality
-transactionSchema.plugin(mongooseDelete, { 
-  deletedAt: true,
-  overrideMethods: true 
-});
+// Index for faster lookups
+transactionSchema.index({ orderId: 1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema); 
