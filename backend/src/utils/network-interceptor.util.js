@@ -11,8 +11,12 @@ const Transaction = require('../models/transaction.model');
 
 class NetworkInterceptor {
   constructor() {
-    this.browser = null;
-    this.page = null;
+    this.pendingDepositsBrowser = null;
+    this.recentDepositsBrowser = null;
+    this.rejectedDepositsBrowser = null;
+    this.pendingDepositsPage = null;
+    this.recentDepositsPage = null;
+    this.rejectedDepositsPage = null;
     this.isLoggedIn = false;
     this.currentUserId = null;
     this.interceptedRequests = new Map();
@@ -76,7 +80,7 @@ class NetworkInterceptor {
           logger.warn('Error closing existing browser:', error);
         }
         this.browser = null;
-        this.page = null;
+        // this.page = null;
       }
 
       this.browser = await puppeteer.launch({
@@ -103,48 +107,48 @@ class NetworkInterceptor {
         ignoreHTTPSErrors: true
       });
 
-      this.page = await this.browser.newPage();
+      // this.page = await this.browser.newPage();
       
       // Set a longer default timeout
-      this.page.setDefaultNavigationTimeout(180000); // 3 minutes
-      this.page.setDefaultTimeout(180000);
+      // this.page.setDefaultNavigationTimeout(180000); // 3 minutes
+      // this.page.setDefaultTimeout(180000);
 
       // Add user agent
-      await this.page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+      await // this.page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-      await this.page.setRequestInterception(true);
+      await // this.page.setRequestInterception(true);
 
-      this.page.on('request', async (interceptedRequest) => {
-        try {
-          if (!interceptedRequest.isInterceptResolutionHandled()) {
-            if (interceptedRequest.resourceType() === 'image' || interceptedRequest.resourceType() === 'font') {
-              await interceptedRequest.abort();
-            } else {
-              await interceptedRequest.continue();
-            }
-          }
-        } catch (error) {
-          logger.error('Error handling request:', {
-            url: interceptedRequest.url(),
-            error: error.message
-          });
-        }
-      });
+      // this.page.on('request', async (interceptedRequest) => {
+      //   try {
+      //     if (!interceptedRequest.isInterceptResolutionHandled()) {
+      //       if (interceptedRequest.resourceType() === 'image' || interceptedRequest.resourceType() === 'font') {
+      //         await interceptedRequest.abort();
+      //       } else {
+      //         await interceptedRequest.continue();
+      //       }
+      //     }
+      //   } catch (error) {
+      //     logger.error('Error handling request:', {
+      //       url: interceptedRequest.url(),
+      //       error: error.message
+      //     });
+      //   }
+      // });
 
       // Handle browser disconnection
       this.browser.on('disconnected', () => {
         logger.info('Browser disconnected, cleaning up');
         this.browser = null;
-        this.page = null;
+        // this.page = null;
         this.isMonitoring = false;
       });
 
       // Handle page closure
-      this.page.on('close', () => {
-        logger.info('Page closed, cleaning up');
-        this.page = null;
-        this.isMonitoring = false;
-      });
+      // this.page.on('close', () => {
+      //   logger.info('Page closed, cleaning up');
+      //   this.page = null;
+      //   this.isMonitoring = false;
+      // });
 
       logger.info('Network interceptor initialized successfully');
       return true;
@@ -160,95 +164,95 @@ class NetworkInterceptor {
   async setupInterceptors() {
     try {
       logger.info('Setting up network interceptors');
-      await this.page.setRequestInterception(true);
+      await // this.page.setRequestInterception(true);
 
       // Intercept all requests
-      this.page.on('request', async request => {
-        try {
-          if (!request.isInterceptResolutionHandled()) {
-            // Skip loading images and fonts to reduce bandwidth and improve performance
-            if (request.resourceType() === 'image' || request.resourceType() === 'font') {
-              await request.abort();
-            } else {
-              await request.continue();
-            }
-          }
-        } catch (error) {
-          logger.error('Error handling request:', {
-            url: request.url(),
-            error: error.message
-          });
-        }
-      });
+      // this.page.on('request', async request => {
+      //   try {
+      //     if (!request.isInterceptResolutionHandled()) {
+      //       // Skip loading images and fonts to reduce bandwidth and improve performance
+      //       if (request.resourceType() === 'image' || request.resourceType() === 'font') {
+      //         await request.abort();
+      //       } else {
+      //         await request.continue();
+      //       }
+      //     }
+      //   } catch (error) {
+      //     logger.error('Error handling request:', {
+      //       url: request.url(),
+      //       error: error.message
+      //     });
+      //   }
+      // });
 
       // Intercept all responses
-      this.page.on('response', async response => {
-        const url = response.url();
-        const status = response.status();
+      // this.page.on('response', async response => {
+      //   const url = response.url();
+      //   const status = response.status();
         
-        // Only process deposit-related responses
-        if (url.includes('/api/deposit/pending') || url.includes('/api/deposit/list')) {
-          logger.info('Intercepted deposit API response:', {
-            url,
-            status,
-            headers: response.headers()
-          });
+      //   // Only process deposit-related responses
+      //   if (url.includes('/api/deposit/pending') || url.includes('/api/deposit/list')) {
+      //     logger.info('Intercepted deposit API response:', {
+      //       url,
+      //       status,
+      //       headers: response.headers()
+      //     });
 
-          try {
-            const contentType = response.headers()['content-type'];
-            if (contentType && contentType.includes('application/json')) {
-              const responseBody = await response.json().catch(() => null);
+      //     try {
+      //       const contentType = response.headers()['content-type'];
+      //       if (contentType && contentType.includes('application/json')) {
+      //         const responseBody = await response.json().catch(() => null);
               
-              if (responseBody) {
-                logger.info('Deposit API response body:', {
-                  url,
-                  status,
-                  bodyPreview: JSON.stringify(responseBody).substring(0, 500)
-                });
+      //         if (responseBody) {
+      //           logger.info('Deposit API response body:', {
+      //             url,
+      //             status,
+      //             bodyPreview: JSON.stringify(responseBody).substring(0, 500)
+      //           });
 
-                this.interceptedResponses.set(url, {
-                  url,
-                  status,
-                  headers: response.headers(),
-                  body: responseBody
-                });
+      //           this.interceptedResponses.set(url, {
+      //             url,
+      //             status,
+      //             headers: response.headers(),
+      //             body: responseBody
+      //           });
 
-                // Process deposit response
-                await this.processDepositResponse(responseBody);
-              }
-            }
-          } catch (error) {
-            logger.error('Error processing deposit API response:', {
-              url,
-              status,
-              error: error.message,
-              stack: error.stack
-            });
-          }
-        }
-      });
+      //           // Process deposit response
+      //           await this.processDepositResponse(responseBody);
+      //         }
+      //       }
+      //     } catch (error) {
+      //       logger.error('Error processing deposit API response:', {
+      //         url,
+      //         status,
+      //         error: error.message,
+      //         stack: error.stack
+      //       });
+      //     }
+      //   }
+      // });
 
       // Add error handlers
-      this.page.on('error', error => {
-        logger.error('Page error:', {
-          error: error.message,
-          stack: error.stack
-        });
-      });
+      // this.page.on('error', error => {
+      //   logger.error('Page error:', {
+      //     error: error.message,
+      //     stack: error.stack
+      //   });
+      // });
 
-      this.page.on('pageerror', error => {
-        logger.error('Page JavaScript error:', {
-          error: error.message,
-          stack: error.stack
-        });
-      });
+      // this.page.on('pageerror', error => {
+      //   logger.error('Page JavaScript error:', {
+      //     error: error.message,
+      //     stack: error.stack
+      //   });
+      // });
 
-      this.page.on('console', msg => {
-        logger.debug('Browser console:', {
-          type: msg.type(),
-          text: msg.text()
-        });
-      });
+      // this.page.on('console', msg => {
+      //   logger.debug('Browser console:', {
+      //     type: msg.type(),
+      //     text: msg.text()
+      //   });
+      // });
 
       logger.info('Network interceptors setup complete');
     } catch (error) {
@@ -365,10 +369,10 @@ class NetworkInterceptor {
           await new Promise(resolve => setTimeout(resolve, attempt * 2000));
         }
 
-        const response = await this.page.goto(url, {
-          waitUntil: ['networkidle2', 'domcontentloaded'],
-          timeout: 60000
-        });
+        // const response = await this.page.goto(url, {
+        //   waitUntil: ['networkidle2', 'domcontentloaded'],
+        //   timeout: 60000
+        // });
 
         if (response && response.ok()) {
           logger.info(`Successfully navigated to ${url}`);
@@ -392,44 +396,44 @@ class NetworkInterceptor {
 
   async ensureLogin() {
     try {
-      if (!this.page || this.page.isClosed()) {
-        await this.initialize();
-      }
+      // if (!this.page || this.page.isClosed()) {
+      //   await this.initialize();
+      // }
 
       // Check if already logged in
-      const currentUrl = this.page.url();
-      if (currentUrl.includes('/admin/')) {
-        const isValid = await this.validateSession();
-        if (isValid) {
-          return true;
-        }
-      }
+      // const currentUrl = this.page.url();
+      // if (currentUrl.includes('/admin/')) {
+      //   const isValid = await this.validateSession();
+      //   if (isValid) {
+      //     return true;
+      //   }
+      // }
 
       // Perform login
       logger.info('Starting login process');
       await this.navigateWithRetry(`${process.env.SCRAPING_WEBSITE_URL}/login`);
 
-      await this.page.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
-      await this.page.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
+      // await this.page.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
+      // await this.page.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
 
-      await this.page.type('input[type="text"]', process.env.SCRAPING_USERNAME);
-      await this.page.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
+      // await this.page.type('input[type="text"]', process.env.SCRAPING_USERNAME);
+      // await this.page.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
 
-      const loginButton = await this.page.$('button[type="submit"]');
-      if (!loginButton) {
-        throw new Error('Login button not found');
-      }
+      // const loginButton = await this.page.$('button[type="submit"]');
+      // if (!loginButton) {
+      //   throw new Error('Login button not found');
+      // }
 
-      await Promise.all([
-        this.page.waitForNavigation({ waitUntil: ['networkidle2', 'domcontentloaded'], timeout: 60000 }),
-        loginButton.click()
-      ]);
+      // await Promise.all([
+      //   this.page.waitForNavigation({ waitUntil: ['networkidle2', 'domcontentloaded'], timeout: 60000 }),
+      //   loginButton.click()
+      // ]);
 
       // Add a small delay after login
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Verify login success
-      return await this.validateSession();
+      // return await this.validateSession();
     } catch (error) {
       logger.error('Login failed:', {
         error: error.message,
@@ -441,95 +445,119 @@ class NetworkInterceptor {
 
   async validateSession() {
     try {
-      await this.page.goto('https://dwpanell100.online/admin/dashboard', {
-        waitUntil: ['networkidle0', 'domcontentloaded'],
-        timeout: 60000
-      });
+      // await this.page.goto('https://dwpanell100.online/admin/dashboard', {
+      //   waitUntil: ['networkidle0', 'domcontentloaded'],
+      //   timeout: 60000
+      // });
       
       // Wait for some dashboard element to confirm we're logged in
       try {
-        await this.page.waitForSelector('.dashboard, #dashboard, [data-testid="dashboard"]', {
-          timeout: 10000
-        });
+        // await this.page.waitForSelector('.dashboard, #dashboard, [data-testid="dashboard"]', {
+        //   timeout: 10000
+        // });
       } catch (selectorError) {
         logger.warn('Dashboard selector not found, falling back to URL check');
       }
       
-      return this.page.url().includes('/admin/dashboard');
+      // return this.page.url().includes('/admin/dashboard');
     } catch (error) {
       logger.error('Session validation failed:', {
         error: error.message,
-        currentUrl: this.page ? this.page.url() : 'N/A'
+        // currentUrl: this.page ? this.page.url() : 'N/A'
       });
       return false;
     }
   }
 
   async monitorPendingDeposits() {
-    // If already monitoring, don't start another instance
-    // if (this.isMonitoring) {
-    //   logger.info('Monitoring already in progress, skipping this call');
-    //   return { success: false, reason: 'already_monitoring' };
-    // }
-
-    const executablePath = await this.findChromePath();
-    let browser = await puppeteer.launch({
-      headless: 'new',
-      executablePath,
-      product: 'chrome',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--window-size=1920,1080',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-        '--ignore-certificate-errors',
-        '--ignore-certificate-errors-spki-list',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-infobars',
-        '--disable-notifications',
-        '--disable-popup-blocking',
-        '--disable-extensions',
-        '--disable-gpu'
-      ],
-      defaultViewport: { width: 1920, height: 1080 },
-      ignoreHTTPSErrors: true
-    });
-
-    let page = await browser.newPage();
-
     try {
-      // If browser exists but page is closed/crashed, clean up first
-      if (browser) {
-        try {
-          const pages = await browser.pages();
-          if (pages.length === 0 || !page || page.isClosed()) {
-            await this.cleanup();
+      // Clean up existing pending deposits browser instance first
+      await this.cleanupPendingDeposits();
+
+      const executablePath = await this.findChromePath();
+      this.pendingDepositsBrowser = await puppeteer.launch({
+        headless: 'new',
+        executablePath,
+        product: 'chrome',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--window-size=1920,1080',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--ignore-certificate-errors',
+          '--ignore-certificate-errors-spki-list',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-infobars',
+          '--disable-notifications',
+          '--disable-popup-blocking',
+          '--disable-extensions',
+          '--disable-gpu'
+        ],
+        defaultViewport: { width: 1920, height: 1080 },
+        ignoreHTTPSErrors: true
+      });
+
+      this.pendingDepositsPage = await this.pendingDepositsBrowser.newPage();
+
+      try {
+        // If browser exists but page is closed/crashed, clean up first
+        if (this.pendingDepositsBrowser) {
+          try {
+            const pages = await this.pendingDepositsBrowser.pages();
+            if (pages.length === 0 || !this.pendingDepositsPage || this.pendingDepositsPage.isClosed()) {
+              await this.cleanupPendingDeposits();
+            }
+          } catch (error) {
+            logger.warn('Error checking browser state, cleaning up:', error);
+            await this.cleanupPendingDeposits();
           }
-        } catch (error) {
-          logger.warn('Error checking browser state, cleaning up:', error);
-          await this.cleanup();
         }
-      }
 
-      // Add delay before starting new browser instance
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 1000));
+        // Add delay before starting new browser instance
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 1000));
 
-      // Only create new browser if we don't have one
-      // if (!browser) {
         logger.info('Starting deposit list monitoring');
         
         // Set a longer default timeout
-        page.setDefaultNavigationTimeout(180000); // 3 minutes
-        page.setDefaultTimeout(180000);
+        if (!this.pendingDepositsBrowser) {
+          this.pendingDepositsBrowser = await puppeteer.launch({
+            headless: 'new',
+            executablePath,
+            product: 'chrome',
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--window-size=1920,1080',
+              '--disable-web-security',
+              '--disable-features=IsolateOrigins,site-per-process',
+              '--ignore-certificate-errors',
+              '--ignore-certificate-errors-spki-list',
+              '--disable-blink-features=AutomationControlled',
+              '--disable-infobars',
+              '--disable-notifications',
+              '--disable-popup-blocking',
+              '--disable-extensions',
+              '--disable-gpu'
+            ],
+            defaultViewport: { width: 1920, height: 1080 },
+            ignoreHTTPSErrors: true
+          });
+        }
+        if (!this.pendingDepositsPage) {
+          this.pendingDepositsPage = await this.pendingDepositsBrowser.newPage();
+        }
+        this.pendingDepositsPage.setDefaultNavigationTimeout(180000); // 3 minutes
+        this.pendingDepositsPage.setDefaultTimeout(180000);
 
         // Add user agent
-        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+        await this.pendingDepositsPage.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-        await page.setRequestInterception(true);
+        await this.pendingDepositsPage.setRequestInterception(true);
 
-        page.on('request', async (interceptedRequest) => {
+        this.pendingDepositsPage.on('request', async (interceptedRequest) => {
           try {
             if (!interceptedRequest.isInterceptResolutionHandled()) {
               await interceptedRequest.continue();
@@ -542,7 +570,7 @@ class NetworkInterceptor {
           }
         });
 
-        page.on('response', async (interceptedResponse) => {
+        this.pendingDepositsPage.on('response', async (interceptedResponse) => {
           let url = interceptedResponse.url();
 
           // Handle deposit list API
@@ -617,89 +645,96 @@ class NetworkInterceptor {
         });
 
         // Handle browser/page closure
-        browser.on('disconnected', () => {
+        this.pendingDepositsBrowser.on('disconnected', () => {
           this.isMonitoring = false;
-          browser = null;
-          page = null;
+          this.pendingDepositsBrowser = null;
+          this.pendingDepositsPage = null;
         });
 
-        page.on('close', () => {
+        this.pendingDepositsPage.on('close', () => {
           this.isMonitoring = false;
-          page = null;
-        });
-      // }
-
-      // Only proceed with login if we're not already on the right page
-      if (!page.url().includes('/admin/deposit/deposit-approval')) {
-        // First handle login
-        logger.info('Starting login process');
-        await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
-          waitUntil: 'networkidle2',
-          timeout: 90000
+          this.pendingDepositsPage = null;
         });
 
-        // Wait for selectors with increased timeouts
-        await page.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
-        await page.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
-
-        await page.type('input[type="text"]', process.env.SCRAPING_USERNAME);
-        await page.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
-
-        const loginButton = await page.$('button[type="submit"]');
-        if (!loginButton) {
-          throw new Error('Login button not found');
-        }
-
-        // Wait for navigation after login
-        await Promise.all([
-          page.waitForNavigation({ 
+        // Only proceed with login if we're not already on the right page
+        if (!this.pendingDepositsPage.url().includes('/admin/deposit/deposit-approval')) {
+          // First handle login
+          logger.info('Starting login process');
+          await this.pendingDepositsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
             waitUntil: 'networkidle2',
             timeout: 90000
-          }),
-          loginButton.click()
-        ]);
+          });
 
-        // Wait a bit after login before next navigation
-        await new Promise(resolve => setTimeout(resolve, 1500));
+          // Wait for selectors with increased timeouts
+          await this.pendingDepositsPage.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
+          await this.pendingDepositsPage.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
 
-        // Then navigate to deposit approval page
-        logger.info('Navigating to deposit approval page');
-        await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/deposit-approval`, {
-          waitUntil: 'networkidle2',
-          timeout: 30000
-        });
+          await this.pendingDepositsPage.type('input[type="text"]', process.env.SCRAPING_USERNAME);
+          await this.pendingDepositsPage.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
 
-        // Wait for the page to load and API calls to complete
-        logger.info('Waiting for deposit approval data to load...');
-        try {
-          // Wait for table to be visible
-          await page.waitForSelector('table', { timeout: 10000 });
-          // Additional wait for API calls and data loading
-          await new Promise(resolve => setTimeout(resolve, 5000));
-        } catch (error) {
-          logger.warn('Table not found on deposit approval page, continuing anyway');
+          const loginButton = await this.pendingDepositsPage.$('button[type="submit"]');
+          if (!loginButton) {
+            throw new Error('Login button not found');
+          }
+
+          // Wait for navigation after login
+          await Promise.all([
+            this.pendingDepositsPage.waitForNavigation({ 
+              waitUntil: 'networkidle2',
+              timeout: 90000
+            }),
+            loginButton.click()
+          ]);
+
+          // Wait a bit after login before next navigation
+          await new Promise(resolve => setTimeout(resolve, 1500));
+
+          // Then navigate to deposit approval page
+          logger.info('Navigating to deposit approval page');
+          await this.pendingDepositsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/deposit-approval`, {
+            waitUntil: 'networkidle2',
+            timeout: 30000
+          });
+
+          // Wait for the page to load and API calls to complete
+          logger.info('Waiting for deposit approval data to load...');
+          try {
+            // Wait for table to be visible
+            await this.pendingDepositsPage.waitForSelector('table', { timeout: 10000 });
+            // Additional wait for API calls and data loading
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          } catch (error) {
+            logger.warn('Table not found on deposit approval page, continuing anyway');
+          }
         }
-      }
 
-      this.isMonitoring = true;
-      return { success: true, browser: browser, page: page };
+        this.isMonitoring = true;
+        return { success: true, browser: this.pendingDepositsBrowser, page: this.pendingDepositsPage };
+      } catch (error) {
+        logger.error('Error monitoring deposit list:', {
+          error: error.message,
+          stack: error.stack
+        });
+        await this.cleanupPendingDeposits();
+        throw error;
+      }
     } catch (error) {
       logger.error('Error monitoring deposit list:', {
         error: error.message,
         stack: error.stack
       });
-      await this.cleanup();
+      await this.cleanupPendingDeposits();
       throw error;
     }
   }
 
   async monitorRecentDeposits() {
-    // Add delay before starting
-    // await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 3000));
-    
     try {
+      // Clean up existing recent deposits browser instance first
+      await this.cleanupRecentDeposits();
+
       const executablePath = await this.findChromePath();
-      let browser = await puppeteer.launch({
+      this.recentDepositsBrowser = await puppeteer.launch({
         headless: 'new',
         executablePath,
         product: 'chrome',
@@ -723,146 +758,171 @@ class NetworkInterceptor {
         ignoreHTTPSErrors: true
       });
   
-      let page = await browser.newPage();
+      this.recentDepositsPage = await this.recentDepositsBrowser.newPage();
 
-      // Only create new browser if we don't have one
-      // if (!this.browser) {
-        logger.info('Starting recent deposits monitoring');
-        
-        // Set a longer default timeout
-        page.setDefaultNavigationTimeout(180000); // 3 minutes
-        page.setDefaultTimeout(180000);
+      logger.info('Starting recent deposits monitoring');
+      
+      // Set a longer default timeout
+      if (!this.recentDepositsBrowser) {
+        this.recentDepositsBrowser = await puppeteer.launch({
+          headless: 'new',
+          executablePath,
+          product: 'chrome',
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--window-size=1920,1080',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--ignore-certificate-errors',
+            '--ignore-certificate-errors-spki-list',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-infobars',
+            '--disable-notifications',
+            '--disable-popup-blocking',
+            '--disable-extensions',
+            '--disable-gpu'
+          ],
+          defaultViewport: { width: 1920, height: 1080 },
+          ignoreHTTPSErrors: true
+        });
+      }
+      if (!this.recentDepositsPage) {
+        this.recentDepositsPage = await this.recentDepositsBrowser.newPage();
+      }
+      this.recentDepositsPage.setDefaultNavigationTimeout(180000); // 3 minutes
+      this.recentDepositsPage.setDefaultTimeout(180000);
 
-        // Add user agent
-        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+      // Add user agent
+      await this.recentDepositsPage.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-        await page.setRequestInterception(true);
+      await this.recentDepositsPage.setRequestInterception(true);
 
-        page.on('request', async (interceptedRequest) => {
+      this.recentDepositsPage.on('request', async (interceptedRequest) => {
+        try {
+          if (!interceptedRequest.isInterceptResolutionHandled()) {
+            await interceptedRequest.continue();
+          }
+        } catch (error) {
+          logger.error('Error handling request:', {
+            url: interceptedRequest.url(),
+            error: error.message
+          });
+        }
+      });
+
+      this.recentDepositsPage.on('response', async (interceptedResponse) => {
+        let url = interceptedResponse.url();
+
+        // Handle deposit list API
+        if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
+          logger.info('Intercepted GetListOfRequestsForFranchise request in recent deposits --------------------------------');
           try {
-            if (!interceptedRequest.isInterceptResolutionHandled()) {
-              await interceptedRequest.continue();
+            const json = await interceptedResponse.json();
+            const transactions = Array.isArray(json) ? json : json.data || [];
+
+            // Process transactions
+            for (const transaction of transactions) {
+              try {
+                await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
+
+                // Create the transaction data object
+                const transactionData = {
+                  orderId: transaction.orderID,
+                  userId: transaction.userID,
+                  userName: transaction.userName,
+                  name: transaction.name,
+                  statusId: transaction.StatusID,
+                  transactionStatus: transaction.transactionStatus,
+                  amount: transaction.amount,
+                  requestDate: transaction.requestDate,
+                  paymentMethod: transaction.paymentMethod,
+                  holderName: transaction.holderName,
+                  bankName: transaction.bankName,
+                  accountNumber: transaction.number,
+                  iban: transaction.iBAN,
+                  cardNo: transaction.cardNo,
+                  utr: transaction.uTR,
+                  approvedOn: transaction.approvedOn,
+                  rejectedOn: transaction.rejectedOn,
+                  firstDeposit: transaction.firstDeposit,
+                  approvedBy: transaction.approvedBy,
+                  franchiseName: transaction.franchiseName,
+                  remarks: transaction.remarks,
+                  bonusIncluded: transaction.bonusIncluded,
+                  bonusExcluded: transaction.bonusExcluded,
+                  bonusThreshold: transaction.bonusThreshold,
+                  lastUpdatedUTROn: transaction.lastUpdatedUTROn,
+                  auditStatusId: transaction.auditStatusID,
+                  auditStatus: transaction.auditStatus,
+                  authorizedUserRemarks: transaction.authorizedUserRemarks,
+                  isImageAvailable: transaction.isImageAvailable
+                };
+
+                // Use findOneAndUpdate with upsert option to create or update
+                await Transaction.findOneAndUpdate(
+                  { orderId: transaction.orderID },
+                  transactionData,
+                  {
+                    upsert: true,
+                    new: true,
+                    runValidators: true
+                  }
+                );
+
+              } catch (transactionError) {
+                logger.error('Error processing individual transaction:', {
+                  orderId: transaction?.orderID,
+                  error: transactionError.message
+                });
+              }
             }
-          } catch (error) {
-            logger.error('Error handling request:', {
-              url: interceptedRequest.url(),
-              error: error.message
+          } catch (err) {
+            logger.error('Error processing API response:', {
+              url,
+              error: err.message
             });
           }
-        });
+        }
+      });
 
-        page.on('response', async (interceptedResponse) => {
-          let url = interceptedResponse.url();
+      // Handle browser/page closure
+      this.recentDepositsBrowser.on('disconnected', () => {
+        this.isMonitoring = false;
+        this.recentDepositsBrowser = null;
+        this.recentDepositsPage = null;
+      });
 
-          // Handle deposit list API
-          if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
-            logger.info('Intercepted GetListOfRequestsForFranchise request in recent deposits --------------------------------');
-            try {
-              const json = await interceptedResponse.json();
-              const transactions = Array.isArray(json) ? json : json.data || [];
-
-              // Process transactions
-              for (const transaction of transactions) {
-                try {
-                  await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
-
-                  // Create the transaction data object
-                  const transactionData = {
-                    orderId: transaction.orderID,
-                    userId: transaction.userID,
-                    userName: transaction.userName,
-                    name: transaction.name,
-                    statusId: transaction.StatusID,
-                    transactionStatus: transaction.transactionStatus,
-                    amount: transaction.amount,
-                    requestDate: transaction.requestDate,
-                    paymentMethod: transaction.paymentMethod,
-                    holderName: transaction.holderName,
-                    bankName: transaction.bankName,
-                    accountNumber: transaction.number,
-                    iban: transaction.iBAN,
-                    cardNo: transaction.cardNo,
-                    utr: transaction.uTR,
-                    approvedOn: transaction.approvedOn,
-                    rejectedOn: transaction.rejectedOn,
-                    firstDeposit: transaction.firstDeposit,
-                    approvedBy: transaction.approvedBy,
-                    franchiseName: transaction.franchiseName,
-                    remarks: transaction.remarks,
-                    bonusIncluded: transaction.bonusIncluded,
-                    bonusExcluded: transaction.bonusExcluded,
-                    bonusThreshold: transaction.bonusThreshold,
-                    lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                    auditStatusId: transaction.auditStatusID,
-                    auditStatus: transaction.auditStatus,
-                    authorizedUserRemarks: transaction.authorizedUserRemarks,
-                    isImageAvailable: transaction.isImageAvailable
-                  };
-
-                  // Use findOneAndUpdate with upsert option to create or update
-                  await Transaction.findOneAndUpdate(
-                    { orderId: transaction.orderID },
-                    transactionData,
-                    {
-                      upsert: true,
-                      new: true,
-                      runValidators: true
-                    }
-                  );
-
-                } catch (transactionError) {
-                  logger.error('Error processing individual transaction:', {
-                    orderId: transaction?.orderID,
-                    error: transactionError.message
-                  });
-                }
-              }
-            } catch (err) {
-              logger.error('Error processing API response:', {
-                url,
-                error: err.message
-              });
-            }
-          }
-        });
-
-        // Handle browser/page closure
-        browser.on('disconnected', () => {
-          this.isMonitoring = false;
-          browser = null;
-          page = null;
-        });
-
-        page.on('close', () => {
-          this.isMonitoring = false;
-          page = null;
-        });
-      // }
+      this.recentDepositsPage.on('close', () => {
+        this.isMonitoring = false;
+        this.recentDepositsPage = null;
+      });
 
       // Only proceed with login if we're not already on the right page
-      if (!page.url().includes('/admin/deposit/recent-deposit')) {
+      if (!this.recentDepositsPage.url().includes('/admin/deposit/recent-deposit')) {
         // First handle login
         logger.info('Starting login process');
-        await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
+        await this.recentDepositsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
           waitUntil: 'networkidle2',
           timeout: 90000
         });
 
         // Wait for selectors with increased timeouts
-        await page.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
-        await page.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
+        await this.recentDepositsPage.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
+        await this.recentDepositsPage.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
 
-        await page.type('input[type="text"]', process.env.SCRAPING_USERNAME);
-        await page.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
+        await this.recentDepositsPage.type('input[type="text"]', process.env.SCRAPING_USERNAME);
+        await this.recentDepositsPage.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
 
-        const loginButton = await page.$('button[type="submit"]');
+        const loginButton = await this.recentDepositsPage.$('button[type="submit"]');
         if (!loginButton) {
           throw new Error('Login button not found');
         }
 
         // Wait for navigation after login
         await Promise.all([
-          page.waitForNavigation({ 
+          this.recentDepositsPage.waitForNavigation({ 
             waitUntil: 'networkidle2',
             timeout: 90000
           }),
@@ -874,7 +934,7 @@ class NetworkInterceptor {
 
         // Navigate to recent deposits page
         logger.info('Navigating to recent deposits page');
-        await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-deposit`, {
+        await this.recentDepositsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-deposit`, {
           waitUntil: 'networkidle2',
           timeout: 30000
         });
@@ -892,24 +952,24 @@ class NetworkInterceptor {
       }
 
       this.isMonitoring = true;
-      return { success: true, browser: browser, page: page };
+      return { success: true, browser: this.recentDepositsBrowser, page: this.recentDepositsPage };
     } catch (error) {
       logger.error('Error monitoring recent deposits:', {
         error: error.message,
         stack: error.stack
       });
-      await this.cleanup();
+      await this.cleanupRecentDeposits();
       throw error;
     }
   }
 
   async monitorRejectedDeposits() {
-    // Add delay before starting
-    // await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 5000));
-    
     try {
+      // Clean up existing rejected deposits browser instance first
+      await this.cleanupRejectedDeposits();
+
       const executablePath = await this.findChromePath();
-      let browser = await puppeteer.launch({
+      this.rejectedDepositsBrowser = await puppeteer.launch({
         headless: 'new',
         executablePath,
         product: 'chrome',
@@ -933,31 +993,13 @@ class NetworkInterceptor {
         ignoreHTTPSErrors: true
       });
   
-      let page = await browser.newPage();
+      this.rejectedDepositsPage = await this.rejectedDepositsBrowser.newPage();
 
-      // Only create new browser if we don't have one
-      // if (!this.browser) {
-        logger.info('Starting rejected deposits monitoring');
-        browser = await puppeteer.launch({
-          headless: 'new',
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--window-size=1920,1080',
-            '--disable-web-security',
-            '--disable-features=IsolateOrigins,site-per-process',
-            '--ignore-certificate-errors',
-            '--ignore-certificate-errors-spki-list',
-            '--disable-blink-features=AutomationControlled'
-          ],
-          defaultViewport: { width: 1920, height: 1080 },
-          ignoreHTTPSErrors: true
-        });
+      logger.info('Starting rejected deposits monitoring');
 
-        await page.setRequestInterception(true);
+        await this.rejectedDepositsPage.setRequestInterception(true);
 
-        page.on('request', async (interceptedRequest) => {
+        this.rejectedDepositsPage.on('request', async (interceptedRequest) => {
           try {
             if (!interceptedRequest.isInterceptResolutionHandled()) {
               await interceptedRequest.continue();
@@ -970,7 +1012,7 @@ class NetworkInterceptor {
           }
         });
 
-        page.on('response', async (interceptedResponse) => {
+        this.rejectedDepositsPage.on('response', async (interceptedResponse) => {
           let url = interceptedResponse.url();
           // logger.info('Intercepted response inside rejected deposits resopnse', { url });
 
@@ -1047,42 +1089,42 @@ class NetworkInterceptor {
         });
 
         // Handle browser/page closure
-        browser.on('disconnected', () => {
+        this.rejectedDepositsBrowser.on('disconnected', () => {
           this.isMonitoring = false;
-          browser = null;
-          page = null;
+          this.rejectedDepositsBrowser = null;
+          this.rejectedDepositsPage = null;
         });
 
-        page.on('close', () => {
+        this.rejectedDepositsPage.on('close', () => {
           this.isMonitoring = false;
-          page = null;
+          this.rejectedDepositsPage = null;
         });
       // }
 
       // Only proceed with login if we're not already on the right page
-      if (!page.url().includes('/admin/deposit/recent-deposit')) {
+      if (!this.rejectedDepositsPage.url().includes('/admin/deposit/recent-deposit')) {
         // First handle login
         logger.info('Starting login process');
-        await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
+        await this.rejectedDepositsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
           waitUntil: 'networkidle2',
           timeout: 90000
         });
 
         // Wait for selectors with increased timeouts
-        await page.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
-        await page.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
+        await this.rejectedDepositsPage.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
+        await this.rejectedDepositsPage.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
 
-        await page.type('input[type="text"]', process.env.SCRAPING_USERNAME);
-        await page.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
+        await this.rejectedDepositsPage.type('input[type="text"]', process.env.SCRAPING_USERNAME);
+        await this.rejectedDepositsPage.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
 
-        const loginButton = await page.$('button[type="submit"]');
+        const loginButton = await this.rejectedDepositsPage.$('button[type="submit"]');
         if (!loginButton) {
           throw new Error('Login button not found');
         }
 
         // Wait for navigation after login
         await Promise.all([
-          page.waitForNavigation({ 
+          this.rejectedDepositsPage.waitForNavigation({ 
             waitUntil: 'networkidle2',
             timeout: 90000
           }),
@@ -1094,7 +1136,7 @@ class NetworkInterceptor {
 
         // Navigate to recent deposits page
         logger.info('Navigating to rejected deposits page');
-        await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-deposit`, {
+        await this.rejectedDepositsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-deposit`, {
           waitUntil: 'networkidle2',
           timeout: 30000
         });
@@ -1102,23 +1144,23 @@ class NetworkInterceptor {
         // Wait for the page to load and then click the rejected filter
         try {
           // Wait for the filter dropdown to be visible and clickable
-          await page.waitForSelector('mat-select[aria-labelledby*="mat-mdc-form-field-label"]', { 
+          await this.rejectedDepositsPage.waitForSelector('mat-select[aria-labelledby*="mat-mdc-form-field-label"]', { 
             timeout: 10000,
             visible: true 
           });
           
           // Click the status filter dropdown
-          await page.click('mat-select[aria-labelledby*="mat-mdc-form-field-label"]');
+          await this.rejectedDepositsPage.click('mat-select[aria-labelledby*="mat-mdc-form-field-label"]');
           
           // Wait for the options panel to be visible
-          await page.waitForSelector('mat-option', { 
+          await this.rejectedDepositsPage.waitForSelector('mat-option', { 
             timeout: 5000,
             visible: true 
           });
           
           // Find and click the "Rejected" option using more specific selectors
           const rejectedOptionSelector = 'mat-option span.mdc-list-item__primary-text';
-          const options = await page.$$(rejectedOptionSelector);
+          const options = await this.rejectedDepositsPage.$$(rejectedOptionSelector);
           
           let rejectedSelected = false;
           for (const option of options) {
@@ -1139,13 +1181,13 @@ class NetworkInterceptor {
             // Find and click the submit button
             logger.info('Looking for submit button');
             const submitButtonSelector = 'button[mat-raised-button][type="submit"]';
-            await page.waitForSelector(submitButtonSelector, { 
+            await this.rejectedDepositsPage.waitForSelector(submitButtonSelector, { 
               visible: true,
               timeout: 5000 
             });
 
             // Click the submit button
-            await page.click(submitButtonSelector);
+            await this.rejectedDepositsPage.click(submitButtonSelector);
             logger.info('Clicked submit button');
 
             // Wait for the table to update with rejected transactions
@@ -1165,7 +1207,7 @@ class NetworkInterceptor {
             logger.info('Trying alternative selector for status dropdown');
             
             // Try finding by the visible text "Status"
-            const statusLabel = await page
+            const statusLabel = await this.rejectedDepositsPage
             if (statusLabel.length > 0) {
               // Click the parent mat-select element
               const matSelect = await statusLabel[0].evaluateHandle(node => 
@@ -1176,8 +1218,8 @@ class NetworkInterceptor {
                 await matSelect.click();
                 
                 // Wait for options and click Rejected
-                await page.waitForSelector('mat-option', { timeout: 5000 });
-                const options = await page.$$('mat-option');
+                await this.rejectedDepositsPage.waitForSelector('mat-option', { timeout: 5000 });
+                const options = await this.rejectedDepositsPage.$$('mat-option');
                 
                 let rejectedSelected = false;
                 for (const option of options) {
@@ -1198,18 +1240,18 @@ class NetworkInterceptor {
                   logger.info('Looking for submit button (alternative method)');
                   try {
                     // Try by button text
-                    const [submitButton] = await page.$x("//button[contains(., 'Submit')]");
+                    const [submitButton] = await this.rejectedDepositsPage.$x("//button[contains(., 'Submit')]");
                     if (submitButton) {
                       await submitButton.click();
                       logger.info('Clicked submit button using XPath');
                     } else {
                       // Try by class and type
                       const submitButtonSelector = 'button.mat-mdc-raised-button[type="submit"]';
-                      await page.waitForSelector(submitButtonSelector, { 
+                      await this.rejectedDepositsPage.waitForSelector(submitButtonSelector, { 
                         visible: true,
                         timeout: 5000 
                       });
-                      await page.click(submitButtonSelector);
+                      await this.rejectedDepositsPage.click(submitButtonSelector);
                       logger.info('Clicked submit button using class selector');
                     }
 
@@ -1234,28 +1276,77 @@ class NetworkInterceptor {
       }
 
       this.isMonitoring = true;
-      return { success: true, browser: browser, page: page };
+      return { success: true, browser: this.rejectedDepositsBrowser, page: this.rejectedDepositsPage };
     } catch (error) {
       logger.error('Error monitoring rejected deposits:', {
         error: error.message,
         stack: error.stack
       });
-      await this.cleanup();
+      await this.cleanupRejectedDeposits();
       throw error;
     }
   }
 
   async cleanup() {
     try {
-      if (this.browser) {
-        await this.browser.close();
+      if (this.pendingDepositsBrowser) {
+        await this.pendingDepositsBrowser.close();
+      }
+      if (this.recentDepositsBrowser) {
+        await this.recentDepositsBrowser.close();
+      }
+      if (this.rejectedDepositsBrowser) {
+        await this.rejectedDepositsBrowser.close();
       }
     } catch (error) {
-      logger.error('Error closing browser:', error);
+      logger.error('Error closing browsers:', error);
     } finally {
-      this.browser = null;
-      this.page = null;
+      this.pendingDepositsBrowser = null;
+      this.recentDepositsBrowser = null;
+      this.rejectedDepositsBrowser = null;
+      this.pendingDepositsPage = null;
+      this.recentDepositsPage = null;
+      this.rejectedDepositsPage = null;
       this.isMonitoring = false;
+    }
+  }
+
+  async cleanupPendingDeposits() {
+    try {
+      if (this.pendingDepositsBrowser) {
+        await this.pendingDepositsBrowser.close();
+      }
+    } catch (error) {
+      logger.error('Error closing pending deposits browser:', error);
+    } finally {
+      this.pendingDepositsBrowser = null;
+      this.pendingDepositsPage = null;
+    }
+  }
+
+  async cleanupRecentDeposits() {
+    try {
+      if (this.recentDepositsBrowser) {
+        await this.recentDepositsBrowser.close();
+      }
+    } catch (error) {
+      logger.error('Error closing recent deposits browser:', error);
+    } finally {
+      this.recentDepositsBrowser = null;
+      this.recentDepositsPage = null;
+    }
+  }
+
+  async cleanupRejectedDeposits() {
+    try {
+      if (this.rejectedDepositsBrowser) {
+        await this.rejectedDepositsBrowser.close();
+      }
+    } catch (error) {
+      logger.error('Error closing rejected deposits browser:', error);
+    } finally {
+      this.rejectedDepositsBrowser = null;
+      this.rejectedDepositsPage = null;
     }
   }
 
@@ -1267,10 +1358,10 @@ class NetworkInterceptor {
       logger.info('Navigating to deposit approval page', { url });
 
       // Navigate to the page
-      const response = await page.goto(url, {
-        waitUntil: ['networkidle0', 'domcontentloaded'],
-        timeout: 60000
-      });
+      // const response = await this.page.goto(url, {
+      //   waitUntil: ['networkidle0', 'domcontentloaded'],
+      //   timeout: 60000
+      // });
 
       if (!response.ok()) {
         throw new Error(`Failed to load deposit approval page: ${response.status()} ${response.statusText()}`);
@@ -1291,7 +1382,7 @@ class NetworkInterceptor {
       logger.error('Error monitoring deposit approval:', {
         error: error.message,
         stack: error.stack,
-        currentUrl: page ? page.url() : 'N/A'
+        // currentUrl: this.page ? this.page.url() : 'N/A'
       });
       throw error;
     }
@@ -1299,20 +1390,12 @@ class NetworkInterceptor {
 
   async close() {
     logger.info('Closing network interceptor');
-    
-    if (this.browser) {
-      if (this.isLoggedIn && this.currentUserId) {
-        await sessionUtil.saveSession(this.currentUserId, this.page);
-      }
-      await this.browser.close();
-      this.browser = null;
-      this.page = null;
-      this.isLoggedIn = false;
-      this.currentUserId = null;
-      this.interceptedRequests.clear();
-      this.interceptedResponses.clear();
-      logger.info('Network interceptor closed successfully');
-    }
+    await this.cleanup();
+    this.isLoggedIn = false;
+    this.currentUserId = null;
+    this.interceptedRequests.clear();
+    this.interceptedResponses.clear();
+    logger.info('Network interceptor closed successfully');
   }
 
   async clickTranscriptIcon(orderId) {
@@ -1320,7 +1403,7 @@ class NetworkInterceptor {
       logger.info('Looking for transcript button for order:', { orderId });
 
       // Wait for table and its content to be present
-      await this.page.waitForSelector('table', { timeout: 10000 });
+      // await this.page.waitForSelector('table', { timeout: 10000 });
       
       // Wait a bit for data to load
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1452,12 +1535,12 @@ class NetworkInterceptor {
             logger.info('Row not found in current page, trying next page...', { orderId });
             
             // Click the next page button
-            await this.page.evaluate(() => {
-              const nextButton = document.querySelector('button.mat-paginator-next, .mat-paginator-navigation-next');
-              if (nextButton && !nextButton.disabled) {
-                nextButton.click();
-              }
-            });
+            // await this.page.evaluate(() => {
+            //   const nextButton = document.querySelector('button.mat-paginator-next, .mat-paginator-navigation-next');
+            //   if (nextButton && !nextButton.disabled) {
+            //     nextButton.click();
+            //   }
+            // });
             
             // Wait for table to update
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1477,19 +1560,19 @@ class NetworkInterceptor {
         });
         
         // Log the current page state for debugging
-        const pageState = await this.page.evaluate(() => ({
-          url: window.location.href,
-          tablePresent: !!document.querySelector('table'),
-          rowCount: document.querySelectorAll('tr').length,
-          tdCount: document.querySelectorAll('td').length,
-          paginatorPresent: !!document.querySelector('.mat-paginator, .mat-paginator-navigation-next'),
-          visibleText: Array.from(document.querySelectorAll('td'))
-            .map(td => td.textContent.trim())
-            .filter(text => text)
-            .slice(0, 10)
-        }));
+        // const pageState = await this.page.evaluate(() => ({
+        //   url: window.location.href,
+        //   tablePresent: !!document.querySelector('table'),
+        //   rowCount: document.querySelectorAll('tr').length,
+        //   tdCount: document.querySelectorAll('td').length,
+        //   paginatorPresent: !!document.querySelector('.mat-paginator, .mat-paginator-navigation-next'),
+        //   visibleText: Array.from(document.querySelectorAll('td'))
+        //     .map(td => td.textContent.trim())
+        //     .filter(text => text)
+        //     .slice(0, 10)
+        // }));
 
-        logger.debug('Final page state:', pageState);
+        // logger.debug('Final page state:', pageState);
         return false;
       }
 
@@ -1506,11 +1589,11 @@ class NetworkInterceptor {
 
       // Log the page content for debugging
       try {
-        const html = await this.page.content();
-        logger.debug('Page content at time of error:', {
-          orderId,
-          contentPreview: html.substring(0, 1000)
-        });
+        // const html = await this.page.content();
+        // logger.debug('Page content at time of error:', {
+        //   orderId,
+        //   contentPreview: html.substring(0, 1000)
+        // });
       } catch (debugError) {
         logger.error('Error getting page content:', debugError);
       }

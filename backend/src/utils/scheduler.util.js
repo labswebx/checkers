@@ -77,7 +77,7 @@ const recentDepositsTask = new Task(
 
 const rejectedDepositsTask = new Task(
   'Rejected Deposits Monitor',
-  '*/20 * * * * *', // Every 20 seconds
+  '*/40 * * * * *', // Every 40 seconds
   async () => {
     try {
       await networkInterceptor.monitorRejectedDeposits();
