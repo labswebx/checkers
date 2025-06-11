@@ -12,6 +12,10 @@ import {
   Button,
   Stack,
   Tooltip,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import { 
   Search, 
@@ -19,7 +23,7 @@ import {
   Refresh
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchDeposits } from '../../store/slices/depositSlice';
+import { fetchDeposits, fetchFranchises } from '../../store/slices/depositSlice';
 import DepositsTable from '../../components/DepositsTable';
 import { TRANSACTION_STATUS } from '../../constants';
 
@@ -37,13 +41,14 @@ const REFRESH_INTERVAL = 10000; // 10 seconds
 const Deposits = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
-  const { deposits, loading, totalPages, totalRecords, timeSlabCounts = [] } = useSelector(state => state.deposits);
+  const { deposits, loading, totalPages, totalRecords, timeSlabCounts = [], franchises = [] } = useSelector(state => state.deposits);
 
   // Filter states
   const [filters, setFilters] = useState({
     search: '',
     status: TRANSACTION_STATUS.PENDING,
     timeSlab: 'all',
+    franchise: 'all',
     page: 1,
     limit: 10
   });
@@ -56,10 +61,11 @@ const Deposits = () => {
     dispatch(fetchDeposits(filters));
   }, [dispatch, filters]);
 
-  // Initial data fetch
+  // Initial data fetch and fetch franchises
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    dispatch(fetchFranchises());
+  }, [fetchData, dispatch]);
 
   // Auto-refresh setup
   useEffect(() => {
@@ -169,6 +175,23 @@ const Deposits = () => {
                 }}
               />
             </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Franchise</InputLabel>
+                <Select
+                  value={filters.franchise}
+                  label="Franchise"
+                  onChange={(e) => handleFilterChange('franchise', e.target.value)}
+                >
+                  <MenuItem value="all">All Franchises</MenuItem>
+                  {franchises.map((franchise) => (
+                    <MenuItem key={franchise.fullName} value={franchise.fullName}>
+                      {franchise.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
             <Grid item xs={12}>
               <Box sx={{ 
                 display: 'flex', 
@@ -191,7 +214,7 @@ const Deposits = () => {
                       {slab.label}
                       {count > 0 && (
                         <Chip
-                size="small"
+                          size="small"
                           label={count}
                           sx={{
                             position: 'absolute',

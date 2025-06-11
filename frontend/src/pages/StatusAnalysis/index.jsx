@@ -37,8 +37,8 @@ const timeFrameOptions = [
 const statusOptions = [
   { value: 'all', label: 'All Status' },
   { value: 'Pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' }
+  { value: 'Success', label: 'Success' },
+  { value: 'Rejected', label: 'Rejected' }
 ];
 
 const StatusAnalysis = () => {

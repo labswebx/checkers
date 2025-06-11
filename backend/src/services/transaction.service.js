@@ -360,13 +360,16 @@ class TransactionService {
         overall: {},
         byAgent: {}
       };
-
-      // Build base match conditions
       const baseMatch = {};
 
-      // Add status filter if provided
       if (filters.status && filters.status !== 'all') {
-        baseMatch.transactionStatus = filters.status;
+        // Map frontend status to database status
+        const statusMap = {
+          'approved': 'Success',
+          'rejected': 'Rejected',
+          'pending': 'Pending'
+        };
+        baseMatch.transactionStatus = statusMap[filters.status.toLowerCase()] || filters.status;
       }
 
       // Add time frame filter if provided
@@ -408,80 +411,58 @@ class TransactionService {
         baseMatch.requestDate = { $gte: last24Hours };
       }
 
-      // Debug: Check total transactions matching base criteria
-      const totalTransactions = await Transaction.countDocuments(baseMatch);
-      logger.info('Total transactions matching base criteria:', {
-        baseMatch,
-        count: totalTransactions
-      });
-
-      // Get a sample transaction to verify fields
-      const sampleTransaction = await Transaction.findOne(baseMatch);
-      if (sampleTransaction) {
-        logger.info('Sample transaction:', {
-          id: sampleTransaction._id,
-          requestDate: sampleTransaction.requestDate,
-          approvedOn: sampleTransaction.approvedOn,
-          rejectedOn: sampleTransaction.rejectedOn,
-          transactionStatus: sampleTransaction.transactionStatus,
-          franchiseName: sampleTransaction.franchiseName
-        });
-      }
-
       for (const slab of timeSlabs) {
         // Calculate time difference in minutes between status update and request date
         const matchStage = {
           $match: {
             ...baseMatch,
             $expr: {
-              $and: [
-                { $ne: ['$transactionStatus', 'Pending'] },
-                {
-                  $let: {
-                    vars: {
-                      timeDiffMinutes: {
-                        $divide: [
-                          {
-                            $subtract: [
-                              {
-                                $cond: {
-                                  if: { $eq: ['$transactionStatus', 'Success'] },
-                                  then: '$approvedOn',
-                                  else: {
-                                    $cond: {
-                                      if: { $eq: ['$transactionStatus', 'Rejected'] },
-                                      then: '$rejectedOn',
-                                      else: null
-                                    }
-                                  }
-                                }
-                              },
-                              '$requestDate'
-                            ]
-                          },
-                          60000 // Convert ms to minutes
-                        ]
-                      }
-                    },
-                    in: slab.max
-                      ? {
-                          $and: [
-                            { $gte: ['$$timeDiffMinutes', slab.min] },
-                            { $lt: ['$$timeDiffMinutes', slab.max] }
-                          ]
+              $let: {
+                vars: {
+                  statusUpdateDate: {
+                    $cond: {
+                      if: { $eq: ['$transactionStatus', 'Success'] },
+                      then: '$approvedOn',
+                      else: {
+                        $cond: {
+                          if: { $eq: ['$transactionStatus', 'Rejected'] },
+                          then: '$rejectedOn',
+                          else: '$requestDate' // For pending, use request date
                         }
-                      : { $gte: ['$$timeDiffMinutes', slab.min] }
+                      }
+                    }
+                  }
+                },
+                in: {
+                  $cond: {
+                    if: { $eq: ['$transactionStatus', 'Pending'] },
+                    then: true, // Include all pending transactions in "Above 20 minutes" slab
+                    else: {
+                      $let: {
+                        vars: {
+                          timeDiffMinutes: {
+                            $divide: [
+                              { $subtract: ['$$statusUpdateDate', '$requestDate'] },
+                              60000 // Convert ms to minutes
+                            ]
+                          }
+                        },
+                        in: slab.max
+                          ? {
+                              $and: [
+                                { $gte: ['$$timeDiffMinutes', slab.min] },
+                                { $lt: ['$$timeDiffMinutes', slab.max] }
+                              ]
+                            }
+                          : { $gte: ['$$timeDiffMinutes', slab.min] }
+                      }
+                    }
                   }
                 }
-              ]
+              }
             }
           }
         };
-
-        // Debug: Log the match stage for this slab
-        logger.info(`Match stage for slab ${slab.label}:`, {
-          matchStage: JSON.stringify(matchStage)
-        });
 
         // Get overall count for this time slab
         const overallCount = await Transaction.aggregate([
@@ -493,15 +474,8 @@ class TransactionService {
             }
           }
         ]);
-
-        // Debug: Log the results for this slab
-        logger.info(`Results for slab ${slab.label}:`, {
-          overallCount
-        });
-
         results.overall[slab.label] = overallCount[0]?.count || 0;
 
-        // Get agent-wise breakdown for this time slab
         const agentStats = await Transaction.aggregate([
           matchStage,
           {
@@ -519,12 +493,6 @@ class TransactionService {
           }
         ]);
 
-        // Debug: Log agent stats for this slab
-        logger.info(`Agent stats for slab ${slab.label}:`, {
-          agentStats
-        });
-
-        // Organize agent stats
         agentStats.forEach(stat => {
           if (!results.byAgent[stat._id]) {
             results.byAgent[stat._id] = {
@@ -537,16 +505,12 @@ class TransactionService {
         });
       }
 
-      // Debug: Log final results
-      logger.info('Final results:', {
-        results
-      });
-
       return results;
     } catch (error) {
       logger.error('Error getting status update stats:', {
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
+        filters
       });
       throw error;
     }

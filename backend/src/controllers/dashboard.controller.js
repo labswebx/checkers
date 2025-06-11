@@ -34,11 +34,6 @@ const getDashboardStats = async (req, res) => {
       createdAt: { $gte: last24Hours }
     });
 
-    console.log('Total Transactions (24h): ', totalTransactions);
-    console.log('Pending Transactions (24h): ', pendingTransactions);
-    console.log('Approved Transactions (24h): ', approvedTransactions);
-    console.log('Rejected Transactions (24h): ', rejectedTransactions);
-
     // Calculate total amounts for last 24 hours
     const totalAmountStats = await Transaction.aggregate([
       {

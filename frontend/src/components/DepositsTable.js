@@ -19,11 +19,13 @@ import {
   Person,
   Receipt,
   WhatsApp,
-  Timer
+  Timer,
+  Image
 } from '@mui/icons-material'
 import Pagination from './Pagination';
 import React, { useState, useEffect } from 'react'
 import { formatToUAETime, getElapsedTimeInUAE } from '../utils/timezone.util';
+import ImageOverlay from './ImageOverlay';
 
 const ElapsedTimer = ({ createdAt }) => {
   const [elapsedTime, setElapsedTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -75,6 +77,7 @@ const ElapsedTimer = ({ createdAt }) => {
 
 export default function DepositsTable({ deposits, loading, totalPages, totalRecords, filters, handleFilterChange }) {
   const theme = useTheme();
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const statusColors = {
     Pending: {
@@ -122,158 +125,200 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
     window.open(whatsappUrl, '_blank');
   };
 
+  const handleTranscriptClick = (transcriptLink) => {
+    if (!transcriptLink) {
+      alert('No transcript available for this transaction');
+      return;
+    }
+    setSelectedImage(transcriptLink);
+  };
+
   return (
-    <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-      <TableContainer>
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell>Order ID</TableCell>
-              <TableCell>Customer</TableCell>
-              <TableCell>Amount</TableCell>
-              <TableCell>UTR</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Franchise</TableCell>
-              <TableCell>Timing</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
+    <>
+      <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+        <TableContainer>
+          <Table stickyHeader>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
-                  <CircularProgress size={24} />
-                </TableCell>
+                <TableCell>Order ID</TableCell>
+                <TableCell>Customer</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>UTR</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Franchise</TableCell>
+                <TableCell>Timing</TableCell>
+                <TableCell>Transcript</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
-            ) : deposits.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body1" color="text.secondary">
-                    No deposits found
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              deposits.map((deposit) => (
-                <TableRow 
-                  key={deposit._id} 
-                  hover
-                  sx={{ '&:hover': { bgcolor: '#fafafa' } }}
-                >
-                  <TableCell>
-                    <Tooltip title="Copy ID" arrow>
-                      <Box sx={{ cursor: 'pointer' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {deposit.orderId}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatToUAETime(deposit.createdAt)}
-                        </Typography>
-                      </Box>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {deposit.customerName}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {formatAmount(deposit.amount)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="Copy UTR" arrow>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          cursor: 'pointer',
-                          '&:hover': { color: theme.palette.primary.main }
-                        }}
-                      >
-                        {deposit.utr || '-'}
-                      </Typography>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={deposit.status}
-                      size="small"
-                      sx={{ 
-                        textTransform: 'capitalize',
-                        bgcolor: statusColors[deposit.status].bg,
-                        color: statusColors[deposit.status].color,
-                        fontWeight: 500,
-                        minWidth: 100
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Person fontSize="small" color="action" />
-                      <Typography variant="body2">
-                        {deposit.franchise.split(' (')[0]}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Stack spacing={0.5}>
-                      {deposit.status === 'Pending' && (
-                        <ElapsedTimer createdAt={formatToUAETime(deposit.createdAt)} />
-                      )}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Receipt fontSize="small" color="action" />
-                        <Typography variant="caption">
-                          Created: {formatToUAETime(deposit.createdAt)}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="Send WhatsApp Message" arrow>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleWhatsAppClick(deposit)}
-                        sx={{
-                          color: '#25D366',
-                          '&:hover': {
-                            backgroundColor: 'rgba(37, 211, 102, 0.1)'
-                          }
-                        }}
-                      >
-                        <WhatsApp />
-                      </IconButton>
-                    </Tooltip>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                    <CircularProgress size={24} />
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              ) : deposits.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                    <Typography variant="body1" color="text.secondary">
+                      No deposits found
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                deposits.map((deposit) => (
+                  <TableRow 
+                    key={deposit._id} 
+                    hover
+                    sx={{ '&:hover': { bgcolor: '#fafafa' } }}
+                  >
+                    <TableCell>
+                      <Tooltip title="Copy ID" arrow>
+                        <Box sx={{ cursor: 'pointer' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {deposit.orderId}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatToUAETime(deposit.createdAt)}
+                          </Typography>
+                        </Box>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {deposit.customerName}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {formatAmount(deposit.amount)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title="Copy UTR" arrow>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            cursor: 'pointer',
+                            '&:hover': { color: theme.palette.primary.main }
+                          }}
+                        >
+                          {deposit.utr || '-'}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={deposit.status}
+                        size="small"
+                        sx={{ 
+                          textTransform: 'capitalize',
+                          bgcolor: statusColors[deposit.status].bg,
+                          color: statusColors[deposit.status].color,
+                          fontWeight: 500,
+                          minWidth: 100
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Person fontSize="small" color="action" />
+                        <Typography variant="body2">
+                          {deposit.franchise.split(' (')[0]}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Stack spacing={0.5}>
+                        {deposit.status === 'Pending' && (
+                          <ElapsedTimer createdAt={formatToUAETime(deposit.createdAt)} />
+                        )}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Receipt fontSize="small" color="action" />
+                          <Typography variant="caption">
+                            Created: {formatToUAETime(deposit.createdAt)}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      {deposit.transcriptLink ? (
+                        <Tooltip title="View Transcript" arrow>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleTranscriptClick(deposit.transcriptLink)}
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&:hover': {
+                                backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                              }
+                            }}
+                          >
+                            <Image />
+                          </IconButton>
+                        </Tooltip>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          -
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1}>
+                        <Tooltip title="Send WhatsApp Message" arrow>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleWhatsAppClick(deposit)}
+                            sx={{
+                              color: '#25D366',
+                              '&:hover': {
+                                backgroundColor: 'rgba(37, 211, 102, 0.1)'
+                              }
+                            }}
+                          >
+                            <WhatsApp />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
-      {deposits.length > 0 && (
-        <Box sx={{ 
-          p: 2, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          borderTop: 1,
-          borderColor: 'divider'
-        }}>
-          <Typography variant="body2" color="text.secondary">
-            Showing {(filters.page - 1) * filters.limit + 1} - {Math.min(filters.page * filters.limit, totalRecords)} of {totalRecords} deposits
-          </Typography>
-          <Pagination
-            count={totalPages}
-            page={filters.page}
-            onChange={(e, page) => handleFilterChange('page', page)}
-            size="small"
-          />
-        </Box>
+        {deposits.length > 0 && (
+          <Box sx={{ 
+            p: 2, 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            borderTop: 1,
+            borderColor: 'divider'
+          }}>
+            <Typography variant="body2" color="text.secondary">
+              Showing {(filters.page - 1) * filters.limit + 1} - {Math.min(filters.page * filters.limit, totalRecords)} of {totalRecords} deposits
+            </Typography>
+            <Pagination
+              count={totalPages}
+              page={filters.page}
+              onChange={(e, page) => handleFilterChange('page', page)}
+              size="small"
+            />
+          </Box>
+        )}
+      </Paper>
+
+      {selectedImage && (
+        <ImageOverlay
+          imageUrl={selectedImage}
+          onClose={() => setSelectedImage(null)}
+        />
       )}
-    </Paper>
+    </>
   );
 }

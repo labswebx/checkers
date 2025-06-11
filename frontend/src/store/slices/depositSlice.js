@@ -16,8 +16,18 @@ export const fetchDeposits = createAsyncThunk(
     if (filters.timeSlab !== 'all') queryParams.append('timeSlab', filters.timeSlab);
     if (filters.page) queryParams.append('page', filters.page);
     if (filters.limit) queryParams.append('limit', filters.limit);
+    if (filters.franchise) queryParams.append('franchise', filters.franchise);
 
     const response = await api.get(`${API_ENDPOINTS.DEPOSITS}?${queryParams}`);
+    return response.data.data;
+  }
+);
+
+// Async thunk for fetching franchises
+export const fetchFranchises = createAsyncThunk(
+  'deposits/fetchFranchises',
+  async () => {
+    const response = await api.get(API_ENDPOINTS.FRANCHISES);
     return response.data.data;
   }
 );
@@ -26,6 +36,7 @@ const depositSlice = createSlice({
   name: 'deposits',
   initialState: {
     deposits: [],
+    franchises: [],
     loading: false,
     error: null,
     totalPages: 0,
@@ -57,6 +68,9 @@ const depositSlice = createSlice({
       .addCase(fetchDeposits.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+      })
+      .addCase(fetchFranchises.fulfilled, (state, action) => {
+        state.franchises = action.payload;
       });
   }
 });

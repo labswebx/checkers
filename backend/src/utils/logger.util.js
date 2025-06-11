@@ -1,11 +1,38 @@
 const winston = require('winston');
 const path = require('path');
 
+// Safe JSON stringify that handles circular references
+function safeStringify(obj, indent = 2) {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular Reference]';
+      }
+      seen.add(value);
+      
+      // Remove problematic properties from axios response objects
+      if (value.constructor && value.constructor.name === 'IncomingMessage') {
+        return {
+          statusCode: value.statusCode,
+          statusMessage: value.statusMessage,
+          headers: value.headers
+        };
+      }
+      
+      if (value.constructor && value.constructor.name === 'ClientRequest') {
+        return '[HTTP Request Object]';
+      }
+    }
+    return value;
+  }, indent);
+}
+
 // Define log format
 const logFormat = winston.format.combine(
   winston.format.timestamp(),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
-    return `${timestamp} [${level.toUpperCase()}]: ${message} ${Object.keys(meta).length ? JSON.stringify(meta, null, 2) : ''}`;
+    return `${timestamp} [${level.toUpperCase()}]: ${message} ${Object.keys(meta).length ? safeStringify(meta, 2) : ''}`;
   })
 );
 

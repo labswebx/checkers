@@ -5,6 +5,8 @@ const sessionUtil = require('./session.util');
 const transactionService = require('../services/transaction.service');
 const fs = require('fs');
 const Transaction = require('../models/transaction.model');
+const Constant = require('../models/constant.model');
+const axios = require('axios');
 
 // Add stealth plugin to puppeteer
 // puppeteer.use(StealthPlugin());
@@ -573,6 +575,35 @@ class NetworkInterceptor {
         this.pendingDepositsPage.on('response', async (interceptedResponse) => {
           let url = interceptedResponse.url();
 
+          // Handle login response
+          if (url.includes('/accounts/login')) {
+            try {
+              const responseData = await interceptedResponse.json();
+              if (responseData && responseData.detail.token) {
+                // Check if token exists and its age
+                const existingToken = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
+                const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+                
+                if (!existingToken || (Date.now() - existingToken.lastUpdated.getTime()) > fiveHoursFortyMins) {
+                  // Store the token in constants collection only if it's older than 5h40m
+                  await Constant.findOneAndUpdate(
+                    { key: 'SCRAPING_AUTH_TOKEN' },
+                    { 
+                      value: responseData.detail.token,
+                      lastUpdated: new Date()
+                    },
+                    { upsert: true }
+                  );
+                  logger.info('Successfully stored scraping auth token');
+                } else {
+                  logger.info('Existing token is still valid, skipping update');
+                }
+              }
+            } catch (error) {
+              logger.error('Error processing login response:', error);
+            }
+          }
+
           // Handle deposit list API
           if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
             logger.info('Intercepted GetListOfRequestsForFranchise request ================================================')
@@ -628,6 +659,8 @@ class NetworkInterceptor {
                       runValidators: true // run schema validators
                     }
                   );
+
+                  await this.fetchTranscript(transaction.orderID);
                 } catch (transactionError) {
                   logger.error('Error processing individual transaction:', {
                     orderId: transaction?.orderID,
@@ -814,6 +847,35 @@ class NetworkInterceptor {
 
       this.recentDepositsPage.on('response', async (interceptedResponse) => {
         let url = interceptedResponse.url();
+
+        // Handle login response
+        if (url.includes('/accounts/login')) {
+          try {
+            const responseData = await interceptedResponse.json();
+            if (responseData && responseData.detail.token) {
+              // Check if token exists and its age
+              const existingToken = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
+              const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+              
+              if (!existingToken || (Date.now() - existingToken.lastUpdated.getTime()) > fiveHoursFortyMins) {
+                // Store the token in constants collection only if it's older than 5h40m
+                await Constant.findOneAndUpdate(
+                  { key: 'SCRAPING_AUTH_TOKEN' },
+                  { 
+                    value: responseData.detail.token,
+                    lastUpdated: new Date()
+                  },
+                  { upsert: true }
+                );
+                logger.info('Successfully stored scraping auth token');
+              } else {
+                logger.info('Existing token is still valid, skipping update');
+              }
+            }
+          } catch (error) {
+            logger.error('Error processing login response:', error);
+          }
+        }
 
         // Handle deposit list API
         if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
@@ -1015,6 +1077,35 @@ class NetworkInterceptor {
         this.rejectedDepositsPage.on('response', async (interceptedResponse) => {
           let url = interceptedResponse.url();
           // logger.info('Intercepted response inside rejected deposits resopnse', { url });
+
+          // Handle login response
+          if (url.includes('/accounts/login')) {
+            try {
+              const responseData = await interceptedResponse.json();
+              if (responseData && responseData.detail.token) {
+                // Check if token exists and its age
+                const existingToken = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
+                const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+                
+                if (!existingToken || (Date.now() - existingToken.lastUpdated.getTime()) > fiveHoursFortyMins) {
+                  // Store the token in constants collection only if it's older than 5h40m
+                  await Constant.findOneAndUpdate(
+                    { key: 'SCRAPING_AUTH_TOKEN' },
+                    { 
+                      value: responseData.detail.token,
+                      lastUpdated: new Date()
+                    },
+                    { upsert: true }
+                  );
+                  logger.info('Successfully stored scraping auth token');
+                } else {
+                  logger.info('Existing token is still valid, skipping update');
+                }
+              }
+            } catch (error) {
+              logger.error('Error processing login response:', error);
+            }
+          }
 
           // Handle deposit list API
           if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
@@ -1398,206 +1489,55 @@ class NetworkInterceptor {
     logger.info('Network interceptor closed successfully');
   }
 
-  async clickTranscriptIcon(orderId) {
+  async fetchTranscript(orderId) {
     try {
-      logger.info('Looking for transcript button for order:', { orderId });
-
-      // Wait for table and its content to be present
-      // await this.page.waitForSelector('table', { timeout: 10000 });
-      
-      // Wait a bit for data to load
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Try to find the row with retries and pagination
-      let maxRetries = 5;
-      let found = false;
-
-      while (maxRetries > 0 && !found) {
-        // Check if row exists in current page
-        const result = await this.page.evaluate((targetOrderId) => {
-          // Helper function to safely get text content
-          const getTextContent = (element) => {
-            try {
-              return (element.textContent || '').trim();
-            } catch (e) {
-              return '';
-            }
-          };
-
-          // Try different selectors to find the table
-          const table = document.querySelector('table') || 
-                       document.querySelector('.mat-table') ||
-                       document.querySelector('[role="grid"]');
-                       
-          if (!table) {
-            return { success: false, error: 'Table not found' };
-          }
-
-          // Find all rows in the table
-          const rows = Array.from(table.querySelectorAll('tr, .mat-row'));
-          
-          // Debug info about rows and their content
-          const rowsInfo = rows.map(row => {
-            const cells = Array.from(row.querySelectorAll('td, .mat-cell'));
-            return {
-              cellCount: cells.length,
-              cellContents: cells.map(cell => getTextContent(cell)),
-              hasTranscriptCell: !!row.querySelector('.cdk-column-transcript')
-            };
-          });
-
-          // Find the row containing our orderId
-          const targetRow = rows.find(row => {
-            const cells = Array.from(row.querySelectorAll('td, .mat-cell'));
-            return cells.some(cell => {
-              const text = getTextContent(cell);
-              // Try both exact match and as part of cell content
-              return text === targetOrderId.toString() || text.includes(targetOrderId.toString());
-            });
-          });
-
-          if (!targetRow) {
-            // Check if we have pagination
-            const nextButton = document.querySelector('button.mat-paginator-next, .mat-paginator-navigation-next');
-            const isNextEnabled = nextButton && !nextButton.disabled;
-            
-            return { 
-              success: false, 
-              error: `Row not found for orderId: ${targetOrderId}`,
-              debug: {
-                totalRows: rows.length,
-                rowsInfo,
-                tableHtml: table.innerHTML.substring(0, 500),
-                hasNextPage: isNextEnabled
-              }
-            };
-          }
-
-          // Find the transcript cell in this row
-          const transcriptCell = Array.from(targetRow.querySelectorAll('td, .mat-cell'))
-            .find(td => td.classList.contains('cdk-column-transcript'));
-
-          if (!transcriptCell) {
-            return { 
-              success: false, 
-              error: 'Transcript cell not found in row',
-              debug: {
-                rowHtml: targetRow.innerHTML,
-                cellClasses: Array.from(targetRow.querySelectorAll('td')).map(td => td.className)
-              }
-            };
-          }
-
-          // Find the button - try multiple possible selectors
-          const button = transcriptCell.querySelector('button') || 
-                        transcriptCell.querySelector('mat-icon') ||
-                        transcriptCell.querySelector('[role="button"]');
-
-          if (!button) {
-            return { 
-              success: false, 
-              error: 'Button not found in transcript cell',
-              debug: {
-                cellHtml: transcriptCell.innerHTML,
-                cellChildren: Array.from(transcriptCell.children).map(c => c.tagName)
-              }
-            };
-          }
-
-          // Click the button
-          button.click();
-          
-          return { 
-            success: true,
-            debug: {
-              rowFound: true,
-              cellFound: true,
-              buttonFound: true,
-              rowHtml: targetRow.innerHTML,
-              cellHtml: transcriptCell.innerHTML,
-              buttonHtml: button.outerHTML
-            }
-          };
-        }, orderId);
-
-        if (result.success) {
-          found = true;
-          logger.info('Successfully clicked transcript button:', {
-            orderId,
-            debug: result.debug
-          });
-          break;
-        } else {
-          // If there's a next page and we haven't found our row yet
-          const hasNextPage = result.debug?.hasNextPage;
-          
-          if (hasNextPage) {
-            logger.info('Row not found in current page, trying next page...', { orderId });
-            
-            // Click the next page button
-            // await this.page.evaluate(() => {
-            //   const nextButton = document.querySelector('button.mat-paginator-next, .mat-paginator-navigation-next');
-            //   if (nextButton && !nextButton.disabled) {
-            //     nextButton.click();
-            //   }
-            // });
-            
-            // Wait for table to update
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          } else {
-            // If no next page, break the loop
-            logger.warn('No more pages to check', { orderId });
-            break;
-          }
-        }
-
-        maxRetries--;
-      }
-
-      if (!found) {
-        logger.warn('Failed to find and click transcript button after checking all pages:', {
-          orderId
-        });
-        
-        // Log the current page state for debugging
-        // const pageState = await this.page.evaluate(() => ({
-        //   url: window.location.href,
-        //   tablePresent: !!document.querySelector('table'),
-        //   rowCount: document.querySelectorAll('tr').length,
-        //   tdCount: document.querySelectorAll('td').length,
-        //   paginatorPresent: !!document.querySelector('.mat-paginator, .mat-paginator-navigation-next'),
-        //   visibleText: Array.from(document.querySelectorAll('td'))
-        //     .map(td => td.textContent.trim())
-        //     .filter(text => text)
-        //     .slice(0, 10)
-        // }));
-
-        // logger.debug('Final page state:', pageState);
+      const authToken = await this.getAuthToken();
+      if (!authToken) {
+        logger.error('No auth token found in constants');
         return false;
       }
 
-      // Wait for the API call to complete
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return true;
-
-    } catch (error) {
-      logger.error('Error clicking transcript button:', {
-        orderId,
-        error: error.message,
-        stack: error.stack
-      });
-
-      // Log the page content for debugging
-      try {
-        // const html = await this.page.content();
-        // logger.debug('Page content at time of error:', {
-        //   orderId,
-        //   contentPreview: html.substring(0, 1000)
-        // });
-      } catch (debugError) {
-        logger.error('Error getting page content:', debugError);
+      const response = await axios.post(
+        `${process.env.SCRAPING_WEBSITE_URL}/accounts/GetSnap`,
+        { orderID: orderId },
+        {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+  
+      if (response.data) {
+        // Update transaction with transcript link
+        await Transaction.findOneAndUpdate(
+          { orderId },
+          { 
+            transcriptLink: response.data.imageData,
+            lastTranscriptUpdate: new Date()
+          }
+        );
+        return true;
       }
       return false;
+    } catch (error) {
+      logger.error(`Error fetching transcript for order ${orderId}:`, error);
+      return false;
+    }
+  }
+
+  async getAuthToken() {
+    try {
+      const tokenData = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
+      if (!tokenData) {
+        logger.error('No auth token found in constants');
+        return null;
+      }
+  
+      return tokenData.value;
+    } catch (error) {
+      logger.error('Error fetching auth token:', error);
+      return null;
     }
   }
 }

@@ -66,7 +66,15 @@ const transactionSchema = new mongoose.Schema({
     default: false
   },
   imageUrl: String,
-  imageLastUpdated: Date
+  imageLastUpdated: Date,
+  transcriptLink: {
+    type: String,
+    default: null
+  },
+  lastTranscriptUpdate: {
+    type: Date,
+    default: null
+  }
 }, {
   timestamps: true
 });

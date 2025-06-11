@@ -24,6 +24,7 @@ router.get('/deposits', auth, async (req, res) => {
       search,
       status,
       timeSlab,
+      franchise,
       page = 1,
       limit = 10
     } = req.query;
@@ -50,6 +51,10 @@ router.get('/deposits', auth, async (req, res) => {
 
     if (status && status !== 'all') {
       baseQuery.transactionStatus = status;
+    }
+
+    if (franchise && franchise !== 'all') {
+      baseQuery.franchiseName = franchise;
     }
 
     // Calculate time slabs for pending deposits
@@ -151,6 +156,7 @@ router.get('/deposits', auth, async (req, res) => {
       status: deposit.transactionStatus,
       franchise: deposit.franchiseName || '',
       createdAt: deposit.createdAt,
+      transcriptLink: deposit.transcriptLink,
       agentId: {
         name: agentMap[deposit.franchiseName.split(' (')[0]]?.name || '',
         email: agentMap[deposit.franchiseName.split(' (')[0]]?.email || '',
@@ -182,6 +188,28 @@ router.get('/status-update-stats', auth, async (req, res) => {
     return successResponse(res, 'Status update statistics fetched successfully', stats);
   } catch (error) {
     return errorResponse(res, 'Error fetching status update statistics', error, STATUS_CODES.SERVER_ERROR);
+  }
+});
+
+// Get all franchises
+router.get('/franchises', auth, async (req, res) => {
+  try {
+    // Get unique franchises from transactions
+    const franchises = await Transaction.distinct('franchiseName');
+    
+    // Clean and sort franchises
+    const cleanedFranchises = franchises
+      .filter(f => f) // Remove null/empty values
+      .map(f => ({
+        name: f.split(' (')[0], // Remove anything in parentheses
+        fullName: f
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return successResponse(res, 'Franchises fetched successfully', cleanedFranchises);
+  } catch (error) {
+    logger.error('Error in /franchises endpoint:', error);
+    return errorResponse(res, 'Error fetching franchises', error, STATUS_CODES.INTERNAL_SERVER_ERROR);
   }
 });
 
