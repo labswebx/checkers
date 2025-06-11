@@ -64,7 +64,7 @@ const depositListTask = new Task(
 
 const recentDepositsTask = new Task(
   'Recent Deposits Monitor',
-  '*/30 * * * * *', // Every 30 seconds
+  '*/20 * * * * *', // Every 20 seconds
   async () => {
     try {
       await networkInterceptor.monitorRecentDeposits();
@@ -77,7 +77,7 @@ const recentDepositsTask = new Task(
 
 const rejectedDepositsTask = new Task(
   'Rejected Deposits Monitor',
-  '*/40 * * * * *', // Every 40 seconds
+  '*/20 * * * * *', // Every 20 seconds
   async () => {
     try {
       await networkInterceptor.monitorRejectedDeposits();
