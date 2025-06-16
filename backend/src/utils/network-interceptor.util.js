@@ -372,7 +372,7 @@ class NetworkInterceptor {
                     statusId: transaction.StatusID,
                     transactionStatus: transaction.transactionStatus,
                     amount: transaction.amount,
-                    requestDate: new Date(new Date(transaction.requestDate).getTime() + (5.5 * 60 * 60 * 1000)), // Convert UTC to IST
+                    requestDate: transaction.requestDate, // Convert UTC to IST
                     paymentMethod: transaction.paymentMethod,
                     holderName: transaction.holderName,
                     bankName: transaction.bankName,
@@ -635,7 +635,7 @@ class NetworkInterceptor {
                   statusId: transaction.StatusID,
                   transactionStatus: transaction.transactionStatus,
                   amount: transaction.amount,
-                  requestDate: new Date(new Date(transaction.requestDate).getTime() + (5.5 * 60 * 60 * 1000)), // Convert UTC to IST
+                  requestDate: transaction.requestDate, // Convert UTC to IST
                   paymentMethod: transaction.paymentMethod,
                   holderName: transaction.holderName,
                   bankName: transaction.bankName,
@@ -841,7 +841,7 @@ class NetworkInterceptor {
                     statusId: transaction.StatusID,
                     transactionStatus: transaction.transactionStatus,
                     amount: transaction.amount,
-                    requestDate: new Date(new Date(transaction.requestDate).getTime() + (5.5 * 60 * 60 * 1000)), // Convert UTC to IST
+                    requestDate: transaction.requestDate, // Convert UTC to IST
                     paymentMethod: transaction.paymentMethod,
                     holderName: transaction.holderName,
                     bankName: transaction.bankName,
