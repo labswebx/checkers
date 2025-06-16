@@ -58,9 +58,6 @@ class TransactionService {
             if (existingTransaction.status !== mappedData.status) {
               updateData.statusUpdatedAt = convertToUAETime(new Date());
               results.statusChanged++;
-
-              // Log status change for monitoring
-              // logger.info('Transaction status changed');
             }
 
             // Update with validation
@@ -102,9 +99,6 @@ class TransactionService {
         }
       }
 
-      // Log detailed results
-      // logger.info('Transaction processing complete');
-
       return results;
     } catch (error) {
       logger.error('Error in processTransactions:', error);
@@ -141,7 +135,6 @@ class TransactionService {
             whatsapp: false
           }
         });
-        // logger.info('New agent user created');
       }
 
       return agent;
@@ -237,12 +230,6 @@ class TransactionService {
       return TRANSACTION_STATUS.PENDING;
     }
 
-    // Log unknown status for monitoring
-    // logger.warn('Unknown transaction status encountered', { 
-    //   rawStatus: status,
-    //   defaultingTo: TRANSACTION_STATUS.PENDING
-    // });
-
     return TRANSACTION_STATUS.PENDING;
   }
 
@@ -256,7 +243,7 @@ class TransactionService {
       const date = new Date(dateStr);
       return convertToUAETime(date);
     } catch (error) {
-      logger.warn('Error parsing date:', { dateStr, error: error.message });
+      logger.error('Error parsing date:', { dateStr, error: error.message });
       return null;
     }
   }

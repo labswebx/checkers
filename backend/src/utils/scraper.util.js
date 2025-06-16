@@ -36,9 +36,7 @@ class ScraperUtil {
   }
 
   async initialize() {
-    try {
-      // logger.info('Initializing scraper browser');
-      
+    try {      
       // Find Chrome executable
       const executablePath = await this.findChromiumPath();
       if (!executablePath) {
@@ -51,9 +49,7 @@ class ScraperUtil {
       let lastError = null;
 
       while (retries > 0) {
-        try {
-          // logger.info(`Attempting to launch browser (attempt ${4-retries}/3)`);
-          
+        try {          
           this.browser = await puppeteer.launch({
             headless: 'new',
             executablePath,
@@ -93,10 +89,6 @@ class ScraperUtil {
         } catch (error) {
           lastError = error;
           retries--;
-          logger.warn(`Browser launch failed, retrying... (${retries} attempts left)`, { 
-            error: error.message,
-            stack: error.stack 
-          });
           if (retries > 0) {
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
@@ -147,45 +139,32 @@ class ScraperUtil {
    */
   async login(userId, username, password) {
     try {
-      // logger.info('Starting login process');
       this.currentUserId = userId;
 
       if (!this.page) {
-        // logger.debug('Page not initialized, initializing now');
         await this.initialize();
       }
 
       // Try to restore session first
       const sessionRestored = await sessionUtil.restoreSession(userId, this.page);
       if (sessionRestored) {
-        // logger.info('Session restored, validating...');
         const isValid = await this.validateSession();
         if (isValid) {
-          // logger.info('Session validated successfully');
           this.isLoggedIn = true;
           return {
             success: true,
             data: await this.extractDashboardData()
           };
         }
-        // logger.info('Session invalid, proceeding with fresh login');
       }
 
       const loginUrl = `${process.env.SCRAPING_WEBSITE_URL}/login`;
-      // logger.info('Navigating to login page:', { url: loginUrl });
-      
-      // Navigate to login page
       await this.page.goto(loginUrl, { 
         waitUntil: 'networkidle0',
         timeout: 30000 
       });
-      // logger.debug('Navigation complete');
-
-      // Wait for form elements and fill them
-      // logger.debug('Waiting for login form elements');
       await this.page.waitForSelector('input[type="text"]', { visible: true, timeout: 5000 });
       await this.page.waitForSelector('input[type="password"]', { visible: true, timeout: 5000 });
-      // logger.debug('Form elements found');
 
       // Clear existing values
       await this.page.evaluate(() => {
@@ -193,21 +172,15 @@ class ScraperUtil {
         document.querySelector('input[type="password"]').value = '';
       });
 
-      // Type credentials (using type instead of fill for more human-like behavior)
-      // logger.debug('Typing credentials');
       await this.page.type('input[type="text"]', username, { delay: 100 });
       await this.page.type('input[type="password"]', password, { delay: 100 });
 
-      // Find and click the login button
-      // logger.debug('Looking for login button');
       const loginButton = await this.page.$('button[type="submit"]');
       if (!loginButton) {
         logger.error('Login button not found on page');
         throw new Error('Login button not found');
       }
 
-      // Click the login button and wait for navigation
-      // logger.info('Submitting login form');
       await Promise.all([
         this.page.waitForNavigation({ 
           waitUntil: 'networkidle0',
@@ -215,7 +188,6 @@ class ScraperUtil {
         }),
         loginButton.click()
       ]);
-      // logger.debug('Form submitted, navigation complete');
 
       // Check if login was successful
       const isSuccess = await this.checkLoginSuccess();
@@ -223,15 +195,8 @@ class ScraperUtil {
         logger.error('Login verification failed');
         throw new Error('Login failed');
       }
-
-      // Save session after successful login
       await sessionUtil.saveSession(userId, this.page);
-
-      // Extract data after successful login
-      // logger.info('Extracting dashboard data');
       const dashboardData = await this.extractDashboardData();
-
-      // logger.info('Login successful');
       this.isLoggedIn = true;
       return {
         success: true,
@@ -257,7 +222,6 @@ class ScraperUtil {
         await sessionUtil.saveSession(this.currentUserId, this.page);
       }
 
-      logger.info('Closing browser');
       await this.browser.close();
       this.browser = null;
       this.page = null;
@@ -294,20 +258,9 @@ class ScraperUtil {
    */
   async checkLoginSuccess() {
     try {
-      logger.debug('Checking login success');
-      
-      // Wait for a short time to let any redirects complete
       await this.page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
-
-      // Get the current URL
       const currentUrl = this.page.url();
-      logger.debug('Current URL after login:', { url: currentUrl });
-
-      // If we're still on the login page, login failed
-      if (currentUrl.includes('/login')) {
-        logger.debug('Still on login page, checking for error messages');
-        
-        // Check for error messages
+      if (currentUrl.includes('/login')) {        
         const errorMessage = await this.page.$eval('.error-message', el => el.textContent)
           .catch(() => null);
 
@@ -315,23 +268,8 @@ class ScraperUtil {
           logger.error('Login error message found:', { message: errorMessage });
           throw new Error(errorMessage);
         }
-        
-        logger.warn('Login appears to have failed (still on login page)');
         return false;
       }
-
-      // Ensure screenshots directory exists before taking screenshot
-      // const screenshotsDir = path.join(process.cwd(), 'logs', 'screenshots');
-      // await this.ensureDirectoryExists(screenshotsDir);
-
-      // Take a screenshot for debugging if needed
-      // await this.page.screenshot({ 
-      //   path: path.join(screenshotsDir, `login-success-${Date.now()}.png`),
-      //   fullPage: true 
-      // });
-      logger.debug('Saved login success screenshot');
-
-      logger.info('Login success verification complete');
       return true;
     } catch (error) {
       logger.error('Error checking login status:', { 
@@ -348,39 +286,19 @@ class ScraperUtil {
    */
   async extractDashboardData() {
     try {
-      // Wait for content to load
       await this.page.waitForSelector('body', { timeout: 5000 });
-      
-      // Ensure screenshots directory exists before taking screenshot
-      // const screenshotsDir = path.join(process.cwd(), 'logs', 'screenshots');
-      // await this.ensureDirectoryExists(screenshotsDir);
-      
-      // // Take a screenshot for debugging
-      // await this.page.screenshot({ 
-      //   path: path.join(screenshotsDir, `dashboard-${Date.now()}.png`),
-      //   fullPage: true 
-      // });
-
-      // Get the current URL and HTML content
       const currentUrl = this.page.url();
       const pageTitle = await this.page.title();
       
-      // Extract all relevant data from the dashboard
       const data = await this.page.evaluate(() => {
-        // Get all text content from the page
         const pageText = document.body.innerText;
-        
-        // Get all visible input fields
         const inputs = Array.from(document.querySelectorAll('input')).map(input => ({
           type: input.type,
           name: input.name,
           id: input.id,
           value: input.value
         }));
-
-        // Get all button text
         const buttons = Array.from(document.querySelectorAll('button')).map(btn => btn.innerText.trim());
-
         return {
           pageContent: pageText,
           inputs,
@@ -392,7 +310,6 @@ class ScraperUtil {
       data.url = currentUrl;
       data.title = pageTitle;
 
-      // logger.info('Dashboard data extracted successfully', { url: currentUrl });
       return data;
     } catch (error) {
       logger.error('Error extracting dashboard data:', {
@@ -418,7 +335,6 @@ class ScraperUtil {
         throw new Error('Not logged in. Please login first.');
       }
 
-      logger.info('Navigating to deposit approval page', { page });
       await this.page.goto(`https://dwpanell100.online/admin/deposit/deposit-approval?page=${page}`, {
         waitUntil: 'networkidle0',
         timeout: 30000
@@ -474,8 +390,6 @@ class ScraperUtil {
         };
       });
 
-      logger.info('Deposit approval data extracted successfully');
-
       return {
         success: true,
         data: data
@@ -497,24 +411,19 @@ class ScraperUtil {
     try {
       // Get first page and pagination info
       const firstPage = await this.getDepositApprovalData(1);
-      const totalPages = firstPage.data.pagination.totalPages;
-      
-      logger.info('Starting full data extraction', { totalPages });
-      
+      const totalPages = firstPage.data.pagination.totalPages;      
       const allData = [firstPage.data.rows];
       
       // Get remaining pages
       for(let page = 2; page <= totalPages; page++) {
         const pageData = await this.getDepositApprovalData(page);
         allData.push(pageData.data.rows);
-        logger.info(`Extracted page ${page}/${totalPages}`);
       }
 
       const allRows = allData.flat();
       
       // Process transactions
       const processResult = await transactionService.processTransactions(allRows, 'deposit');
-      logger.info('Transaction processing complete');
 
       return {
         success: true,
@@ -551,8 +460,6 @@ class ScraperUtil {
         if (!this.isLoggedIn) {
           throw new Error('Not logged in. Please login first.');
         }
-
-        logger.info('Navigating to recent deposit page');
         const url = `https://dwpanell100.online/admin/deposit/recent-deposit?status=${status}&page=${page}`;
         
         // Navigate with longer timeout
@@ -606,17 +513,8 @@ class ScraperUtil {
 
         // Validate extracted data
         if (!data.rows || data.rows.length === 0) {
-          logger.warn('No rows found in table, might be an error');
           if (attempt < maxRetries) continue;
         }
-
-        logger.info('Recent deposit data extracted successfully', {
-          status,
-          page: data.pagination.currentPage,
-          totalPages: data.pagination.totalPages,
-          rowsCount: data.rows.length,
-          attempt
-        });
 
         return {
           success: true,
@@ -659,11 +557,8 @@ class ScraperUtil {
   async getAllRecentDepositData(status) {
     try {
       // Get first page and pagination info with retries
-      // logger.info('Fetching first page of recent deposits', { status });
       const firstPage = await this.getRecentDepositData(status, 1);
       const totalPages = firstPage.data.pagination.totalPages;
-      
-      // logger.info('Starting full recent deposit data extraction');
       
       const allData = [firstPage.data.rows];
       let successfulPages = 1;
@@ -672,16 +567,9 @@ class ScraperUtil {
       // Get remaining pages with individual retries
       for(let page = 2; page <= totalPages; page++) {
         try {
-          // logger.info(`Fetching page ${page}/${totalPages} for ${status} transactions`);
           const pageData = await this.getRecentDepositData(status, page);
           allData.push(pageData.data.rows);
           successfulPages++;
-          
-          // logger.info(`Successfully extracted page ${page}/${totalPages}`, {
-          //   status,
-          //   rowsInThisPage: pageData.data.rows.length,
-          //   totalRowsSoFar: allData.flat().length
-          // });
           
           // Add a small delay between pages to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -701,7 +589,6 @@ class ScraperUtil {
       
       // Process transactions
       const processResult = await transactionService.processTransactions(allRows, 'deposit');
-      // logger.info('Recent deposit processing complete');
 
       return {
         success: true,
@@ -734,7 +621,6 @@ class ScraperUtil {
   async ensurePageInitialized() {
     try {
       if (!this.browser || !this.page) {
-        logger.info('Browser or page not initialized, reinitializing...');
         await this.initialize();
       }
 
@@ -742,7 +628,6 @@ class ScraperUtil {
       try {
         await this.page.evaluate(() => true);
       } catch (error) {
-        logger.warn('Page is not usable, reinitializing...', { error: error.message });
         await this.initialize();
       }
 
@@ -777,11 +662,6 @@ class ScraperUtil {
         return true;
       } catch (error) {
         lastError = error;
-        logger.warn(`Attempt ${attempt}/${maxRetries} to wait for table data failed:`, { 
-          error: error.message,
-          url: this.page.url()
-        });
-
         if (attempt < maxRetries) {
           // Wait before retrying
           await new Promise(resolve => setTimeout(resolve, 2000));

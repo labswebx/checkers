@@ -32,7 +32,6 @@ class SessionUtil {
         { upsert: true, new: true }
       );
 
-      logger.info('Session saved successfully', { userId });
       return true;
     } catch (error) {
       logger.error('Error saving session:', {
@@ -113,7 +112,6 @@ class SessionUtil {
         lastUsed: new Date()
       });
 
-      logger.info('Session restored successfully', { userId });
       return true;
     } catch (error) {
       logger.error('Error restoring session:', {
@@ -164,7 +162,6 @@ class SessionUtil {
         lastUsed: { $lt: expiryTime }
       });
 
-      logger.info('Cleaned up expired sessions');
       return result.deletedCount;
     } catch (error) {
       logger.error('Error cleaning up sessions:', {

@@ -82,4 +82,29 @@ const transactionSchema = new mongoose.Schema({
 // Index for faster lookups
 transactionSchema.index({ orderId: 1 });
 
-module.exports = mongoose.model('Transaction', transactionSchema); 
+// Create compound indexes for common query patterns
+transactionSchema.index({ requestDate: 1, transactionStatus: 1, franchiseName: 1 });
+transactionSchema.index({ createdAt: -1 });
+
+// Create text index for search functionality
+transactionSchema.index(
+  { 
+    orderId: 'text', 
+    userName: 'text', 
+    utr: 'text', 
+    franchiseName: 'text' 
+  },
+  {
+    weights: {
+      orderId: 10,
+      userName: 5,
+      utr: 5,
+      franchiseName: 3
+    },
+    name: 'transaction_search'
+  }
+);
+
+const Transaction = mongoose.model('Transaction', transactionSchema);
+
+module.exports = Transaction; 

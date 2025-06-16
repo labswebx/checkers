@@ -27,24 +27,24 @@ import React, { useState, useEffect } from 'react'
 import { formatToUAETime, getElapsedTimeInUAE } from '../utils/timezone.util';
 import ImageOverlay from './ImageOverlay';
 
-const ElapsedTimer = ({ createdAt }) => {
+const ElapsedTimer = ({ date }) => {
   const [elapsedTime, setElapsedTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const theme = useTheme();
 
   useEffect(() => {
     const updateTimer = () => {
-      setElapsedTime(getElapsedTimeInUAE(createdAt));
+      setElapsedTime(getElapsedTimeInUAE(date));
     };
     updateTimer();
     const intervalId = setInterval(updateTimer, 1000);
 
     return () => clearInterval(intervalId);
-  }, [createdAt]);
+  }, [date]);
 
   const getTimerColor = () => {
     const totalMinutes = elapsedTime.hours * 60 + elapsedTime.minutes;
     if (totalMinutes < 5) return theme.palette.success.main;
-    if (totalMinutes < 10) return theme.palette.warning.main;
+    if (totalMinutes < 8) return theme.palette.warning.main;
     return theme.palette.error.main;
   };
 
@@ -112,7 +112,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
     Amount: ${formatAmount(deposit.amount)}
     UTR: ${deposit.utr || 'N/A'}
     Status: ${deposit.status}
-    Created: ${formatToUAETime(deposit.createdAt)}`;
+    Request Date: ${formatToUAETime(deposit.requestDate)}`;
 
     const phone = deposit?.agentId?.contactNumber?.toString();
     if (!phone) {
@@ -180,7 +180,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                             {deposit.orderId}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {formatToUAETime(deposit.createdAt)}
+                            {formatToUAETime(deposit.requestDate)}
                           </Typography>
                         </Box>
                       </Tooltip>
@@ -234,12 +234,12 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                     <TableCell>
                       <Stack spacing={0.5}>
                         {deposit.status === 'Pending' && (
-                          <ElapsedTimer createdAt={formatToUAETime(deposit.createdAt)} />
+                          <ElapsedTimer date={formatToUAETime(deposit.requestDate)} />
                         )}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Receipt fontSize="small" color="action" />
                           <Typography variant="caption">
-                            Created: {formatToUAETime(deposit.createdAt)}
+                            Request Date: {formatToUAETime(deposit.requestDate)}
                           </Typography>
                         </Box>
                       </Stack>

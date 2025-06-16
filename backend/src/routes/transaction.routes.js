@@ -23,154 +23,182 @@ router.get('/deposits', auth, async (req, res) => {
     const {
       search,
       status,
-      timeSlab,
       franchise,
       page = 1,
       limit = 10
     } = req.query;
 
-    // Build base query
-    const baseQuery = {
+    // Build match stage for filtering
+    const matchStage = {
       amount: { $gte: 0 }  // Only return transactions with non-negative amounts
     };
 
     // Always add 24 hours filter
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-    baseQuery.requestDate = { $gte: twentyFourHoursAgo };
+    matchStage.requestDate = { $gte: twentyFourHoursAgo };
 
-    // Add filters to base query
-    if (search) {
-      baseQuery.$or = [
-        { orderId: { $regex: search, $options: 'i' } },
-        { userName: { $regex: search, $options: 'i' } },
-        { utr: { $regex: search, $options: 'i' } },
-        { franchiseName: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    if (status && status !== 'all') {
-      baseQuery.transactionStatus = status;
-    }
+    // Add filters to match stage
+    matchStage.transactionStatus = status || 'Pending';
 
     if (franchise && franchise !== 'all') {
-      baseQuery.franchiseName = franchise;
+      matchStage.franchiseName = franchise;
+    }
+
+    // Use text search if search parameter is provided
+    if (search) {
+      matchStage.$text = { $search: search };
     }
 
     // Calculate time slabs for pending deposits
     let timeSlabCounts = [];
-    // if (status === 'Pending') {
-      try {
-        const slabPromises = TIME_SLABS.map(async (slab) => {
-          const slabQuery = { ...baseQuery };
-          
-          // Special handling for 20+ minutes
-          if (slab.max === 'above') {
-            const minTime = new Date(now.getTime() - (slab.min * 60 * 1000));
-            slabQuery.createdAt = {
-              $gte: twentyFourHoursAgo,
-              $lte: minTime
-            };
-          } else {
-            const minTime = new Date(now.getTime() - (slab.max * 60 * 1000));
-            const maxTime = new Date(now.getTime() - (slab.min * 60 * 1000));
-            slabQuery.createdAt = {
-              $gte: minTime,
-              $lte: maxTime
-            };
-          }
-
-          const count = await Transaction.countDocuments(slabQuery);
-          return {
-            label: slab.label,
-            count
-          };
-        });
-        
-        timeSlabCounts = await Promise.all(slabPromises);
-      } catch (error) {
-        logger.error('Error calculating time slabs:', error);
-        timeSlabCounts = TIME_SLABS.map(slab => ({ label: slab.label, count: 0 }));
-      }
-    // }
-
-    // Apply time slab filter if specified
-    if (timeSlab && timeSlab !== 'all') {
-      try {
-        const [min, max] = timeSlab.split('-');
-        if (max === 'above') {
-          // For 20+ minutes, show all transactions older than 20 minutes but within 24 hours
-          const minTime = new Date(now.getTime() - (parseInt(min) * 60 * 1000));
-          baseQuery.createdAt = {
-            $gte: twentyFourHoursAgo,
-            $lte: minTime
-          };
-        } else {
-          const minTime = new Date(now.getTime() - (parseInt(max) * 60 * 1000));
-          const maxTime = new Date(now.getTime() - (parseInt(min) * 60 * 1000));
-          baseQuery.createdAt = {
-            $gte: minTime,
-            $lte: maxTime
-          };
+    const timeSlabPipeline = [
+      {
+        $match: {
+          ...matchStage
         }
-      } catch (error) {
-        logger.error('Error applying time slab filter:', error);
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          timeSlabs: {
+            $push: {
+              $switch: {
+                branches: [
+                  {
+                    case: { $lt: [{ $subtract: [new Date(), '$requestDate'] }, 5 * 60 * 1000] },
+                    then: '2-5'
+                  },
+                  {
+                    case: { $lt: [{ $subtract: [new Date(), '$requestDate'] }, 8 * 60 * 1000] },
+                    then: '5-8'
+                  },
+                  {
+                    case: { $lt: [{ $subtract: [new Date(), '$requestDate'] }, 12 * 60 * 1000] },
+                    then: '8-12'
+                  },
+                  {
+                    case: { $lt: [{ $subtract: [new Date(), '$requestDate'] }, 20 * 60 * 1000] },
+                    then: '12-20'
+                  }
+                ],
+                default: '20-above'
+              }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          total: 1,
+          timeSlabs: 1
+        }
       }
+    ];
+
+    const timeSlabResult = await Transaction.aggregate(timeSlabPipeline);
+    if (timeSlabResult.length > 0) {
+      const timeSlabCountsMap = timeSlabResult[0].timeSlabs.reduce((acc, slab) => {
+        acc[slab] = (acc[slab] || 0) + 1;
+        return acc;
+      }, {});
+
+      timeSlabCounts = TIME_SLABS.map(slab => ({
+        label: slab.label,
+        count: timeSlabCountsMap[slab.label] || 0
+      }));
     }
 
-    // Get total count for pagination
-    const totalRecords = await Transaction.countDocuments(baseQuery);
-    const totalPages = Math.ceil(totalRecords / limit);
-
-    // Get paginated results with proper parsing of page and limit
-    const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.max(1, parseInt(limit));
-    
-    const deposits = await Transaction.find(baseQuery)
-      .sort({ createdAt: -1 })
-      .skip((pageNum - 1) * limitNum)
-      .limit(limitNum)
-      .lean(); // Use lean() for better performance
-
-    // Get all unique agent IDs
-    const franchiseNames = [...new Set(deposits.filter(d => d.franchiseName.split(' (')[0]).map(d => d.franchiseName.split(' (')[0]))];
-    
-    // Fetch all agents in one query
-    const agents = await User.find({ name: { $in: franchiseNames } })
-      .select('name email contactNumber role franchise')
-      .lean();
-
-    // Create a map of agent details for quick lookup
-    const agentMap = agents.reduce((acc, agent) => {
-      acc[agent.name.toString()] = agent;
-      return acc;
-    }, {});
-
-    // Transform the data to match the expected format
-    const transformedDeposits = deposits.map(deposit => ({
-      _id: deposit._id,
-      orderId: deposit.orderId?.toString() || '',
-      customerName: deposit.name || '',
-      amount: deposit.amount || 0,
-      utr: deposit.utr || '',
-      status: deposit.transactionStatus,
-      franchise: deposit.franchiseName || '',
-      createdAt: deposit.createdAt,
-      transcriptLink: deposit.transcriptLink,
-      agentId: {
-        name: agentMap[deposit.franchiseName.split(' (')[0]]?.name || '',
-        email: agentMap[deposit.franchiseName.split(' (')[0]]?.email || '',
-        contactNumber: agentMap[deposit.franchiseName.split(' (')[0]]?.contactNumber || '',
-        role: agentMap[deposit.franchiseName.split(' (')[0]]?.role || '',
-        franchise: agentMap[deposit.franchiseName.split(' (')[0]]?.franchise || ''
+    // Main aggregation pipeline for deposits
+    const pipeline = [
+      { $match: matchStage },
+      { $sort: { createdAt: -1 } },
+      {
+        $facet: {
+          metadata: [
+            { $count: 'total' },
+            {
+              $addFields: {
+                page: parseInt(page),
+                limit: parseInt(limit)
+              }
+            }
+          ],
+          data: [
+            { $skip: (parseInt(page) - 1) * parseInt(limit) },
+            { $limit: parseInt(limit) },
+            {
+              $lookup: {
+                from: 'users',
+                let: { franchiseName: { $arrayElemAt: [{ $split: ['$franchiseName', ' ('] }, 0] } },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: ['$name', '$$franchiseName'] }
+                    }
+                  },
+                  {
+                    $project: {
+                      name: 1,
+                      email: 1,
+                      contactNumber: 1,
+                      role: 1,
+                      franchise: 1
+                    }
+                  }
+                ],
+                as: 'agentDetails'
+              }
+            },
+            {
+              $addFields: {
+                agentId: {
+                  $cond: {
+                    if: { $gt: [{ $size: '$agentDetails' }, 0] },
+                    then: { $arrayElemAt: ['$agentDetails', 0] },
+                    else: {
+                      name: '',
+                      email: '',
+                      contactNumber: '',
+                      role: '',
+                      franchise: ''
+                    }
+                  }
+                }
+              }
+            },
+            {
+              $project: {
+                _id: 1,
+                orderId: 1,
+                customerName: '$name',
+                amount: 1,
+                utr: 1,
+                requestDate: 1,
+                status: '$transactionStatus',
+                franchise: '$franchiseName',
+                createdAt: 1,
+                transcriptLink: 1,
+                agentId: 1
+              }
+            }
+          ]
+        }
       }
-    }));
+    ];
+
+    const [result] = await Transaction.aggregate(pipeline);
+    const { metadata, data } = result;
+    const totalRecords = metadata[0]?.total || 0;
+    const totalPages = Math.ceil(totalRecords / parseInt(limit));
 
     return successResponse(res, 'Deposits fetched successfully', {
-      data: transformedDeposits,
+      data,
       timeSlabCounts,
-      page: pageNum,
-      limit: limitNum,
+      page: parseInt(page),
+      limit: parseInt(limit),
       totalPages,
       totalRecords
     });

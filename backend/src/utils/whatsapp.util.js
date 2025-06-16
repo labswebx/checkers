@@ -9,37 +9,7 @@ class WhatsAppService {
   }
 
   async sendMessage(to, message) {
-    try {
-      // logger.info(`WHATSAPP MESSGAE SENT TO - ${to}, MESSAGE ${message}`)
-      // const response = await axios.post(
-      //   `${this.apiUrl}/${this.fromNumberId}/messages`,
-      //   {
-      //     messaging_product: "whatsapp",
-      //     to: to,
-      //     type: "text",
-      //     text: { body: message }
-      //   },
-      //   {
-      //     headers: {
-      //       'Authorization': `Bearer ${this.accessToken}`,
-      //       'Content-Type': 'application/json'
-      //     }
-      //   }
-      // );
-
-      // logger.info('WhatsApp message sent successfully', {
-      //   to,
-      //   messageId: response.data.messages[0].id
-      // });
-
-      // return response.data;
-    } catch (error) {
-      logger.error('Error sending WhatsApp message:', {
-        to,
-        error: error.response?.data || error.message
-      });
-      throw error;
-    }
+    return true;
   }
 
   async sendPendingTransactionAlert(transaction, agent) {

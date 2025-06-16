@@ -14,11 +14,6 @@ class Task {
   }
 
   async _execution() {
-    // if (this.isRunning) {
-    //   logger.info(`Task ${this.name} is already running, skipping this execution`);
-    //   return;
-    // }
-
     this.isRunning = true;
     try {
       await this.action();
@@ -31,19 +26,16 @@ class Task {
 
   start() {
     if (this.job) {
-      logger.warn(`Task ${this.name} is already scheduled`);
       return;
     }
 
     this.job = cron.schedule(this.interval, () => this._execution());
-    logger.info(`Task ${this.name} scheduled successfully`);
   }
 
   stop() {
     if (this.job) {
       this.job.stop();
       this.job = null;
-      logger.info(`Task ${this.name} stopped`);
     }
   }
 }
@@ -96,14 +88,12 @@ class SchedulerUtil {
   async startJobs() {
     // Cleanup expired sessions every hour
     this.jobs.set('sessionCleanup', cron.schedule('0 * * * *', async () => {
-      logger.info('Running scheduled session cleanup');
       await sessionUtil.cleanupExpiredSessions();
     }));
 
     // Send whatsApp message for pending transactions every minute
     this.jobs.set('pendingCheck', cron.schedule('* * * * *', async () => {
       try {
-        logger.info('Sending pending transactions WhatsApp message...');
         await transactionService.checkPendingTransactions();
       } catch (error) {
         logger.error('Error in pending transactions check job:', error);
@@ -112,21 +102,9 @@ class SchedulerUtil {
 
     // Start tasks with proper delays and error handling
     try {
-      // Start deposit list task first
-      logger.info('Started deposit list monitoring task');
       depositListTask.start();
-
-      // Wait 10 seconds before starting recent deposits task
-      // await new Promise(resolve => setTimeout(resolve, 10000));
-      logger.info('Started recent deposits monitoring task');
       recentDepositsTask.start();
-
-      // Wait another 10 seconds before starting rejected deposits task
-      // await new Promise(resolve => setTimeout(resolve, 10000));
-      logger.info('Started rejected deposits monitoring task');
       rejectedDepositsTask.start();
-
-      // logger.info('All scheduled jobs started successfully');
     } catch (error) {
       logger.error('Error starting scheduled jobs:', error);
       throw error;
@@ -135,7 +113,6 @@ class SchedulerUtil {
 
   async stopJobs() {
     for (const [name, job] of this.jobs) {
-      logger.info(`Stopping ${name} job`);
       job.stop();
     }
     this.jobs.clear();
