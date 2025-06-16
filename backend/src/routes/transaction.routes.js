@@ -23,26 +23,48 @@ router.get('/deposits', auth, async (req, res) => {
     const {
       search,
       status,
+      timeSlab,
       franchise,
       page = 1,
       limit = 10
     } = req.query;
-
-    // Build match stage for filtering
     const matchStage = {
-      amount: { $gte: 0 }  // Only return transactions with non-negative amounts
+      amount: { $gte: 0 }
     };
 
-    // Always add 24 hours filter
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
     matchStage.requestDate = { $gte: twentyFourHoursAgo };
-
-    // Add filters to match stage
     matchStage.transactionStatus = status || 'Pending';
 
     if (franchise && franchise !== 'all') {
       matchStage.franchiseName = franchise;
+    }
+
+    if (timeSlab && timeSlab !== 'all') {
+      const range = TIME_SLABS.find(slab => slab.label === timeSlab);
+      if (range) {
+        matchStage.$expr = {
+          $let: {
+            vars: {
+              timeDiffMinutes: {
+                $divide: [
+                  { $subtract: [new Date(), '$requestDate'] },
+                  60 * 1000 // Convert ms to minutes
+                ]
+              }
+            },
+            in: range.max
+              ? {
+                  $and: [
+                    { $gte: ['$$timeDiffMinutes', range.min] },
+                    { $lt: ['$$timeDiffMinutes', range.max] }
+                  ]
+                }
+              : { $gte: ['$$timeDiffMinutes', range.min] }
+          }
+        };
+      }
     }
 
     // Use text search if search parameter is provided
@@ -50,7 +72,6 @@ router.get('/deposits', auth, async (req, res) => {
       matchStage.$text = { $search: search };
     }
 
-    // Calculate time slabs for pending deposits
     let timeSlabCounts = [];
     const timeSlabPipeline = [
       {
@@ -67,19 +88,23 @@ router.get('/deposits', auth, async (req, res) => {
               $switch: {
                 branches: [
                   {
-                    case: { $lt: [{ $subtract: [new Date(), '$requestDate'] }, 5 * 60 * 1000] },
+                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 2 * 60 * 1000] },
+                    then: '0-2'
+                  },
+                  {
+                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 5 * 60 * 1000] },
                     then: '2-5'
                   },
                   {
-                    case: { $lt: [{ $subtract: [new Date(), '$requestDate'] }, 8 * 60 * 1000] },
+                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 8 * 60 * 1000] },
                     then: '5-8'
                   },
                   {
-                    case: { $lt: [{ $subtract: [new Date(), '$requestDate'] }, 12 * 60 * 1000] },
+                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 12 * 60 * 1000] },
                     then: '8-12'
                   },
                   {
-                    case: { $lt: [{ $subtract: [new Date(), '$requestDate'] }, 20 * 60 * 1000] },
+                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 20 * 60 * 1000] },
                     then: '12-20'
                   }
                 ],
