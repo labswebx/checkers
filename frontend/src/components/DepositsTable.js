@@ -24,8 +24,9 @@ import {
 } from '@mui/icons-material'
 import Pagination from './Pagination';
 import React, { useState, useEffect } from 'react'
-import { formatToUAETime, getElapsedTimeInUAE } from '../utils/timezone.util';
+import { getElapsedTimeInIndianTimeZone } from '../utils/timezone.util';
 import ImageOverlay from './ImageOverlay';
+import { formatInTimeZone } from 'date-fns-tz';
 
 const ElapsedTimer = ({ date }) => {
   const [elapsedTime, setElapsedTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -33,7 +34,7 @@ const ElapsedTimer = ({ date }) => {
 
   useEffect(() => {
     const updateTimer = () => {
-      setElapsedTime(getElapsedTimeInUAE(date));
+      setElapsedTime(getElapsedTimeInIndianTimeZone(date));
     };
     updateTimer();
     const intervalId = setInterval(updateTimer, 1000);
@@ -112,7 +113,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
     Amount: ${formatAmount(deposit.amount)}
     UTR: ${deposit.utr || 'N/A'}
     Status: ${deposit.status}
-    Request Date: ${formatToUAETime(deposit.requestDate)}`;
+    Request Date: ${deposit.requestDate}`;
 
     const phone = deposit?.agentId?.contactNumber?.toString();
     if (!phone) {
@@ -132,6 +133,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
     }
     setSelectedImage(transcriptLink);
   };
+  console.log(deposits);
 
   return (
     <>
@@ -146,7 +148,11 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                 <TableCell>UTR</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Franchise</TableCell>
-                <TableCell>Timing</TableCell>
+                <TableCell>Request Time</TableCell>
+                {
+                  deposits.length > 0 ? deposits[0].status === 'Success' ? 
+                  <TableCell>Approved Time</TableCell> : deposits[0].status === 'Rejected' ? <TableCell>Rejected Time</TableCell> : null : null
+                }
                 <TableCell>Transcript</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
@@ -180,7 +186,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                             {deposit.orderId}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {formatToUAETime(deposit.requestDate)}
+                            {deposit.requestDate}
                           </Typography>
                         </Box>
                       </Tooltip>
@@ -234,16 +240,29 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                     <TableCell>
                       <Stack spacing={0.5}>
                         {deposit.status === 'Pending' && (
-                          <ElapsedTimer date={formatToUAETime(deposit.requestDate)} />
+                          <ElapsedTimer date={deposit.requestDate} />
                         )}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Receipt fontSize="small" color="action" />
                           <Typography variant="caption">
-                            Request Date: {formatToUAETime(deposit.requestDate)}
+                            Request Date: {formatInTimeZone(new Date(deposit.requestDate), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
                           </Typography>
                         </Box>
                       </Stack>
                     </TableCell>
+                    {
+                      deposit.status === 'Success' || deposit.status === 'Rejected' ? 
+                      <TableCell>
+                      <Stack spacing={0.5}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {/* <Receipt fontSize="small" color="action" /> */}
+                          <Typography variant="caption">
+                            {formatInTimeZone(new Date(deposit.approvedOn), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </TableCell> : null
+                    }
                     <TableCell>
                       {deposit.transcriptLink ? (
                         <Tooltip title="View Transcript" arrow>

@@ -202,6 +202,7 @@ router.get('/deposits', auth, async (req, res) => {
                 amount: 1,
                 utr: 1,
                 requestDate: 1,
+                approvedOn: 1,
                 status: '$transactionStatus',
                 franchise: '$franchiseName',
                 createdAt: 1,
