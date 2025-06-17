@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { TRANSACTION_STATUS } = require('../constants');
 
 const transactionSchema = new mongoose.Schema({
   orderId: {
@@ -19,7 +20,7 @@ const transactionSchema = new mongoose.Schema({
   transactionStatus: {
     type: String,
     required: true,
-    default: 'Pending'
+    default: TRANSACTION_STATUS.PENDING
   },
   amount: {
     type: Number,

@@ -22,8 +22,8 @@ export const API_ENDPOINTS = {
 
 export const TRANSACTION_STATUS = {
   PENDING: 'Pending',
-  APPROVED: 'approved',
-  REJECTED: 'rejected'
+  SUCCESS: 'Success',
+  REJECTED: 'Rejected'
 }
 
 export const LOCAL_STORAGE_KEYS = {

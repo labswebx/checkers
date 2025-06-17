@@ -22,15 +22,16 @@ const getDashboardStats = async (req, res) => {
     // Get transaction statistics for last 24 hours
     const totalTransactions = await Transaction.countDocuments({ createdAt: { $gte: last24Hours } });
     const pendingTransactions = await Transaction.countDocuments({ 
-      transactionStatus: 'Pending',
-      createdAt: { $gte: last24Hours }
+      transactionStatus: TRANSACTION_STATUS.PENDING,
+      createdAt: { $gte: last24Hours },
+      amount: { $gte: 0 }
     });
     const approvedTransactions = await Transaction.countDocuments({ 
-      transactionStatus: 'Success',
+      transactionStatus: TRANSACTION_STATUS.SUCCESS,
       createdAt: { $gte: last24Hours }
     });
     const rejectedTransactions = await Transaction.countDocuments({ 
-      transactionStatus: 'Rejected',
+      transactionStatus: TRANSACTION_STATUS.REJECTED,
       createdAt: { $gte: last24Hours }
     });
 
@@ -38,7 +39,8 @@ const getDashboardStats = async (req, res) => {
     const totalAmountStats = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: last24Hours }
+          createdAt: { $gte: last24Hours },
+          amount: { $gte: 0 }
         }
       },
       {
@@ -75,7 +77,7 @@ const getDashboardStats = async (req, res) => {
     const topAgents = await Transaction.aggregate([
       {
         $match: { 
-          transactionStatus: 'Success',
+          transactionStatus: TRANSACTION_STATUS.SUCCESS,
           createdAt: { $gte: last24Hours }
         }
       },

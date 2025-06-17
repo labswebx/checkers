@@ -27,6 +27,7 @@ import React, { useState, useEffect } from 'react'
 import { getElapsedTimeInIndianTimeZone } from '../utils/timezone.util';
 import ImageOverlay from './ImageOverlay';
 import { formatInTimeZone } from 'date-fns-tz';
+import { TRANSACTION_STATUS } from '../constants';
 
 const ElapsedTimer = ({ date }) => {
   const [elapsedTime, setElapsedTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -150,8 +151,8 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                 <TableCell>Franchise</TableCell>
                 <TableCell>Request Time</TableCell>
                 {
-                  deposits.length > 0 ? deposits[0].status === 'Success' ? 
-                  <TableCell>Approved Time</TableCell> : deposits[0].status === 'Rejected' ? <TableCell>Rejected Time</TableCell> : null : null
+                  deposits.length > 0 ? deposits[0].status === TRANSACTION_STATUS.SUCCESS ? 
+                  <TableCell>Approved Time</TableCell> : deposits[0].status === TRANSACTION_STATUS.REJECTED ? <TableCell>Rejected Time</TableCell> : null : null
                 }
                 <TableCell>Transcript</TableCell>
                 <TableCell>Actions</TableCell>
@@ -239,7 +240,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                     </TableCell>
                     <TableCell>
                       <Stack spacing={0.5}>
-                        {deposit.status === 'Pending' && (
+                        {deposit.status === TRANSACTION_STATUS.PENDING && (
                           <ElapsedTimer date={deposit.requestDate} />
                         )}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -251,7 +252,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                       </Stack>
                     </TableCell>
                     {
-                      deposit.status === 'Success' || deposit.status === 'Rejected' ? 
+                      deposit.status === TRANSACTION_STATUS.SUCCESS || deposit.status === TRANSACTION_STATUS.REJECTED ? 
                       <TableCell>
                       <Stack spacing={0.5}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

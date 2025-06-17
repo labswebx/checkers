@@ -42,7 +42,7 @@ const RejectedDeposits = () => {
   // Filter states
   const [filters, setFilters] = useState({
     search: '',
-    status: 'Rejected', // Set default status to rejected
+    status: TRANSACTION_STATUS.REJECTED, // Set default status to rejected
     timeSlab: 'all',
     page: 1,
     limit: 10

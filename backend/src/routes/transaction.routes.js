@@ -2,10 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { auth } = require('../middleware/auth.middleware');
 const Transaction = require('../models/transaction.model');
-const User = require('../models/user.model');
 const transactionService = require('../services/transaction.service');
 const { successResponse, errorResponse } = require('../utils/response.util');
-const { STATUS_CODES } = require('../constants');
+const { STATUS_CODES, TRANSACTION_STATUS } = require('../constants');
 const logger = require('../utils/logger.util');
 
 // Time slab configurations
@@ -35,7 +34,7 @@ router.get('/deposits', auth, async (req, res) => {
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
     matchStage.requestDate = { $gte: twentyFourHoursAgo };
-    matchStage.transactionStatus = status || 'Pending';
+    matchStage.transactionStatus = status || TRANSACTION_STATUS.PENDING;
 
     if (franchise && franchise !== 'all') {
       matchStage.franchiseName = franchise;

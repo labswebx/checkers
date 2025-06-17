@@ -205,7 +205,7 @@ class TransactionService {
    * @param {string} status - Raw status
    */
   mapStatus(status) {
-    if (!status) return 'Pending';
+    if (!status) return TRANSACTION_STATUS.PENDING;
     
     // Convert to lowercase and remove extra spaces
     status = String(status).toLowerCase().trim();
@@ -217,7 +217,7 @@ class TransactionService {
 
     // Check for approved status
     if (approvedKeywords.some(keyword => status.includes(keyword))) {
-      return TRANSACTION_STATUS.APPROVED;
+      return TRANSACTION_STATUS.SUCCESS;
     }
 
     // Check for rejected status
@@ -352,9 +352,9 @@ class TransactionService {
       if (filters.status && filters.status !== 'all') {
         // Map frontend status to database status
         const statusMap = {
-          'approved': 'Success',
-          'rejected': 'Rejected',
-          'pending': 'Pending'
+          'approved': TRANSACTION_STATUS.SUCCESS,
+          'rejected': TRANSACTION_STATUS.REJECTED,
+          'pending': TRANSACTION_STATUS.PENDING
         };
         baseMatch.transactionStatus = statusMap[filters.status.toLowerCase()] || filters.status;
       }
@@ -408,11 +408,11 @@ class TransactionService {
                 vars: {
                   statusUpdateDate: {
                     $cond: {
-                      if: { $eq: ['$transactionStatus', 'Success'] },
+                      if: { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
                       then: '$approvedOn',
                       else: {
                         $cond: {
-                          if: { $eq: ['$transactionStatus', 'Rejected'] },
+                          if: { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
                           then: '$rejectedOn',
                           else: '$requestDate' // For pending, use request date
                         }
@@ -422,7 +422,7 @@ class TransactionService {
                 },
                 in: {
                   $cond: {
-                    if: { $eq: ['$transactionStatus', 'Pending'] },
+                    if: { $eq: ['$transactionStatus', TRANSACTION_STATUS.PENDING] },
                     then: true, // Include all pending transactions in "Above 20 minutes" slab
                     else: {
                       $let: {

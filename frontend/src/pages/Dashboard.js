@@ -166,7 +166,7 @@ const Dashboard = () => {
         <Grid container spacing={3} sx={{ mt: 2 }}>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Approved Transactions"
+              title="Approved Deposits"
               value={stats.transactions.approved}
               icon={<CheckCircleOutline sx={{ color: colors.success.main }} />}
               color={colors.success.main}
@@ -174,7 +174,7 @@ const Dashboard = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Pending Transactions"
+              title="Pending Deposits"
               value={stats.transactions.pending}
               icon={<PendingActions sx={{ color: colors.warning.main }} />}
               color={colors.warning.main}
@@ -182,7 +182,7 @@ const Dashboard = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Rejected Transactions"
+              title="Rejected Deposits"
               value={stats.transactions.rejected}
               icon={<CancelOutlined sx={{ color: colors.error.main }} />}
               color={colors.error.main}

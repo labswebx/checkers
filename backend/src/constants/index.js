@@ -21,8 +21,8 @@ const STATUS_CODES = {
 
 const TRANSACTION_STATUS = {
   PENDING: 'Pending',
-  APPROVED: 'approved',
-  REJECTED: 'rejected'
+  SUCCESS: 'Success',
+  REJECTED: 'Rejected'
 }
 
 module.exports = {
