@@ -9,11 +9,13 @@ import {
   InputAdornment,
   useTheme,
   Button,
-  Chip
+  Chip,
+  Stack
 } from '@mui/material';
 import { 
   Search, 
   FilterList, 
+  Refresh
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchDeposits } from '../../store/slices/depositSlice';
@@ -29,7 +31,7 @@ const timeSlabs = [
   { label: '20+ mins', value: '20-above' }
 ];
 
-const REFRESH_INTERVAL = 10000; // 10 seconds
+// const REFRESH_INTERVAL = 10000; // 10 seconds
 
 const ApprovedDeposits = () => {
   const theme = useTheme();
@@ -46,7 +48,7 @@ const ApprovedDeposits = () => {
   });
 
   const [showFilters, setShowFilters] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  // const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Memoize fetchData function to prevent unnecessary re-renders
   const fetchData = useCallback(() => {
@@ -59,21 +61,21 @@ const ApprovedDeposits = () => {
   }, [fetchData]);
 
   // Auto-refresh setup
-  useEffect(() => {
-    let intervalId;
+  // useEffect(() => {
+  //   let intervalId;
 
-    if (autoRefresh) {
-      intervalId = setInterval(() => {
-        fetchData();
-      }, REFRESH_INTERVAL);
-    }
+  //   if (autoRefresh) {
+  //     intervalId = setInterval(() => {
+  //       fetchData();
+  //     }, REFRESH_INTERVAL);
+  //   }
 
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [autoRefresh, fetchData]);
+  //   return () => {
+  //     if (intervalId) {
+  //       clearInterval(intervalId);
+  //     }
+  //   };
+  // }, [autoRefresh, fetchData]);
 
   const handleFilterChange = (field, value) => {
     setFilters(prev => ({
@@ -103,8 +105,8 @@ const ApprovedDeposits = () => {
         }}>
           Approved Deposits
         </Typography>
-        {/* <Stack direction="row" spacing={2} alignItems="center">
-          <Tooltip title={autoRefresh ? "Auto-refresh is ON" : "Auto-refresh is OFF"}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          {/* <Tooltip title={autoRefresh ? "Auto-refresh is ON" : "Auto-refresh is OFF"}>
             <Button
               variant={autoRefresh ? "contained" : "outlined"}
               startIcon={<Refresh />}
@@ -114,7 +116,7 @@ const ApprovedDeposits = () => {
             >
               {autoRefresh ? "Auto" : "Manual"}
             </Button>
-          </Tooltip>
+          </Tooltip> */}
           <Button
             variant="contained"
             startIcon={<Refresh />}
@@ -123,7 +125,7 @@ const ApprovedDeposits = () => {
           >
             Refresh
           </Button>
-        </Stack> */}
+        </Stack>
       </Box>
 
       {/* Filters */}

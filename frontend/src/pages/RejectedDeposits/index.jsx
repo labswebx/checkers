@@ -32,7 +32,7 @@ const timeSlabs = [
   { label: '20+ mins', value: '20-above' }
 ];
 
-const REFRESH_INTERVAL = 10000; // 10 seconds
+// const REFRESH_INTERVAL = 10000; // 10 seconds
 
 const RejectedDeposits = () => {
   const theme = useTheme();
@@ -49,7 +49,7 @@ const RejectedDeposits = () => {
   });
 
   const [showFilters, setShowFilters] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  // const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Memoize fetchData function to prevent unnecessary re-renders
   const fetchData = useCallback(() => {
@@ -62,21 +62,21 @@ const RejectedDeposits = () => {
   }, [fetchData]);
 
   // Auto-refresh setup
-  useEffect(() => {
-    let intervalId;
+  // useEffect(() => {
+  //   let intervalId;
 
-    if (autoRefresh) {
-      intervalId = setInterval(() => {
-        fetchData();
-      }, REFRESH_INTERVAL);
-    }
+  //   if (autoRefresh) {
+  //     intervalId = setInterval(() => {
+  //       fetchData();
+  //     }, REFRESH_INTERVAL);
+  //   }
 
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [autoRefresh, fetchData]);
+  //   return () => {
+  //     if (intervalId) {
+  //       clearInterval(intervalId);
+  //     }
+  //   };
+  // }, [autoRefresh, fetchData]);
 
   const handleFilterChange = (field, value) => {
     setFilters(prev => ({
@@ -107,7 +107,7 @@ const RejectedDeposits = () => {
           Rejected Deposits
         </Typography>
         <Stack direction="row" spacing={2} alignItems="center">
-          <Tooltip title={autoRefresh ? "Auto-refresh is ON" : "Auto-refresh is OFF"}>
+          {/* <Tooltip title={autoRefresh ? "Auto-refresh is ON" : "Auto-refresh is OFF"}>
             <Button
               variant={autoRefresh ? "contained" : "outlined"}
               startIcon={<Refresh />}
@@ -117,7 +117,7 @@ const RejectedDeposits = () => {
             >
               {autoRefresh ? "Auto" : "Manual"}
             </Button>
-          </Tooltip>
+          </Tooltip> */}
           <Button
             variant="contained"
             startIcon={<Refresh />}

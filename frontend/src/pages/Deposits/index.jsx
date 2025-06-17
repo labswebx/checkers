@@ -113,7 +113,7 @@ const Deposits = () => {
         }}>
           Pending Deposits
         </Typography>
-        {/* <Stack direction="row" spacing={2} alignItems="center">
+        <Stack direction="row" spacing={2} alignItems="center">
           <Tooltip title={autoRefresh ? "Auto-refresh is ON" : "Auto-refresh is OFF"}>
             <Button
               variant={autoRefresh ? "contained" : "outlined"}
@@ -133,7 +133,7 @@ const Deposits = () => {
           >
             Refresh
           </Button>
-        </Stack> */}
+        </Stack>
       </Box>
 
       {/* Filters */}
