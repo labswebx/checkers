@@ -229,7 +229,7 @@ class NetworkInterceptor {
   async monitorPendingDeposits() {
     try {
       // Clean up existing pending deposits browser instance first
-      await this.cleanupPendingDeposits();
+      // await this.cleanupPendingDeposits();
 
       const executablePath = await this.findChromePath();
       this.pendingDepositsBrowser = await puppeteer.launch({
@@ -264,10 +264,10 @@ class NetworkInterceptor {
           try {
             const pages = await this.pendingDepositsBrowser.pages();
             if (pages.length === 0 || !this.pendingDepositsPage || this.pendingDepositsPage.isClosed()) {
-              await this.cleanupPendingDeposits();
+              // await this.cleanupPendingDeposits();
             }
           } catch (error) {
-            await this.cleanupPendingDeposits();
+            // await this.cleanupPendingDeposits();
           }
         }
 
@@ -354,6 +354,7 @@ class NetworkInterceptor {
 
           // Handle deposit list API
           if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
+            logger.info('Processing pending deposits API response - PENDING');
             try {
               const json = await interceptedResponse.json();
               const transactions = Array.isArray(json) ? json : json.data || [];
@@ -491,7 +492,7 @@ class NetworkInterceptor {
           error: error.message,
           stack: error.stack
         });
-        await this.cleanupPendingDeposits();
+        // await this.cleanupPendingDeposits();
         throw error;
       }
     } catch (error) {
@@ -499,7 +500,7 @@ class NetworkInterceptor {
         error: error.message,
         stack: error.stack
       });
-      await this.cleanupPendingDeposits();
+      // await this.cleanupPendingDeposits();
       throw error;
     }
   }
@@ -617,6 +618,7 @@ class NetworkInterceptor {
 
         // Handle deposit list API
         if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
+          logger.info('Processing recent deposits API response - APPROVED');
           try {
             const json = await interceptedResponse.json();
             const transactions = Array.isArray(json) ? json : json.data || [];
@@ -734,6 +736,33 @@ class NetworkInterceptor {
         });
       }
 
+      // Set up auto-refresh
+      const startAutoRefresh = async () => {
+        try {
+          const refreshButton = await this.recentDepositsPage.$('span.d-flex.justify-content-center.align-items-center.pointer');
+          if (refreshButton) {
+            await refreshButton.click();
+          }
+        } catch (error) {}
+      };
+
+      // Start auto-refresh interval
+      const refreshInterval = setInterval(startAutoRefresh, 10000);
+
+      // Clean up interval when browser is closed
+      this.recentDepositsBrowser.on('disconnected', () => {
+        clearInterval(refreshInterval);
+        this.isMonitoring = false;
+        this.recentDepositsBrowser = null;
+        this.recentDepositsPage = null;
+      });
+
+      this.recentDepositsPage.on('close', () => {
+        clearInterval(refreshInterval);
+        this.isMonitoring = false;
+        this.recentDepositsPage = null;
+      });
+
       this.isMonitoring = true;
       return { success: true, browser: this.recentDepositsBrowser, page: this.recentDepositsPage };
     } catch (error) {
@@ -777,133 +806,133 @@ class NetworkInterceptor {
       });
   
       this.rejectedDepositsPage = await this.rejectedDepositsBrowser.newPage();
-        await this.rejectedDepositsPage.setRequestInterception(true);
+      await this.rejectedDepositsPage.setRequestInterception(true);
 
-        this.rejectedDepositsPage.on('request', async (interceptedRequest) => {
+      this.rejectedDepositsPage.on('request', async (interceptedRequest) => {
+        try {
+          if (!interceptedRequest.isInterceptResolutionHandled()) {
+            await interceptedRequest.continue();
+          }
+        } catch (error) {
+          logger.error('Error handling request:', {
+            url: interceptedRequest.url(),
+            error: error.message
+          });
+        }
+      });
+
+      this.rejectedDepositsPage.on('response', async (interceptedResponse) => {
+        let url = interceptedResponse.url();
+
+        // Handle login response
+        if (url.includes('/accounts/login')) {
           try {
-            if (!interceptedRequest.isInterceptResolutionHandled()) {
-              await interceptedRequest.continue();
+            const responseData = await interceptedResponse.json();
+            if (responseData && responseData.detail.token) {
+              // Check if token exists and its age
+              const existingToken = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
+              const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+              
+              if (!existingToken || (Date.now() - existingToken.lastUpdated.getTime()) > fiveHoursFortyMins) {
+                // Store the token in constants collection only if it's older than 5h40m
+                await Constant.findOneAndUpdate(
+                  { key: 'SCRAPING_AUTH_TOKEN' },
+                  { 
+                    value: responseData.detail.token,
+                    lastUpdated: new Date()
+                  },
+                  { upsert: true }
+                );
+              }
             }
           } catch (error) {
-            logger.error('Error handling request:', {
-              url: interceptedRequest.url(),
-              error: error.message
+            logger.error('Error processing login response:', error);
+          }
+        }
+
+        // Handle deposit list API
+        if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
+          logger.info('Processing rejected deposits API response - REJECTED');
+          try {
+            const json = await interceptedResponse.json();
+            const transactions = Array.isArray(json) ? json : json.data || [];
+
+            // Process transactions
+            for (const transaction of transactions) {
+              try {
+                await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
+
+                // Create the transaction data object
+                const transactionData = {
+                  orderId: transaction.orderID,
+                  userId: transaction.userID,
+                  userName: transaction.userName,
+                  name: transaction.name,
+                  statusId: transaction.StatusID,
+                  transactionStatus: transaction.transactionStatus,
+                  amount: transaction.amount,
+                  requestDate: transaction.requestDate, // Convert UTC to IST
+                  paymentMethod: transaction.paymentMethod,
+                  holderName: transaction.holderName,
+                  bankName: transaction.bankName,
+                  accountNumber: transaction.number,
+                  iban: transaction.iBAN,
+                  cardNo: transaction.cardNo,
+                  utr: transaction.uTR,
+                  approvedOn: transaction.approvedOn,
+                  rejectedOn: transaction.rejectedOn,
+                  firstDeposit: transaction.firstDeposit,
+                  approvedBy: transaction.approvedBy,
+                  franchiseName: transaction.franchiseName,
+                  remarks: transaction.remarks,
+                  bonusIncluded: transaction.bonusIncluded,
+                  bonusExcluded: transaction.bonusExcluded,
+                  bonusThreshold: transaction.bonusThreshold,
+                  lastUpdatedUTROn: transaction.lastUpdatedUTROn,
+                  auditStatusId: transaction.auditStatusID,
+                  auditStatus: transaction.auditStatus,
+                  authorizedUserRemarks: transaction.authorizedUserRemarks,
+                  isImageAvailable: transaction.isImageAvailable
+                };
+
+                // Use findOneAndUpdate with upsert option to create or update
+                await Transaction.findOneAndUpdate(
+                  { orderId: transaction.orderID },
+                  transactionData,
+                  {
+                    upsert: true,
+                    new: true,
+                    runValidators: true
+                  }
+                );
+
+              } catch (transactionError) {
+                logger.error('Error processing individual transaction:', {
+                  orderId: transaction?.orderID,
+                  error: transactionError.message
+                });
+              }
+            }
+          } catch (err) {
+            logger.error('Error processing API response:', {
+              url,
+              error: err.message
             });
           }
-        });
+        }
+      });
 
-        this.rejectedDepositsPage.on('response', async (interceptedResponse) => {
-          let url = interceptedResponse.url();
+      // Handle browser/page closure
+      this.rejectedDepositsBrowser.on('disconnected', () => {
+        this.isMonitoring = false;
+        this.rejectedDepositsBrowser = null;
+        this.rejectedDepositsPage = null;
+      });
 
-          // Handle login response
-          if (url.includes('/accounts/login')) {
-            try {
-              const responseData = await interceptedResponse.json();
-              if (responseData && responseData.detail.token) {
-                // Check if token exists and its age
-                const existingToken = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
-                const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
-                
-                if (!existingToken || (Date.now() - existingToken.lastUpdated.getTime()) > fiveHoursFortyMins) {
-                  // Store the token in constants collection only if it's older than 5h40m
-                  await Constant.findOneAndUpdate(
-                    { key: 'SCRAPING_AUTH_TOKEN' },
-                    { 
-                      value: responseData.detail.token,
-                      lastUpdated: new Date()
-                    },
-                    { upsert: true }
-                  );
-                }
-              }
-            } catch (error) {
-              logger.error('Error processing login response:', error);
-            }
-          }
-
-          // Handle deposit list API
-          if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
-            try {
-              const json = await interceptedResponse.json();
-              const transactions = Array.isArray(json) ? json : json.data || [];
-
-              // Process transactions
-              for (const transaction of transactions) {
-                try {
-                  await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
-
-                  // Create the transaction data object
-                  const transactionData = {
-                    orderId: transaction.orderID,
-                    userId: transaction.userID,
-                    userName: transaction.userName,
-                    name: transaction.name,
-                    statusId: transaction.StatusID,
-                    transactionStatus: transaction.transactionStatus,
-                    amount: transaction.amount,
-                    requestDate: transaction.requestDate, // Convert UTC to IST
-                    paymentMethod: transaction.paymentMethod,
-                    holderName: transaction.holderName,
-                    bankName: transaction.bankName,
-                    accountNumber: transaction.number,
-                    iban: transaction.iBAN,
-                    cardNo: transaction.cardNo,
-                    utr: transaction.uTR,
-                    approvedOn: transaction.approvedOn,
-                    rejectedOn: transaction.rejectedOn,
-                    firstDeposit: transaction.firstDeposit,
-                    approvedBy: transaction.approvedBy,
-                    franchiseName: transaction.franchiseName,
-                    remarks: transaction.remarks,
-                    bonusIncluded: transaction.bonusIncluded,
-                    bonusExcluded: transaction.bonusExcluded,
-                    bonusThreshold: transaction.bonusThreshold,
-                    lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                    auditStatusId: transaction.auditStatusID,
-                    auditStatus: transaction.auditStatus,
-                    authorizedUserRemarks: transaction.authorizedUserRemarks,
-                    isImageAvailable: transaction.isImageAvailable
-                  };
-
-                  // Use findOneAndUpdate with upsert option to create or update
-                  await Transaction.findOneAndUpdate(
-                    { orderId: transaction.orderID },
-                    transactionData,
-                    {
-                      upsert: true,
-                      new: true,
-                      runValidators: true
-                    }
-                  );
-
-                } catch (transactionError) {
-                  logger.error('Error processing individual transaction:', {
-                    orderId: transaction?.orderID,
-                    error: transactionError.message
-                  });
-                }
-              }
-            } catch (err) {
-              logger.error('Error processing API response:', {
-                url,
-                error: err.message
-              });
-            }
-          }
-        });
-
-        // Handle browser/page closure
-        this.rejectedDepositsBrowser.on('disconnected', () => {
-          this.isMonitoring = false;
-          this.rejectedDepositsBrowser = null;
-          this.rejectedDepositsPage = null;
-        });
-
-        this.rejectedDepositsPage.on('close', () => {
-          this.isMonitoring = false;
-          this.rejectedDepositsPage = null;
-        });
-      // }
+      this.rejectedDepositsPage.on('close', () => {
+        this.isMonitoring = false;
+        this.rejectedDepositsPage = null;
+      });
 
       // Only proceed with login if we're not already on the right page
       if (!this.rejectedDepositsPage.url().includes('/admin/deposit/recent-deposit')) {
@@ -1045,6 +1074,33 @@ class NetworkInterceptor {
           }
         }
       }
+
+      // Set up auto-refresh
+      const startAutoRefresh = async () => {
+        try {
+          const refreshButton = await this.rejectedDepositsPage.$('span.d-flex.justify-content-center.align-items-center.pointer');
+          if (refreshButton) {
+            await refreshButton.click();
+          }
+        } catch (error) {}
+      };
+
+      // Start auto-refresh interval
+      const refreshInterval = setInterval(startAutoRefresh, 10000);
+
+      // Clean up interval when browser is closed
+      this.rejectedDepositsBrowser.on('disconnected', () => {
+        clearInterval(refreshInterval);
+        this.isMonitoring = false;
+        this.rejectedDepositsBrowser = null;
+        this.rejectedDepositsPage = null;
+      });
+
+      this.rejectedDepositsPage.on('close', () => {
+        clearInterval(refreshInterval);
+        this.isMonitoring = false;
+        this.rejectedDepositsPage = null;
+      });
 
       this.isMonitoring = true;
       return { success: true, browser: this.rejectedDepositsBrowser, page: this.rejectedDepositsPage };

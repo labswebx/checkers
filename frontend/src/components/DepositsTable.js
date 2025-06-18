@@ -134,7 +134,6 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
     }
     setSelectedImage(transcriptLink);
   };
-  console.log(deposits);
 
   return (
     <>

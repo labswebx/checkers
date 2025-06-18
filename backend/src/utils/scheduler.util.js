@@ -2,48 +2,35 @@ const cron = require('node-cron');
 const logger = require('./logger.util');
 const sessionUtil = require('./session.util');
 const networkInterceptor = require('./network-interceptor.util');
-const transactionService = require('../services/transaction.service');
+// const transactionService = require('../services/transaction.service');
 
 class Task {
-  constructor(name, interval, action) {
+  constructor(name, cronExpression, handler) {
     this.name = name;
-    this.interval = interval;
-    this.action = action;
-    this.isRunning = false;
+    this.cronExpression = cronExpression;
+    this.handler = handler;
     this.job = null;
   }
 
-  async _execution() {
-    this.isRunning = true;
+  async start() {
     try {
-      await this.action();
+      // Run the task immediately once
+      await this.handler();
     } catch (error) {
-      logger.error(`Error executing task ${this.name}:`, error);
-    } finally {
-      this.isRunning = false;
+      logger.error(`Error in task ${this.name.toUpperCase()}:`, error);
     }
-  }
-
-  start() {
-    if (this.job) {
-      return;
-    }
-
-    this.job = cron.schedule(this.interval, () => this._execution());
   }
 
   stop() {
-    if (this.job) {
-      this.job.stop();
-      this.job = null;
-    }
+    // No need to stop since we're not using cron anymore
+    logger.info(`Task ${this.name} stopped`);
   }
 }
 
 // Create task instances
 const depositListTask = new Task(
-  'Deposit List Monitor',
-  '*/20 * * * * *', // Every 20 seconds
+  'Pending Deposits Monitor',
+  null, // No cron expression needed
   async () => {
     try {
       await networkInterceptor.monitorPendingDeposits();
@@ -55,8 +42,8 @@ const depositListTask = new Task(
 );
 
 const recentDepositsTask = new Task(
-  'Recent Deposits Monitor',
-  '*/30 * * * * *', // Every 30 seconds
+  'Approved Deposits Monitor',
+  null, // No cron expression needed
   async () => {
     try {
       await networkInterceptor.monitorRecentDeposits();
@@ -69,7 +56,7 @@ const recentDepositsTask = new Task(
 
 const rejectedDepositsTask = new Task(
   'Rejected Deposits Monitor',
-  '*/30 * * * * *', // Every 30 seconds
+  null, // No cron expression needed
   async () => {
     try {
       await networkInterceptor.monitorRejectedDeposits();
@@ -92,19 +79,19 @@ class SchedulerUtil {
     }));
 
     // Send whatsApp message for pending transactions every minute
-    this.jobs.set('pendingCheck', cron.schedule('* * * * *', async () => {
-      try {
-        await transactionService.checkPendingTransactions();
-      } catch (error) {
-        logger.error('Error in pending transactions check job:', error);
-      }
-    }));
+    // this.jobs.set('pendingCheck', cron.schedule('* * * * *', async () => {
+    //   try {
+    //     await transactionService.checkPendingTransactions();
+    //   } catch (error) {
+    //     logger.error('Error in pending transactions check job:', error);
+    //   }
+    // }));
 
-    // Start tasks with proper delays and error handling
+    // Start tasks once with proper error handling
     try {
-      depositListTask.start();
-      recentDepositsTask.start();
-      rejectedDepositsTask.start();
+      await depositListTask.start();
+      await recentDepositsTask.start();
+      await rejectedDepositsTask.start();
     } catch (error) {
       logger.error('Error starting scheduled jobs:', error);
       throw error;
@@ -116,11 +103,6 @@ class SchedulerUtil {
       job.stop();
     }
     this.jobs.clear();
-
-    // Stop the monitoring tasks
-    depositListTask.stop();
-    recentDepositsTask.stop();
-    rejectedDepositsTask.stop();
 
     // Cleanup browser when stopping jobs
     try {
