@@ -36,7 +36,7 @@ const timeSlabs = [
   { label: '20+ mins', value: '20-above' }
 ];
 
-const REFRESH_INTERVAL = 10000; // 10 seconds
+const REFRESH_INTERVAL = 15000; // 15 seconds
 
 const Deposits = () => {
   const theme = useTheme();
@@ -187,8 +187,8 @@ const Deposits = () => {
                   {franchises.map((franchise) => (
                     <MenuItem key={franchise.fullName} value={franchise.fullName}>
                       {franchise.name}
-                    </MenuItem>
-                  ))}
+                  </MenuItem>
+                ))}
                 </Select>
               </FormControl>
             </Grid>

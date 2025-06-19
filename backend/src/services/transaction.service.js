@@ -347,12 +347,14 @@ class TransactionService {
         overall: {},
         byAgent: {}
       };
-      const baseMatch = {};
+      const baseMatch = {
+        amount: { $gte: 0 },
+      };
 
       if (filters.status && filters.status !== 'all') {
         // Map frontend status to database status
         const statusMap = {
-          'approved': TRANSACTION_STATUS.SUCCESS,
+          'success': TRANSACTION_STATUS.SUCCESS,
           'rejected': TRANSACTION_STATUS.REJECTED,
           'pending': TRANSACTION_STATUS.PENDING
         };
@@ -406,46 +408,45 @@ class TransactionService {
             $expr: {
               $let: {
                 vars: {
-                  statusUpdateDate: {
-                    $cond: {
-                      if: { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
-                      then: '$approvedOn',
-                      else: {
-                        $cond: {
-                          if: { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
-                          then: '$rejectedOn',
-                          else: '$requestDate' // For pending, use request date
+                  timeDiffMinutes: {
+                    $divide: [
+                      {
+                        $switch: {
+                          branches: [
+                            {
+                              case: {
+                                $and: [
+                                  { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
+                                  { $ne: ['$approvedOn', null] }
+                                ]
+                              },
+                              then: { $subtract: ['$approvedOn', '$requestDate'] }
+                            },
+                            {
+                              case: {
+                                $and: [
+                                  { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
+                                  { $ne: ['$approvedOn', null] }
+                                ]
+                              },
+                              then: { $subtract: ['$approvedOn', '$requestDate'] }
+                            }
+                          ],
+                          default: { $subtract: ['$$NOW', '$requestDate'] }
                         }
-                      }
-                    }
+                      },
+                      60 * 1000 // ms to minutes
+                    ]
                   }
                 },
-                in: {
-                  $cond: {
-                    if: { $eq: ['$transactionStatus', TRANSACTION_STATUS.PENDING] },
-                    then: true, // Include all pending transactions in "Above 20 minutes" slab
-                    else: {
-                      $let: {
-                        vars: {
-                          timeDiffMinutes: {
-                            $divide: [
-                              { $subtract: ['$$statusUpdateDate', '$requestDate'] },
-                              60000 // Convert ms to minutes
-                            ]
-                          }
-                        },
-                        in: slab.max
-                          ? {
-                              $and: [
-                                { $gte: ['$$timeDiffMinutes', slab.min] },
-                                { $lt: ['$$timeDiffMinutes', slab.max] }
-                              ]
-                            }
-                          : { $gte: ['$$timeDiffMinutes', slab.min] }
-                      }
+                in: slab.max
+                  ? {
+                      $and: [
+                        { $gte: ['$$timeDiffMinutes', slab.min] },
+                        { $lt: ['$$timeDiffMinutes', slab.max] }
+                      ]
                     }
-                  }
-                }
+                  : { $gte: ['$$timeDiffMinutes', slab.min] }
               }
             }
           }

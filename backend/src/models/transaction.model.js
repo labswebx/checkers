@@ -87,6 +87,11 @@ transactionSchema.index({ orderId: 1 });
 transactionSchema.index({ requestDate: 1, transactionStatus: 1, franchiseName: 1 });
 transactionSchema.index({ createdAt: -1 });
 
+// Additional indexes for optimization
+transactionSchema.index({ approvedOn: 1 });
+transactionSchema.index({ rejectedOn: 1 });
+transactionSchema.index({ amount: 1 });
+
 // Create text index for search functionality
 transactionSchema.index(
   { 

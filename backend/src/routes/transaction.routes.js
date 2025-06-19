@@ -48,8 +48,32 @@ router.get('/deposits', auth, async (req, res) => {
             vars: {
               timeDiffMinutes: {
                 $divide: [
-                  { $subtract: [new Date(), '$requestDate'] },
-                  60 * 1000 // Convert ms to minutes
+                  {
+                    $switch: {
+                      branches: [
+                        {
+                          case: {
+                            $and: [
+                              { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
+                              { $ne: ['$approvedOn', null] }
+                            ]
+                          },
+                          then: { $subtract: ['$approvedOn', '$requestDate'] }
+                        },
+                        {
+                          case: {
+                            $and: [
+                              { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
+                              { $ne: ['$approvedOn', null] }
+                            ]
+                          },
+                          then: { $subtract: ['$approvedOn', '$requestDate'] }
+                        }
+                      ],
+                      default: { $subtract: [new Date(), '$requestDate'] }
+                    }
+                  },
+                  60 * 1000 // ms to minutes
                 ]
               }
             },
@@ -72,43 +96,155 @@ router.get('/deposits', auth, async (req, res) => {
     }
 
     let timeSlabCounts = [];
+    // Optimization: Use a reusable $addFields stage for time difference and minutes
+    const statusTimeDiffAddFields = {
+      $addFields: {
+        currentTime: '$$NOW',
+        timeDifference: {
+          $switch: {
+            branches: [
+              {
+                case: {
+                  $and: [
+                    { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
+                    { $ne: ['$approvedOn', null] }
+                  ]
+                },
+                then: { $subtract: ['$approvedOn', '$requestDate'] }
+              },
+              {
+                case: {
+                  $and: [
+                    { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
+                    { $ne: ['$approvedOn', null] }
+                  ]
+                },
+                then: { $subtract: ['$approvedOn', '$requestDate'] }
+              }
+            ],
+            default: { $subtract: ['$$NOW', '$requestDate'] }
+          }
+        },
+        minutes: { $divide: [
+          {
+            $switch: {
+              branches: [
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
+                      { $ne: ['$approvedOn', null] }
+                    ]
+                  },
+                  then: { $subtract: ['$approvedOn', '$requestDate'] }
+                },
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
+                      { $ne: ['$approvedOn', null] }
+                    ]
+                  },
+                  then: { $subtract: ['$approvedOn', '$requestDate'] }
+                }
+              ],
+              default: { $subtract: ['$$NOW', '$requestDate'] }
+            }
+          },
+          1000 * 60
+        ]}
+      }
+    };
+
     const timeSlabPipeline = [
       {
         $match: {
-          ...matchStage
+          amount: { $gte: 0 },
+          requestDate: { $gte: twentyFourHoursAgo },
+          transactionStatus: status,
+          ...(franchise && franchise !== 'all' ? { franchiseName: franchise } : {}),
+          ...(search ? { $text: { $search: search } } : {})
+        }
+      },
+      statusTimeDiffAddFields,
+      {
+        $addFields: {
+          timeSlab: {
+            $switch: {
+              branches: [
+                { 
+                  case: { 
+                    $and: [
+                      { $gte: ['$minutes', 2] },
+                      { $lt: ['$minutes', 5] }
+                    ]
+                  }, 
+                  then: '2-5' 
+                },
+                { 
+                  case: { 
+                    $and: [
+                      { $gte: ['$minutes', 5] },
+                      { $lt: ['$minutes', 8] }
+                    ]
+                  }, 
+                  then: '5-8' 
+                },
+                { 
+                  case: { 
+                    $and: [
+                      { $gte: ['$minutes', 8] },
+                      { $lt: ['$minutes', 12] }
+                    ]
+                  }, 
+                  then: '8-12' 
+                },
+                { 
+                  case: { 
+                    $and: [
+                      { $gte: ['$minutes', 12] },
+                      { $lt: ['$minutes', 20] }
+                    ]
+                  }, 
+                  then: '12-20' 
+                },
+                { 
+                  case: { $gte: ['$minutes', 20] }, 
+                  then: '20-above' 
+                }
+              ],
+              default: 'other'
+            }
+          }
+        }
+      },
+      {
+        $match: {
+          timeSlab: { $ne: 'other' }
+        }
+      },
+      {
+        $addFields: {
+          debug: {
+            timeDifference: '$timeDifference',
+            minutes: '$minutes',
+            status: '$transactionStatus',
+            requestDate: '$requestDate',
+            approvedOn: '$approvedOn',
+            rejectedOn: '$rejectedOn',
+            timeSlab: '$timeSlab'
+          }
         }
       },
       {
         $group: {
-          _id: null,
-          total: { $sum: 1 },
-          timeSlabs: {
+          _id: '$timeSlab',
+          count: { $sum: 1 },
+          samples: { 
             $push: {
-              $switch: {
-                branches: [
-                  {
-                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 2 * 60 * 1000] },
-                    then: '0-2'
-                  },
-                  {
-                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 5 * 60 * 1000] },
-                    then: '2-5'
-                  },
-                  {
-                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 8 * 60 * 1000] },
-                    then: '5-8'
-                  },
-                  {
-                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 12 * 60 * 1000] },
-                    then: '8-12'
-                  },
-                  {
-                    case: { $lte: [{ $subtract: [new Date(), '$requestDate'] }, 20 * 60 * 1000] },
-                    then: '12-20'
-                  }
-                ],
-                default: '20-above'
-              }
+              minutes: '$minutes',
+              status: '$transactionStatus',
+              debug: '$debug'
             }
           }
         }
@@ -116,24 +252,37 @@ router.get('/deposits', auth, async (req, res) => {
       {
         $project: {
           _id: 0,
-          total: 1,
-          timeSlabs: 1
+          label: '$_id',
+          count: 1,
+          samples: 1
+        }
+      },
+      {
+        $sort: {
+          label: 1
         }
       }
     ];
 
-    const timeSlabResult = await Transaction.aggregate(timeSlabPipeline);
-    if (timeSlabResult.length > 0) {
-      const timeSlabCountsMap = timeSlabResult[0].timeSlabs.reduce((acc, slab) => {
-        acc[slab] = (acc[slab] || 0) + 1;
-        return acc;
-      }, {});
+    timeSlabCounts = await Transaction.aggregate(timeSlabPipeline);
 
-      timeSlabCounts = TIME_SLABS.map(slab => ({
-        label: slab.label,
-        count: timeSlabCountsMap[slab.label] || 0
-      }));
-    }
+    // Remove samples before sending response
+    timeSlabCounts = timeSlabCounts.map(({ samples, ...rest }) => rest);
+
+    // Ensure all time slabs are present with zero counts if missing
+    const allTimeSlabs = [
+      { label: '2-5', count: 0 },
+      { label: '5-8', count: 0 },
+      { label: '8-12', count: 0 },
+      { label: '12-20', count: 0 },
+      { label: '20-above', count: 0 }
+    ];
+
+    // Merge existing counts with default slabs
+    timeSlabCounts = allTimeSlabs.map(defaultSlab => {
+      const existingSlab = timeSlabCounts.find(ts => ts.label === defaultSlab.label);
+      return existingSlab || defaultSlab;
+    });
 
     // Main aggregation pipeline for deposits
     const pipeline = [

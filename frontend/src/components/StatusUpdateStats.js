@@ -27,7 +27,6 @@ const StatusUpdateStats = () => {
     const fetchStats = async () => {
       try {
         const response = await api.get(`${API_ENDPOINTS.DASHBOARD_STATUS_UPDATE_STATS}`);
-        // const response = await axios.get('/api/transactions/status-update-stats');
         setStats(response.data.data);
       } catch (err) {
         setError('Failed to fetch status update statistics');
