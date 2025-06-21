@@ -43,16 +43,31 @@ ChartJS.register(
   ArcElement
 );
 
-const StatCard = ({ title, value, icon, color }) => (
-  <Card sx={{ height: '100%' }}>
+const StatCard = ({ title, value, icon, bgColor, iconColor }) => (
+  <Card sx={{
+    height: '100%',
+    background: bgColor,
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)',
+    border: `1.5px solid ${iconColor}22`
+  }}>
     <CardContent>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        {icon}
-        <Typography variant="h6" sx={{ ml: 1, color: 'text.secondary' }}>
+        <Box sx={{
+          background: `${iconColor}18`,
+          borderRadius: '10px',
+          p: 1,
+          display: 'flex',
+          alignItems: 'center',
+          mr: 1
+        }}>
+          {React.cloneElement(icon, { sx: { color: iconColor, fontSize: 32 } })}
+        </Box>
+        <Typography variant="h6" sx={{ color: iconColor, fontWeight: 600 }}>
           {title}
         </Typography>
       </Box>
-      <Typography variant="h4" sx={{ color }}>
+      <Typography variant="h4" sx={{ color: iconColor, fontWeight: 700 }}>
         {value}
       </Typography>
     </CardContent>
@@ -99,101 +114,123 @@ const Dashboard = () => {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ py: 3 }}>
-        {/* Statistics Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Total Users"
-              value={stats.users.total}
-              icon={<PeopleOutline sx={{ color: colors.primary.main }} />}
-              color={colors.primary.main}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Total Amount"
-              value={`₹${stats.amounts.total.toLocaleString()}`}
-              icon={<AccountBalanceWallet sx={{ color: colors.success.main }} />}
-              color={colors.success.main}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Pending Amount"
-              value={`₹${stats.amounts.pending.toLocaleString()}`}
-              icon={<PendingActions sx={{ color: colors.warning.main }} />}
-              color={colors.warning.main}
-            />
-          </Grid>
-        </Grid>
-
-        {/* Charts */}
-        {/* <Grid container spacing={3}>
-          <Grid item xs={12} lg={4}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Top Performing Agents
-              </Typography>
-              <Box sx={{ height: 300 }}>
-                <Bar
-                  data={barChartData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        display: false
-                      }
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        title: {
-                          display: true,
-                          text: 'Amount (₹)'
-                        }
-                      }
-                    }
-                  }}
-                />
-              </Box>
-            </Paper>
-          </Grid>
-        </Grid> */}
-
-        {/* Additional Statistics */}
-        <Grid container spacing={3} sx={{ mt: 2 }}>
+      <Box>
+        {/* Deposit Statistics */}
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: colors.success.main }}>
+          Deposit Statistics (Last 24 Hours)
+        </Typography>
+        <Grid container spacing={3}>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
               title="Approved Deposits"
               value={stats.transactions.approved}
-              icon={<CheckCircleOutline sx={{ color: colors.success.main }} />}
-              color={colors.success.main}
+              icon={<CheckCircleOutline />}
+              bgColor="#e8f5e9"
+              iconColor="#388e3c"
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
               title="Pending Deposits"
               value={stats.transactions.pending}
-              icon={<PendingActions sx={{ color: colors.warning.main }} />}
-              color={colors.warning.main}
+              icon={<PendingActions />}
+              bgColor="#fff9e6"
+              iconColor="#f7b500"
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
               title="Rejected Deposits"
               value={stats.transactions.rejected}
-              icon={<CancelOutlined sx={{ color: colors.error.main }} />}
-              color={colors.error.main}
+              icon={<CancelOutlined />}
+              bgColor="#fbe9e7"
+              iconColor="#e57373"
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
+              title="Total Deposited"
+              value={`₹${stats.amounts.total.toLocaleString()}`}
+              icon={<AccountBalanceWallet />}
+              bgColor="#e3f2fd"
+              iconColor="#1976d2"
+            />
+          </Grid>
+        </Grid>
+
+        {/* Withdrawal Statistics */}
+        <Typography variant="h6" sx={{ mt: 5, mb: 2, fontWeight: 'bold', color: colors.secondary.main }}>
+          Withdrawal Statistics (Last 24 Hours)
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Approved Withdrawals"
+              value={stats.withdraws.approved}
+              icon={<CheckCircleOutline />}
+              bgColor="#e3f2fd"
+              iconColor="#1976d2"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Pending Withdrawals"
+              value={stats.withdraws.pending}
+              icon={<PendingActions />}
+              bgColor="#fff9e6"
+              iconColor="#f7b500"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Rejected Withdrawals"
+              value={stats.withdraws.rejected}
+              icon={<CancelOutlined />}
+              bgColor="#fbe9e7"
+              iconColor="#e57373"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Total Withdrawn"
+              value={`₹${stats.withdrawAmounts.total.toLocaleString()}`}
+              icon={<AccountBalanceWallet />}
+              bgColor="#e8f5e9"
+              iconColor="#388e3c"
+            />
+          </Grid>
+        </Grid>
+
+        {/* User Statistics */}
+        <Typography variant="h6" sx={{ mt: 5, mb: 2, fontWeight: 'bold', color: colors.primary.main }}>
+          User Statistics
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6} md={4}>
+            <StatCard
+              title="Total Users"
+              value={stats.users.total}
+              icon={<PeopleOutline sx={{ color: colors.primary.main }} />}
+              bgColor={colors.primary.main}
+              iconColor={colors.primary.contrastText}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <StatCard
               title="Total Agents"
               value={stats.users.agents}
               icon={<PeopleOutline sx={{ color: colors.info.main }} />}
-              color={colors.info.main}
+              bgColor={colors.info.main}
+              iconColor={colors.info.contrastText}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <StatCard
+              title="Total Admins"
+              value={stats.users.admins}
+              icon={<PeopleOutline sx={{ color: colors.secondary.main }} />}
+              bgColor={colors.secondary.main}
+              iconColor={colors.secondary.contrastText}
             />
           </Grid>
         </Grid>

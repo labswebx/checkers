@@ -16,6 +16,9 @@ import Deposits from './pages/Deposits';
 import ApprovedDeposits from './pages/ApprovedDeposits';
 import RejectedDeposits from './pages/RejectedDeposits';
 import StatusAnalysis from './pages/StatusAnalysis';
+import PendingWithdraws from './pages/PendingWithdraws';
+import ApprovedWithdraws from './pages/ApprovedWithdraws';
+import RejectedWithdraws from './pages/RejectedWithdraws';
 
 // Create a theme instance
 const theme = createTheme({
@@ -190,6 +193,36 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Users />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pending-withdrawals"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <PendingWithdraws />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/approved-withdraws"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ApprovedWithdraws />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rejected-withdraws"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <RejectedWithdraws />
                 </Layout>
               </ProtectedRoute>
             }

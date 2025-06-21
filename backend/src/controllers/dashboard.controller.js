@@ -35,12 +35,46 @@ const getDashboardStats = async (req, res) => {
       createdAt: { $gte: last24Hours }
     });
 
+    // Get withdrawal statistics for last 24 hours
+    const totalWithdraws = await Transaction.countDocuments({ createdAt: { $gte: last24Hours }, amount: { $lt: 0 } });
+    const pendingWithdraws = await Transaction.countDocuments({ 
+      transactionStatus: TRANSACTION_STATUS.PENDING,
+      createdAt: { $gte: last24Hours },
+      amount: { $lt: 0 }
+    });
+    const approvedWithdraws = await Transaction.countDocuments({ 
+      transactionStatus: TRANSACTION_STATUS.SUCCESS,
+      createdAt: { $gte: last24Hours },
+      amount: { $lt: 0 }
+    });
+    const rejectedWithdraws = await Transaction.countDocuments({ 
+      transactionStatus: TRANSACTION_STATUS.REJECTED,
+      createdAt: { $gte: last24Hours },
+      amount: { $lt: 0 }
+    });
+
     // Calculate total amounts for last 24 hours
     const totalAmountStats = await Transaction.aggregate([
       {
         $match: {
           createdAt: { $gte: last24Hours },
           amount: { $gte: 0 }
+        }
+      },
+      {
+        $group: {
+          _id: '$transactionStatus',
+          totalAmount: { $sum: { $toDouble: '$amount' } }
+        }
+      }
+    ]);
+
+    // Calculate total withdrawal amounts for last 24 hours
+    const withdrawAmountStats = await Transaction.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: last24Hours },
+          amount: { $lt: 0 }
         }
       },
       {
@@ -120,6 +154,12 @@ const getDashboardStats = async (req, res) => {
       return acc;
     }, {});
 
+    // Format amounts from withdrawAmountStats
+    const withdrawAmountsByStatus = withdrawAmountStats.reduce((acc, curr) => {
+      acc[curr._id.toLowerCase()] = curr.totalAmount;
+      return acc;
+    }, {});
+
     return successResponse(res, 'Dashboard statistics fetched successfully', {
       users: {
         total: totalUsers,
@@ -137,6 +177,17 @@ const getDashboardStats = async (req, res) => {
         total: amountsByStatus.success || 0,
         pending: amountsByStatus.pending || 0,
         rejected: amountsByStatus.rejected || 0
+      },
+      withdraws: {
+        total: totalWithdraws,
+        pending: pendingWithdraws,
+        approved: approvedWithdraws,
+        rejected: rejectedWithdraws
+      },
+      withdrawAmounts: {
+        total: Math.abs(withdrawAmountsByStatus.success || 0),
+        pending: Math.abs(withdrawAmountsByStatus.pending || 0),
+        rejected: Math.abs(withdrawAmountsByStatus.rejected || 0)
       },
       trends: {
         hourly: hourlyTrends
