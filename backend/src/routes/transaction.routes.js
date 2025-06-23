@@ -6,6 +6,7 @@ const transactionService = require('../services/transaction.service');
 const { successResponse, errorResponse } = require('../utils/response.util');
 const { STATUS_CODES, TRANSACTION_STATUS } = require('../constants');
 const logger = require('../utils/logger.util');
+const Cache = require('../utils/cache.util');
 
 // Time slab configurations
 const TIME_SLABS = [
@@ -15,6 +16,8 @@ const TIME_SLABS = [
   { min: 12, max: 20, label: '12-20' },
   { min: 20, max: 'above', label: '20-above' }
 ];
+
+const depositsCache = new Cache({ max: 100, ttl: 120 });
 
 // Get deposits with filters and pagination
 router.get('/deposits', auth, async (req, res) => {
@@ -26,11 +29,45 @@ router.get('/deposits', auth, async (req, res) => {
       franchise,
       page = 1,
       limit = 10
-    } = req.query;
-    const matchStage = {
-      amount: { $gte: 0 }
-    };
+      } = req.query;
+      const matchStage = {
+        amount: { $gte: 0 }
+      };
 
+      let CACHE_KEYS = {}
+      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_DATA`] =`DEPOSITS_${status.toUpperCase()}_DATA`
+      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TIME_SLABS_COUNT`] =`DEPOSITS_${status.toUpperCase()}_TIME_SLABS_COUNT`
+      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_PAGES`] =`DEPOSITS_${status.toUpperCase()}_TOTAL_PAGES`
+      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_RECORDS`] =`DEPOSITS_${status.toUpperCase()}_TOTAL_RECORDS`
+
+      // Don't use caching in case of Pending Status because it gets updated every 10-15 seconds.
+      // If status is Success or Rejected, then use the response from Cache
+      if (status !== TRANSACTION_STATUS.PENDING) {
+        let allCached = true;
+        let cacheResponse = {};
+        for (const key in CACHE_KEYS) {
+          const cached = depositsCache.get(key);
+          if (cached) {
+            cacheResponse[key] = cached;
+          } else {
+            allCached = false;
+            break;
+          }
+        }
+        if (allCached) {
+          // All required cache keys are present
+          const endTime = Date.now();
+          return successResponse(res, 'Deposits fetched successfully (cache)', {
+            data: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_DATA`]],
+            timeSlabCounts: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TIME_SLABS_COUNT`]],
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_PAGES`]],
+            totalRecords: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_RECORDS`]]
+          });
+        }
+      }
+      
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
     matchStage.requestDate = { $gte: twentyFourHoursAgo };
@@ -367,15 +404,25 @@ router.get('/deposits', auth, async (req, res) => {
     const { metadata, data } = result;
     const totalRecords = metadata[0]?.total || 0;
     const totalPages = Math.ceil(totalRecords / parseInt(limit));
-
-    return successResponse(res, 'Deposits fetched successfully', {
+    const responseData = {
       data,
       timeSlabCounts,
       page: parseInt(page),
       limit: parseInt(limit),
       totalPages,
       totalRecords
-    });
+    };
+
+    // Update the data in Cache
+    if (status !== TRANSACTION_STATUS.PENDING) {
+      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_DATA`], responseData.data);
+      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TIME_SLABS_COUNT`], responseData.timeSlabCounts);
+      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_PAGES`], responseData.totalPages);
+      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_RECORDS`], responseData.totalRecords);
+    }
+
+    const endTime = Date.now();
+    return successResponse(res, 'Deposits fetched successfully', responseData);
   } catch (error) {
     logger.error('Error in /deposits endpoint:', error);
     return errorResponse(res, 'Error fetching deposits', error, STATUS_CODES.INTERNAL_SERVER_ERROR);

@@ -1,3 +1,4 @@
+- [ ] Create a deploy.sh file so that whenever we deploy on server, we just have to run that file. It will install the packages, close running PORTS from NGINX, run mongod & run the server. Basically it will be the one file to run for deployment, no need to install packages & all
 - [ ] Setup automatic env detection on Frontend so that we don't have to change the URL everytime we deploy
 - [ ] Show proper error message in case of Login & register. Try register with duplicate email or try login with agent email.
 - [ ] For every franchise it is creating a new user. Verify why & how is this happening & whats the need for this.
