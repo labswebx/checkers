@@ -35,10 +35,10 @@ router.get('/deposits', auth, async (req, res) => {
       };
 
       let CACHE_KEYS = {}
-      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_DATA`] =`DEPOSITS_${status.toUpperCase()}_DATA`
-      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TIME_SLABS_COUNT`] =`DEPOSITS_${status.toUpperCase()}_TIME_SLABS_COUNT`
-      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_PAGES`] =`DEPOSITS_${status.toUpperCase()}_TOTAL_PAGES`
-      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_RECORDS`] =`DEPOSITS_${status.toUpperCase()}_TOTAL_RECORDS`
+      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_DATA`] =`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_DATA`
+      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TIME_SLABS_COUNT`] =`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TIME_SLABS_COUNT`
+      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TOTAL_PAGES`] =`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TOTAL_PAGES`
+      CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TOTAL_RECORDS`] =`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TOTAL_RECORDS`
 
       // Don't use caching in case of Pending Status because it gets updated every 10-15 seconds.
       // If status is Success or Rejected, then use the response from Cache
@@ -56,14 +56,13 @@ router.get('/deposits', auth, async (req, res) => {
         }
         if (allCached) {
           // All required cache keys are present
-          const endTime = Date.now();
           return successResponse(res, 'Deposits fetched successfully (cache)', {
-            data: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_DATA`]],
-            timeSlabCounts: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TIME_SLABS_COUNT`]],
+            data: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_DATA`]],
+            timeSlabCounts: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TIME_SLABS_COUNT`]],
             page: parseInt(page),
             limit: parseInt(limit),
-            totalPages: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_PAGES`]],
-            totalRecords: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_RECORDS`]]
+            totalPages: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TOTAL_PAGES`]],
+            totalRecords: cacheResponse[CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TOTAL_RECORDS`]]
           });
         }
       }
@@ -415,10 +414,10 @@ router.get('/deposits', auth, async (req, res) => {
 
     // Update the data in Cache
     if (status !== TRANSACTION_STATUS.PENDING) {
-      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_DATA`], responseData.data);
-      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TIME_SLABS_COUNT`], responseData.timeSlabCounts);
-      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_PAGES`], responseData.totalPages);
-      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_TOTAL_RECORDS`], responseData.totalRecords);
+      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_DATA`], responseData.data);
+      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TIME_SLABS_COUNT`], responseData.timeSlabCounts);
+      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TOTAL_PAGES`], responseData.totalPages);
+      depositsCache.set(CACHE_KEYS[`DEPOSITS_${status.toUpperCase()}_${page}_${limit}_TOTAL_RECORDS`], responseData.totalRecords);
     }
 
     const endTime = Date.now();
