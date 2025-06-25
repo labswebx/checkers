@@ -111,6 +111,10 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
       success: {
         bg: theme.palette.success.light,
         color: theme.palette.success.contrastText
+      },
+      secondary: {
+        bg: theme.palette.grey[400],
+        color: theme.palette.black
       }
     };
 
@@ -139,21 +143,23 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
   return (
     <>
       <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-        <TableContainer>
-          <Table stickyHeader>
+        <TableContainer sx={{ maxWidth: '100vw', overflowX: 'auto' }}>
+          <Table stickyHeader sx={{ minWidth: 1300 }}>
             <TableHead>
               <TableRow>
-                <TableCell>Order ID</TableCell>
-                <TableCell>Customer</TableCell>
-                <TableCell>Franchise</TableCell>
-                <TableCell>UTR</TableCell>
-                <TableCell>Transcript</TableCell>
-                <TableCell>Account No</TableCell>
-                <TableCell>Payable Amount</TableCell>
-                <TableCell>Checking Dept</TableCell>
-                <TableCell>Approved Date</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Order ID</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Customer</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Franchise</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>UTR</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Transcript</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Account No</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Payable Amount</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Checking Dept</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 180 }}>Bonus Approved On</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 180 }}>Checking Dept Approved On</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Approved Date</TableCell>
                 {
-                  withdraws.length > 0 && withdraws[0].status !== TRANSACTION_STATUS.SUCCESS && withdraws[0].status !== TRANSACTION_STATUS.REJECTED && <TableCell>Status</TableCell>
+                  withdraws.length > 0 && withdraws[0].status !== TRANSACTION_STATUS.SUCCESS && withdraws[0].status !== TRANSACTION_STATUS.REJECTED && <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Status</TableCell>
                 }
               </TableRow>
             </TableHead>
@@ -246,7 +252,7 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                         <PendingBadge label="Pending" color="primary" />
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>
                       <Tooltip title="View Account Number" arrow>
                         <IconButton
                           size="small"
@@ -264,7 +270,7 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                     </TableCell>
 
                     {/* Payable Amount */}
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>
                       {
                         (withdraw.bonusIncluded || withdraw.bonusExcluded) || (withdraw.auditStatus === TRANSACTION_STATUS.SUCCESS) ? <Typography variant="body2" sx={{ fontWeight: 500 }}>
                           {formatAmount(Math.abs(withdraw.amount) - withdraw.bonusIncluded)}
@@ -279,18 +285,35 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                         } />
                     </TableCell>
 
-                    {/* Approved Date */}
-                    <TableCell>
+                    {/* Bonus Approved On */}
+                    <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 180 }}>
                       {
-                        withdraw.approvedOn ? <Typography variant="caption">
-                          {formatInTimeZone(new Date(withdraw.approvedOn), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
+                        withdraw.bonusApprovedOn ? <Typography variant="caption">
+                          {formatInTimeZone(new Date(withdraw.bonusApprovedOn), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
                         </Typography> : <PendingBadge label="Pending" color="error" />
                       }
                     </TableCell>
 
-                    {/* Status */}
+                    {/* Checking Dept Approved On */}
+                    <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 180 }}>
+                      {
+                        withdraw.checkingDeptApprovedOn ? <Typography variant="caption">
+                          {formatInTimeZone(new Date(withdraw.checkingDeptApprovedOn), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
+                        </Typography> : <PendingBadge label="Pending" color="secondary" showAnimation={false} />
+                      }
+                    </TableCell>
+
+                    {/* Approved Date */}
+                    <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>
+                      {
+                        withdraw.approvedOn ? <Typography variant="caption">
+                          {formatInTimeZone(new Date(withdraw.approvedOn), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
+                        </Typography> : <PendingBadge label="Pending" color="secondary" showAnimation={false} />
+                      }
+                    </TableCell>
+
                     {
-                      withdraw.status !== TRANSACTION_STATUS.SUCCESS && withdraw.status !== TRANSACTION_STATUS.REJECTED && <TableCell>
+                      withdraw.status !== TRANSACTION_STATUS.SUCCESS && withdraw.status !== TRANSACTION_STATUS.REJECTED && <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>
                       {(() => {
                         // Check if all required conditions are met
                         const hasUTR = withdraw.utr && withdraw.utr.trim() !== '';

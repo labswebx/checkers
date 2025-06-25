@@ -129,8 +129,8 @@ class SchedulerUtil {
       await sessionUtil.cleanupExpiredSessions();
     }));
 
-    // Transcript fetch every hour
-    this.jobs.set('transcriptFetch', cron.schedule('0 * * * *', async () => {
+    // Transcript fetch every 30 minutes
+    this.jobs.set('transcriptFetch', cron.schedule('0,30 * * * *', async () => {
       await fetchPendingTranscripts.start();
     }));
 

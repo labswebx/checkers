@@ -805,7 +805,9 @@ router.get('/withdraws', auth, async (req, res) => {
                 franchise: '$franchiseName',
                 createdAt: 1,
                 transcriptLink: 1,
-                agentId: 1
+                agentId: 1,
+                checkingDeptApprovedOn: 1,
+                bonusApprovedOn: 1
               }
             }
           ]

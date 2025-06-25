@@ -368,59 +368,61 @@ class NetworkInterceptor {
 
               // Process transactions and click transcript icons
               for (const transaction of transactions) {
-                try {
-                  await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
-
-                  // Create the transaction data object
-                  const transactionData = {
-                    orderId: transaction.orderID,
-                    userId: transaction.userID,
-                    userName: transaction.userName,
-                    name: transaction.name,
-                    statusId: transaction.StatusID,
-                    transactionStatus: transaction.transactionStatus,
-                    amount: transaction.amount,
-                    requestDate: transaction.requestDate, // Convert UTC to IST
-                    paymentMethod: transaction.paymentMethod,
-                    holderName: transaction.holderName,
-                    bankName: transaction.bankName,
-                    accountNumber: transaction.number,
-                    iban: transaction.iBAN,
-                    cardNo: transaction.cardNo,
-                    utr: transaction.uTR,
-                    approvedOn: transaction.approvedOn,
-                    rejectedOn: transaction.rejectedOn,
-                    firstDeposit: transaction.firstDeposit,
-                    approvedBy: transaction.approvedBy,
-                    franchiseName: transaction.franchiseName,
-                    remarks: transaction.remarks,
-                    bonusIncluded: transaction.bonusIncluded,
-                    bonusExcluded: transaction.bonusExcluded,
-                    bonusThreshold: transaction.bonusThreshold,
-                    lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                    auditStatusId: transaction.auditStatusID,
-                    auditStatus: transaction.auditStatus,
-                    authorizedUserRemarks: transaction.authorizedUserRemarks,
-                    isImageAvailable: transaction.isImageAvailable
-                  };
-
-                  // Use findOneAndUpdate with upsert option to create or update
-                  await Transaction.findOneAndUpdate(
-                    { orderId: transaction.orderID }, // find criteria
-                    transactionData, // update data
-                    {
-                      upsert: true, // create if doesn't exist
-                      new: true, // return updated doc
-                      runValidators: true // run schema validators
-                    }
-                  );
-
-                  await this.fetchTranscript(transaction.orderID);
-                } catch (transactionError) {
-                  logger.error('Error processing individual transaction:', {
-                    orderId: transaction?.orderID,
-                    error: transactionError.message
-                  });
+                if (transaction.amount >= 0) {
+                  try {
+                    await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
+  
+                    // Create the transaction data object
+                    const transactionData = {
+                      orderId: transaction.orderID,
+                      userId: transaction.userID,
+                      userName: transaction.userName,
+                      name: transaction.name,
+                      statusId: transaction.StatusID,
+                      transactionStatus: transaction.transactionStatus,
+                      amount: transaction.amount,
+                      requestDate: transaction.requestDate, // Convert UTC to IST
+                      paymentMethod: transaction.paymentMethod,
+                      holderName: transaction.holderName,
+                      bankName: transaction.bankName,
+                      accountNumber: transaction.number,
+                      iban: transaction.iBAN,
+                      cardNo: transaction.cardNo,
+                      utr: transaction.uTR,
+                      approvedOn: transaction.approvedOn,
+                      rejectedOn: transaction.rejectedOn,
+                      firstDeposit: transaction.firstDeposit,
+                      approvedBy: transaction.approvedBy,
+                      franchiseName: transaction.franchiseName,
+                      remarks: transaction.remarks,
+                      bonusIncluded: transaction.bonusIncluded,
+                      bonusExcluded: transaction.bonusExcluded,
+                      bonusThreshold: transaction.bonusThreshold,
+                      lastUpdatedUTROn: transaction.lastUpdatedUTROn,
+                      auditStatusId: transaction.auditStatusID,
+                      auditStatus: transaction.auditStatus,
+                      authorizedUserRemarks: transaction.authorizedUserRemarks,
+                      isImageAvailable: transaction.isImageAvailable
+                    };
+  
+                    // Use findOneAndUpdate with upsert option to create or update
+                    await Transaction.findOneAndUpdate(
+                      { orderId: transaction.orderID }, // find criteria
+                      transactionData, // update data
+                      {
+                        upsert: true, // create if doesn't exist
+                        new: true, // return updated doc
+                        runValidators: true // run schema validators
+                      }
+                    );
+  
+                    await this.fetchTranscript(transaction.orderID);
+                  } catch (transactionError) {
+                    logger.error('Error processing individual transaction:', {
+                      orderId: transaction?.orderID,
+                      error: transactionError.message
+                    });
+                  }
                 }
               }
             } catch (err) {
@@ -1299,6 +1301,8 @@ class NetworkInterceptor {
                         existingTransaction.auditStatus === TRANSACTION_STATUS.PENDING && 
                         (transaction.auditStatus === TRANSACTION_STATUS.SUCCESS || transaction.auditStatus === TRANSACTION_STATUS.REJECTED)) {
                       checkingDeptApprovedOn = transaction.approvedOn
+                      transactionData.checkingDeptApprovedOn = checkingDeptApprovedOn;
+                      if (existingTransaction.bonusApprovedOn === null) transactionData.bonusApprovedOn = checkingDeptApprovedOn
                     }
                     
                     // Check if bonusIncluded or bonusExcluded is changing from 0 to non-zero
@@ -1306,10 +1310,8 @@ class NetworkInterceptor {
                         ((existingTransaction.bonusIncluded === 0 && transaction.bonusIncluded !== 0) ||
                          (existingTransaction.bonusExcluded === 0 && transaction.bonusExcluded !== 0))) {
                       bonusApprovedOn = transaction.approvedOn;
+                      transactionData.bonusApprovedOn = bonusApprovedOn;
                     }
-                    
-                    transactionData.checkingDeptApprovedOn = checkingDeptApprovedOn;
-                    transactionData.bonusApprovedOn = bonusApprovedOn;
                     
                     // Check if isImageAvailable is changing from false to true
                     const shouldFetchTranscript = existingTransaction && 
@@ -1593,17 +1595,17 @@ class NetworkInterceptor {
                       existingTransaction.auditStatus === TRANSACTION_STATUS.PENDING && 
                       (transaction.auditStatus === TRANSACTION_STATUS.SUCCESS || transaction.auditStatus === TRANSACTION_STATUS.REJECTED)) {
                     checkingDeptApprovedOn = transaction.approvedOn
+                    transactionData.checkingDeptApprovedOn = checkingDeptApprovedOn;
                   }
                   
                   // Check if bonusIncluded or bonusExcluded is changing from 0 to non-zero
                   if (existingTransaction && 
-                      ((existingTransaction.bonusIncluded === 0 && transaction.bonusIncluded !== 0) ||
-                       (existingTransaction.bonusExcluded === 0 && transaction.bonusExcluded !== 0))) {
-                    bonusApprovedOn = transaction.approvedOn;
-                  }
-                  
-                  transactionData.checkingDeptApprovedOn = checkingDeptApprovedOn;
-                  transactionData.bonusApprovedOn = bonusApprovedOn;
+                    ((existingTransaction.bonusIncluded === 0 && transaction.bonusIncluded !== 0) ||
+                    (existingTransaction.bonusExcluded === 0 && transaction.bonusExcluded !== 0))) {
+                      bonusApprovedOn = transaction.approvedOn;
+                      transactionData.bonusApprovedOn = bonusApprovedOn;
+                    }
+                    
                   
                   // Check if isImageAvailable is changing from false to true
                   const shouldFetchTranscript = existingTransaction && 
@@ -1859,6 +1861,7 @@ class NetworkInterceptor {
                       existingTransaction.auditStatus === TRANSACTION_STATUS.PENDING && 
                       (transaction.auditStatus === TRANSACTION_STATUS.SUCCESS || transaction.auditStatus === TRANSACTION_STATUS.REJECTED)) {
                     checkingDeptApprovedOn = transaction.approvedOn
+                    transactionData.checkingDeptApprovedOn = checkingDeptApprovedOn;
                   }
                   
                   // Check if bonusIncluded or bonusExcluded is changing from 0 to non-zero
@@ -1866,10 +1869,9 @@ class NetworkInterceptor {
                       ((existingTransaction.bonusIncluded === 0 && transaction.bonusIncluded !== 0) ||
                        (existingTransaction.bonusExcluded === 0 && transaction.bonusExcluded !== 0))) {
                     bonusApprovedOn = transaction.approvedOn;
+                    transactionData.bonusApprovedOn = bonusApprovedOn;
                   }
                   
-                  transactionData.checkingDeptApprovedOn = checkingDeptApprovedOn;
-                  transactionData.bonusApprovedOn = bonusApprovedOn;
                   
                   // Check if isImageAvailable is changing from false to true
                   const shouldFetchTranscript = existingTransaction && 
