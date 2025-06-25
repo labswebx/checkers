@@ -28,7 +28,10 @@ const menuItems = [
   { text: 'Pending Deposits', icon: <AccountBalance />, path: '/pending-deposits' },
   { text: 'Approved Deposits', icon: <CheckCircle />, path: '/approved-deposits' },
   { text: 'Rejected Deposits', icon: <Cancel />, path: '/rejected-deposits' },
-  { text: 'Status Analysis', icon: <Analytics />, path: '/status-analysis' },
+  { text: 'Pending Withdraws', icon: <AccountBalance />, path: '/pending-withdrawals' },
+  { text: 'Approved Withdraws', icon: <CheckCircle />, path: '/approved-withdraws' },
+  { text: 'Rejected Withdraws', icon: <Cancel />, path: '/rejected-withdraws' },
+  { text: 'Deposits Analysis', icon: <Analytics />, path: '/status-analysis' },
   { text: 'Users', icon: <People />, path: '/users' },
 ];
 
@@ -40,13 +43,13 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
 
   const drawer = (
     <>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: 2 }}>
         <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
           Checkers
         </Typography>
       </Box>
 
-      <List sx={{ px: 2 }}>
+      <List sx={{ px: 1 }}>
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -72,7 +75,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
                 <ListItemText 
                   primary={item.text}
                   primaryTypographyProps={{
-                    fontSize: '0.9rem',
+                    fontSize: '0.85rem',
                     fontWeight: isActive ? 'bold' : 'medium'
                   }}
                 />

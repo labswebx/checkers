@@ -67,6 +67,57 @@ const rejectedDepositsTask = new Task(
   }
 );
 
+const pendingWithdrawalsTask = new Task(
+  'Pending Withdraws Monitor',
+  null, // No cron expression needed
+  async () => {
+    try {
+      await networkInterceptor.monitorPendingWithdrawals();
+    } catch (error) {
+      logger.error('Error in pending withdrawals monitoring task:', error);
+      await networkInterceptor.cleanup();
+    }
+  }
+);
+
+const approvedWithdrawalsTask = new Task(
+  'Approved Withdraws Monitor',
+  null, // No cron expression needed
+  async () => {
+    try {
+      await networkInterceptor.monitorApprovedWithdrawals();
+    } catch (error) {
+      logger.error('Error in approved withdrawals monitoring task:', error);
+      await networkInterceptor.cleanup();
+    }
+  }
+);
+
+const rejectedWithdrawalsTask = new Task(
+  'Rejected Withdraws Monitor',
+  null, // No cron expression needed
+  async () => {
+    try {
+      await networkInterceptor.monitorRejectedWithdrawals();
+    } catch (error) {
+      logger.error('Error in rejected withdrawals monitoring task:', error);
+      await networkInterceptor.cleanup();
+    }
+  }
+);
+
+const fetchPendingTranscripts = new Task(
+  'Fetch Pending Transcripts',
+  null,
+  async () => {
+    try {
+      await networkInterceptor.runTranscriptFetchScheduler();
+    } catch (error) {
+      logger.error('Error in transcript fetch scheduler:', error);
+    }
+  }
+);
+
 class SchedulerUtil {
   constructor() {
     this.jobs = new Map();
@@ -78,20 +129,20 @@ class SchedulerUtil {
       await sessionUtil.cleanupExpiredSessions();
     }));
 
-    // Send whatsApp message for pending transactions every minute
-    // this.jobs.set('pendingCheck', cron.schedule('* * * * *', async () => {
-    //   try {
-    //     await transactionService.checkPendingTransactions();
-    //   } catch (error) {
-    //     logger.error('Error in pending transactions check job:', error);
-    //   }
-    // }));
+    // Transcript fetch every hour
+    this.jobs.set('transcriptFetch', cron.schedule('0 * * * *', async () => {
+      await fetchPendingTranscripts.start();
+    }));
 
     // Start tasks once with proper error handling
     try {
       await depositListTask.start();
       await recentDepositsTask.start();
       await rejectedDepositsTask.start();
+      await pendingWithdrawalsTask.start();
+      await approvedWithdrawalsTask.start();
+      await rejectedWithdrawalsTask.start();
+      await fetchPendingTranscripts.start();
     } catch (error) {
       logger.error('Error starting scheduled jobs:', error);
       throw error;
@@ -118,5 +169,9 @@ module.exports = {
   schedulerUtil: new SchedulerUtil(),
   depositListTask,
   recentDepositsTask,
-  rejectedDepositsTask
+  rejectedDepositsTask,
+  pendingWithdrawalsTask,
+  approvedWithdrawalsTask,
+  rejectedWithdrawalsTask,
+  fetchPendingTranscripts
 }; 

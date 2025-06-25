@@ -75,6 +75,14 @@ const transactionSchema = new mongoose.Schema({
   lastTranscriptUpdate: {
     type: Date,
     default: null
+  },
+  checkingDeptApprovedOn: {
+    type: Date,
+    default: null
+  },
+  bonusApprovedOn: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

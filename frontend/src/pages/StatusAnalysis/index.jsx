@@ -118,7 +118,7 @@ const StatusAnalysis = () => {
         {/* Title and Total Count */}
         <Box>
           <Typography variant="h4" sx={{ mb: 1 }}>
-            Status Update Analysis
+            Deposits Status Analysis
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
             Total Transactions: <Chip 

@@ -5,15 +5,22 @@ const fs = require('fs');
 const Transaction = require('../models/transaction.model');
 const Constant = require('../models/constant.model');
 const axios = require('axios');
+const { TRANSACTION_STATUS } = require('../constants');
 
 class NetworkInterceptor {
   constructor() {
     this.pendingDepositsBrowser = null;
     this.recentDepositsBrowser = null;
     this.rejectedDepositsBrowser = null;
+    this.pendingWithdrawlsBrowser = null;
+    this.approvedWithdrawalsBrowser = null;
+    this.rejectedWithdrawalsBrowser = null;
     this.pendingDepositsPage = null;
     this.recentDepositsPage = null;
     this.rejectedDepositsPage = null;
+    this.pendingWithdrawlsPage = null;
+    this.approvedWithdrawalsPage = null;
+    this.rejectedWithdrawalsPage = null;
     this.isLoggedIn = false;
     this.currentUserId = null;
     this.interceptedRequests = new Map();
@@ -354,7 +361,7 @@ class NetworkInterceptor {
 
           // Handle deposit list API
           if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
-            logger.info('Processing pending deposits API response - PENDING');
+            logger.info('Deposits response - PENDING');
             try {
               const json = await interceptedResponse.json();
               const transactions = Array.isArray(json) ? json : json.data || [];
@@ -618,7 +625,7 @@ class NetworkInterceptor {
 
         // Handle deposit list API
         if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
-          logger.info('Processing recent deposits API response - APPROVED');
+          logger.info('Deposits response - APPROVED');
           try {
             const json = await interceptedResponse.json();
             const transactions = Array.isArray(json) ? json : json.data || [];
@@ -852,7 +859,7 @@ class NetworkInterceptor {
 
         // Handle deposit list API
         if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
-          logger.info('Processing rejected deposits API response - REJECTED');
+          logger.info('Deposits response - REJECTED');
           try {
             const json = await interceptedResponse.json();
             const transactions = Array.isArray(json) ? json : json.data || [];
@@ -1114,6 +1121,985 @@ class NetworkInterceptor {
     }
   }
 
+  async monitorPendingWithdrawals() {
+    try {
+      const executablePath = await this.findChromePath();
+      this.pendingWithdrawlsBrowser = await puppeteer.launch({
+        headless: 'new',
+        executablePath,
+        product: 'chrome',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--window-size=1920,1080',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--ignore-certificate-errors',
+          '--ignore-certificate-errors-spki-list',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-infobars',
+          '--disable-notifications',
+          '--disable-popup-blocking',
+          '--disable-extensions',
+          '--disable-gpu'
+        ],
+        defaultViewport: { width: 1920, height: 1080 },
+        ignoreHTTPSErrors: true
+      });
+
+      this.pendingWithdrawlsPage = await this.pendingWithdrawlsBrowser.newPage();
+
+      try {
+        // If browser exists but page is closed/crashed, clean up first
+        if (this.pendingWithdrawlsBrowser) {
+          try {
+            const pages = await this.pendingWithdrawlsBrowser.pages();
+            if (pages.length === 0 || !this.pendingWithdrawlsPage || this.pendingWithdrawlsPage.isClosed()) {
+              // await this.cleanupPendingDeposits();
+            }
+          } catch (error) {
+            // await this.cleanupPendingDeposits();
+          }
+        }
+
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 1000));
+        
+        // Set a longer default timeout
+        if (!this.pendingWithdrawlsBrowser) {
+          this.pendingWithdrawlsBrowser = await puppeteer.launch({
+            headless: 'new',
+            executablePath,
+            product: 'chrome',
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--window-size=1920,1080',
+              '--disable-web-security',
+              '--disable-features=IsolateOrigins,site-per-process',
+              '--ignore-certificate-errors',
+              '--ignore-certificate-errors-spki-list',
+              '--disable-blink-features=AutomationControlled',
+              '--disable-infobars',
+              '--disable-notifications',
+              '--disable-popup-blocking',
+              '--disable-extensions',
+              '--disable-gpu'
+            ],
+            defaultViewport: { width: 1920, height: 1080 },
+            ignoreHTTPSErrors: true
+          });
+        }
+        if (!this.pendingWithdrawlsPage) {
+          this.pendingWithdrawlsPage = await this.pendingDepositsBrowser.newPage();
+        }
+        this.pendingWithdrawlsPage.setDefaultNavigationTimeout(180000); // 3 minutes
+        this.pendingWithdrawlsPage.setDefaultTimeout(180000);
+
+        // Add user agent
+        await this.pendingWithdrawlsPage.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+
+        await this.pendingWithdrawlsPage.setRequestInterception(true);
+
+        this.pendingWithdrawlsPage.on('request', async (interceptedRequest) => {
+          try {
+            if (!interceptedRequest.isInterceptResolutionHandled()) {
+              await interceptedRequest.continue();
+            }
+          } catch (error) {
+            logger.error('Error handling request:', {
+              url: interceptedRequest.url(),
+              error: error.message
+            });
+          }
+        });
+
+        this.pendingWithdrawlsPage.on('response', async (interceptedResponse) => {
+          let url = interceptedResponse.url();
+
+          // Handle login response
+          if (url.includes('/accounts/login')) {
+            try {
+              const responseData = await interceptedResponse.json();
+              if (responseData && responseData.detail.token) {
+                // Check if token exists and its age
+                const existingToken = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
+                const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+                
+                if (!existingToken || (Date.now() - existingToken.lastUpdated.getTime()) > fiveHoursFortyMins) {
+                  // Store the token in constants collection only if it's older than 5h40m
+                  await Constant.findOneAndUpdate(
+                    { key: 'SCRAPING_AUTH_TOKEN' },
+                    { 
+                      value: responseData.detail.token,
+                      lastUpdated: new Date()
+                    },
+                    { upsert: true }
+                  );
+                }
+              }
+            } catch (error) {
+              logger.error('Error processing login response:', error);
+            }
+          }
+
+          // Handle deposit list API
+          if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
+            logger.info('Withdraw response - PENDING');
+            try {
+              const json = await interceptedResponse.json();
+              const transactions = Array.isArray(json) ? json : json.data || [];
+
+              // Process transactions and click transcript icons
+              for (const transaction of transactions) {
+                if (transaction.amount < 0) {
+                  try {
+                    await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
+  
+                    // Create the transaction data object
+                    const transactionData = {
+                      orderId: transaction.orderID,
+                      userId: transaction.userID,
+                      userName: transaction.userName,
+                      name: transaction.name,
+                      statusId: transaction.StatusID,
+                      transactionStatus: transaction.transactionStatus,
+                      amount: transaction.amount,
+                      requestDate: transaction.requestDate, // Convert UTC to IST
+                      paymentMethod: transaction.paymentMethod,
+                      holderName: transaction.holderName,
+                      bankName: transaction.bankName,
+                      accountNumber: transaction.number,
+                      iban: transaction.iBAN,
+                      cardNo: transaction.cardNo,
+                      utr: transaction.uTR,
+                      approvedOn: transaction.approvedOn,
+                      rejectedOn: transaction.rejectedOn,
+                      firstDeposit: transaction.firstDeposit,
+                      approvedBy: transaction.approvedBy,
+                      franchiseName: transaction.franchiseName,
+                      remarks: transaction.remarks,
+                      bonusIncluded: transaction.bonusIncluded,
+                      bonusExcluded: transaction.bonusExcluded,
+                      bonusThreshold: transaction.bonusThreshold,
+                      lastUpdatedUTROn: transaction.lastUpdatedUTROn,
+                      auditStatusId: transaction.auditStatusID,
+                      auditStatus: transaction.auditStatus,
+                      authorizedUserRemarks: transaction.authorizedUserRemarks,
+                      isImageAvailable: transaction.isImageAvailable
+                    };
+  
+                    // Use findOneAndUpdate with upsert option to create or update
+                    const existingTransaction = await Transaction.findOne({ orderId: transaction.orderID });
+                    let checkingDeptApprovedOn = null;
+                    let bonusApprovedOn = null;
+                    
+                    if (existingTransaction && 
+                        existingTransaction.auditStatus === TRANSACTION_STATUS.PENDING && 
+                        (transaction.auditStatus === TRANSACTION_STATUS.SUCCESS || transaction.auditStatus === TRANSACTION_STATUS.REJECTED)) {
+                      checkingDeptApprovedOn = transaction.approvedOn
+                    }
+                    
+                    // Check if bonusIncluded or bonusExcluded is changing from 0 to non-zero
+                    if (existingTransaction && 
+                        ((existingTransaction.bonusIncluded === 0 && transaction.bonusIncluded !== 0) ||
+                         (existingTransaction.bonusExcluded === 0 && transaction.bonusExcluded !== 0))) {
+                      bonusApprovedOn = transaction.approvedOn;
+                    }
+                    
+                    transactionData.checkingDeptApprovedOn = checkingDeptApprovedOn;
+                    transactionData.bonusApprovedOn = bonusApprovedOn;
+                    
+                    // Check if isImageAvailable is changing from false to true
+                    const shouldFetchTranscript = existingTransaction && 
+                      existingTransaction.isImageAvailable === false && 
+                      transaction.isImageAvailable === true;
+                    
+                    await Transaction.findOneAndUpdate(
+                      { orderId: transaction.orderID }, // find criteria
+                      transactionData, // update data
+                      {
+                        upsert: true, // create if doesn't exist
+                        new: true, // return updated doc
+                        runValidators: true // run schema validators
+                      }
+                    );
+  
+                    // Only fetch transcript if isImageAvailable changed from false to true
+                    if (shouldFetchTranscript) {
+                      await this.fetchTranscript(transaction.orderID);
+                    }
+                  } catch (transactionError) {
+                    logger.error('Error processing individual transaction:', {
+                      orderId: transaction?.orderID,
+                      error: transactionError.message
+                    });
+                  }
+                }
+              }
+            } catch (err) {
+              logger.error('Error processing API response:', {
+                url,
+                error: err.message
+              });
+            }
+          }
+        });
+
+        // Handle browser/page closure
+        this.pendingWithdrawlsBrowser.on('disconnected', () => {
+          this.isMonitoring = false;
+          this.pendingWithdrawlsBrowser = null;
+          this.pendingWithdrawlsPage = null;
+        });
+
+        this.pendingWithdrawlsPage.on('close', () => {
+          this.isMonitoring = false;
+          this.pendingWithdrawlsPage = null;
+        });
+
+        // Only proceed with login if we're not already on the right page
+        if (!this.pendingWithdrawlsPage.url().includes('/admin/deposit/withdraw-approval')) {
+          // First handle login
+          await this.pendingWithdrawlsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
+            waitUntil: 'networkidle2',
+            timeout: 90000
+          });
+
+          // Wait for selectors with increased timeouts
+          await this.pendingWithdrawlsPage.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
+          await this.pendingWithdrawlsPage.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
+
+          await this.pendingWithdrawlsPage.type('input[type="text"]', process.env.SCRAPING_USERNAME);
+          await this.pendingWithdrawlsPage.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
+
+          const loginButton = await this.pendingWithdrawlsPage.$('button[type="submit"]');
+          if (!loginButton) {
+            throw new Error('Login button not found');
+          }
+
+          // Wait for navigation after login
+          await Promise.all([
+            this.pendingWithdrawlsPage.waitForNavigation({ 
+              waitUntil: 'networkidle2',
+              timeout: 90000
+            }),
+            loginButton.click()
+          ]);
+
+          // Wait a bit after login before next navigation
+          await new Promise(resolve => setTimeout(resolve, 1500));
+
+          // Then navigate to deposit approval page
+          await this.pendingWithdrawlsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/withdraw-approval`, {
+            waitUntil: 'networkidle2',
+            timeout: 30000
+          });
+
+          try {
+            // Wait for table to be visible
+            await this.pendingWithdrawlsPage.waitForSelector('table', { timeout: 10000 });
+            // Additional wait for API calls and data loading
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          } catch (error) {
+            
+          }
+        }
+
+        this.isMonitoring = true;
+        return { success: true, browser: this.pendingWithdrawlsBrowser, page: this.pendingWithdrawlsPage };
+      } catch (error) {
+        logger.error('Error monitoring deposit list:', {
+          error: error.message,
+          stack: error.stack
+        });
+        // await this.cleanupPendingDeposits();
+        throw error;
+      }
+    } catch (error) {
+      logger.error('Error monitoring deposit list:', {
+        error: error.message,
+        stack: error.stack
+      });
+      // await this.cleanupPendingDeposits();
+      throw error;
+    }
+  }
+
+  async monitorApprovedWithdrawals() {
+    try {
+      // Clean up existing approved withdrawals browser instance first
+      await this.cleanupApprovedWithdrawals();
+
+      const executablePath = await this.findChromePath();
+      this.approvedWithdrawalsBrowser = await puppeteer.launch({
+        headless: 'new',
+        executablePath,
+        product: 'chrome',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--window-size=1920,1080',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--ignore-certificate-errors',
+          '--ignore-certificate-errors-spki-list',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-infobars',
+          '--disable-notifications',
+          '--disable-popup-blocking',
+          '--disable-extensions',
+          '--disable-gpu'
+        ],
+        defaultViewport: { width: 1920, height: 1080 },
+        ignoreHTTPSErrors: true
+      });
+  
+      this.approvedWithdrawalsPage = await this.approvedWithdrawalsBrowser.newPage();
+      
+      // Set a longer default timeout
+      if (!this.approvedWithdrawalsBrowser) {
+        this.approvedWithdrawalsBrowser = await puppeteer.launch({
+          headless: 'new',
+          executablePath,
+          product: 'chrome',
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--window-size=1920,1080',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--ignore-certificate-errors',
+            '--ignore-certificate-errors-spki-list',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-infobars',
+            '--disable-notifications',
+            '--disable-popup-blocking',
+            '--disable-extensions',
+            '--disable-gpu'
+          ],
+          defaultViewport: { width: 1920, height: 1080 },
+          ignoreHTTPSErrors: true
+        });
+      }
+      if (!this.approvedWithdrawalsPage) {
+        this.approvedWithdrawalsPage = await this.approvedWithdrawalsBrowser.newPage();
+      }
+      this.approvedWithdrawalsPage.setDefaultNavigationTimeout(180000); // 3 minutes
+      this.approvedWithdrawalsPage.setDefaultTimeout(180000);
+
+      // Add user agent
+      await this.approvedWithdrawalsPage.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+
+      await this.approvedWithdrawalsPage.setRequestInterception(true);
+
+      this.approvedWithdrawalsPage.on('request', async (interceptedRequest) => {
+        try {
+          if (!interceptedRequest.isInterceptResolutionHandled()) {
+            await interceptedRequest.continue();
+          }
+        } catch (error) {
+          logger.error('Error handling request:', {
+            url: interceptedRequest.url(),
+            error: error.message
+          });
+        }
+      });
+
+      this.approvedWithdrawalsPage.on('response', async (interceptedResponse) => {
+        let url = interceptedResponse.url();
+
+        // Handle login response
+        if (url.includes('/accounts/login')) {
+          try {
+            const responseData = await interceptedResponse.json();
+            if (responseData && responseData.detail.token) {
+              // Check if token exists and its age
+              const existingToken = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
+              const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+              
+              if (!existingToken || (Date.now() - existingToken.lastUpdated.getTime()) > fiveHoursFortyMins) {
+                // Store the token in constants collection only if it's older than 5h40m
+                await Constant.findOneAndUpdate(
+                  { key: 'SCRAPING_AUTH_TOKEN' },
+                  { 
+                    value: responseData.detail.token,
+                    lastUpdated: new Date()
+                  },
+                  { upsert: true }
+                );
+              }
+            }
+          } catch (error) {
+            logger.error('Error processing login response:', error);
+          }
+        }
+
+        // Handle withdrawal list API
+        if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
+          logger.info('Withdraw response - APPROVED');
+          try {
+            const json = await interceptedResponse.json();
+            const transactions = Array.isArray(json) ? json : json.data || [];
+
+            // Process transactions
+            for (const transaction of transactions) {
+              if (transaction.amount < 0) {
+                try {
+                  await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
+
+                  // Create the transaction data object
+                  const transactionData = {
+                    orderId: transaction.orderID,
+                    userId: transaction.userID,
+                    userName: transaction.userName,
+                    name: transaction.name,
+                    statusId: transaction.StatusID,
+                    transactionStatus: transaction.transactionStatus,
+                    amount: transaction.amount,
+                    requestDate: transaction.requestDate,
+                    paymentMethod: transaction.paymentMethod,
+                    holderName: transaction.holderName,
+                    bankName: transaction.bankName,
+                    accountNumber: transaction.number,
+                    iban: transaction.iBAN,
+                    cardNo: transaction.cardNo,
+                    utr: transaction.uTR,
+                    approvedOn: transaction.approvedOn,
+                    rejectedOn: transaction.rejectedOn,
+                    firstDeposit: transaction.firstDeposit,
+                    approvedBy: transaction.approvedBy,
+                    franchiseName: transaction.franchiseName,
+                    remarks: transaction.remarks,
+                    bonusIncluded: transaction.bonusIncluded,
+                    bonusExcluded: transaction.bonusExcluded,
+                    bonusThreshold: transaction.bonusThreshold,
+                    lastUpdatedUTROn: transaction.lastUpdatedUTROn,
+                    auditStatusId: transaction.auditStatusID,
+                    auditStatus: transaction.auditStatus,
+                    authorizedUserRemarks: transaction.authorizedUserRemarks,
+                    isImageAvailable: transaction.isImageAvailable
+                  };
+
+                  // Use findOneAndUpdate with upsert option to create or update
+                  const existingTransaction = await Transaction.findOne({ orderId: transaction.orderID });
+                  let checkingDeptApprovedOn = null;
+                  let bonusApprovedOn = null;
+                  
+                  if (existingTransaction && 
+                      existingTransaction.auditStatus === TRANSACTION_STATUS.PENDING && 
+                      (transaction.auditStatus === TRANSACTION_STATUS.SUCCESS || transaction.auditStatus === TRANSACTION_STATUS.REJECTED)) {
+                    checkingDeptApprovedOn = transaction.approvedOn
+                  }
+                  
+                  // Check if bonusIncluded or bonusExcluded is changing from 0 to non-zero
+                  if (existingTransaction && 
+                      ((existingTransaction.bonusIncluded === 0 && transaction.bonusIncluded !== 0) ||
+                       (existingTransaction.bonusExcluded === 0 && transaction.bonusExcluded !== 0))) {
+                    bonusApprovedOn = transaction.approvedOn;
+                  }
+                  
+                  transactionData.checkingDeptApprovedOn = checkingDeptApprovedOn;
+                  transactionData.bonusApprovedOn = bonusApprovedOn;
+                  
+                  // Check if isImageAvailable is changing from false to true
+                  const shouldFetchTranscript = existingTransaction && 
+                    existingTransaction.isImageAvailable === false && 
+                    transaction.isImageAvailable === true;
+                  
+                  await Transaction.findOneAndUpdate(
+                    { orderId: transaction.orderID },
+                    transactionData,
+                    {
+                      upsert: true,
+                      new: true,
+                      runValidators: true
+                    }
+                  );
+
+                  // Only fetch transcript if isImageAvailable changed from false to true
+                  if (shouldFetchTranscript) {
+                    await this.fetchTranscript(transaction.orderID);
+                  }
+
+                } catch (transactionError) {
+                  logger.error('Error processing individual transaction:', {
+                    orderId: transaction?.orderID,
+                    error: transactionError.message
+                  });
+                }
+              }
+            }
+          } catch (err) {
+            logger.error('Error processing API response:', {
+              url,
+              error: err.message
+            });
+          }
+        }
+      });
+
+      // Handle browser/page closure
+      this.approvedWithdrawalsBrowser.on('disconnected', () => {
+        this.isMonitoring = false;
+        this.approvedWithdrawalsBrowser = null;
+        this.approvedWithdrawalsPage = null;
+      });
+
+      this.approvedWithdrawalsPage.on('close', () => {
+        this.isMonitoring = false;
+        this.approvedWithdrawalsPage = null;
+      });
+
+      // Only proceed with login if we're not already on the right page
+      if (!this.approvedWithdrawalsPage.url().includes('/admin/deposit/recent-withdrawal')) {
+        // First handle login
+        await this.approvedWithdrawalsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
+          waitUntil: 'networkidle2',
+          timeout: 90000
+        });
+
+        // Wait for selectors with increased timeouts
+        await this.approvedWithdrawalsPage.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
+        await this.approvedWithdrawalsPage.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
+
+        await this.approvedWithdrawalsPage.type('input[type="text"]', process.env.SCRAPING_USERNAME);
+        await this.approvedWithdrawalsPage.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
+
+        const loginButton = await this.approvedWithdrawalsPage.$('button[type="submit"]');
+        if (!loginButton) {
+          throw new Error('Login button not found');
+        }
+
+        // Wait for navigation after login
+        await Promise.all([
+          this.approvedWithdrawalsPage.waitForNavigation({ 
+            waitUntil: 'networkidle2',
+            timeout: 90000
+          }),
+          loginButton.click()
+        ]);
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await this.approvedWithdrawalsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-withdrawal`, {
+          waitUntil: 'networkidle2',
+          timeout: 30000
+        });
+      }
+
+      // Set up auto-refresh
+      const startAutoRefresh = async () => {
+        try {
+          const refreshButton = await this.approvedWithdrawalsPage.$('span.d-flex.justify-content-center.align-items-center.pointer');
+          if (refreshButton) {
+            await refreshButton.click();
+          }
+        } catch (error) {}
+      };
+
+      // Start auto-refresh interval
+      const refreshInterval = setInterval(startAutoRefresh, 10000);
+
+      // Clean up interval when browser is closed
+      this.approvedWithdrawalsBrowser.on('disconnected', () => {
+        clearInterval(refreshInterval);
+        this.isMonitoring = false;
+        this.approvedWithdrawalsBrowser = null;
+        this.approvedWithdrawalsPage = null;
+      });
+
+      this.approvedWithdrawalsPage.on('close', () => {
+        clearInterval(refreshInterval);
+        this.isMonitoring = false;
+        this.approvedWithdrawalsPage = null;
+      });
+
+      this.isMonitoring = true;
+      return { success: true, browser: this.approvedWithdrawalsBrowser, page: this.approvedWithdrawalsPage };
+    } catch (error) {
+      logger.error('Error monitoring approved withdrawals:', {
+        error: error.message,
+        stack: error.stack
+      });
+      await this.cleanupApprovedWithdrawals();
+      throw error;
+    }
+  }
+
+  async monitorRejectedWithdrawals() {
+    try {
+      // Clean up existing rejected withdrawals browser instance first
+      await this.cleanupRejectedWithdrawals();
+
+      const executablePath = await this.findChromePath();
+      this.rejectedWithdrawalsBrowser = await puppeteer.launch({
+        headless: 'new',
+        executablePath,
+        product: 'chrome',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--window-size=1920,1080',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--ignore-certificate-errors',
+          '--ignore-certificate-errors-spki-list',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-infobars',
+          '--disable-notifications',
+          '--disable-popup-blocking',
+          '--disable-extensions',
+          '--disable-gpu'
+        ],
+        defaultViewport: { width: 1920, height: 1080 },
+        ignoreHTTPSErrors: true
+      });
+  
+      this.rejectedWithdrawalsPage = await this.rejectedWithdrawalsBrowser.newPage();
+      await this.rejectedWithdrawalsPage.setRequestInterception(true);
+
+      this.rejectedWithdrawalsPage.on('request', async (interceptedRequest) => {
+        try {
+          if (!interceptedRequest.isInterceptResolutionHandled()) {
+            await interceptedRequest.continue();
+          }
+        } catch (error) {
+          logger.error('Error handling request:', {
+            url: interceptedRequest.url(),
+            error: error.message
+          });
+        }
+      });
+
+      this.rejectedWithdrawalsPage.on('response', async (interceptedResponse) => {
+        let url = interceptedResponse.url();
+
+        // Handle login response
+        if (url.includes('/accounts/login')) {
+          try {
+            const responseData = await interceptedResponse.json();
+            if (responseData && responseData.detail.token) {
+              // Check if token exists and its age
+              const existingToken = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
+              const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+              
+              if (!existingToken || (Date.now() - existingToken.lastUpdated.getTime()) > fiveHoursFortyMins) {
+                // Store the token in constants collection only if it's older than 5h40m
+                await Constant.findOneAndUpdate(
+                  { key: 'SCRAPING_AUTH_TOKEN' },
+                  { 
+                    value: responseData.detail.token,
+                    lastUpdated: new Date()
+                  },
+                  { upsert: true }
+                );
+              }
+            }
+          } catch (error) {
+            logger.error('Error processing login response:', error);
+          }
+        }
+
+        // Handle withdrawal list API
+        if (url.includes('/accounts/GetListOfRequestsForFranchise')) {
+          logger.info('Withdraw response - REJECTED');
+          try {
+            const json = await interceptedResponse.json();
+            const transactions = Array.isArray(json) ? json : json.data || [];
+
+            // Process transactions
+            for (const transaction of transactions) {
+              if (transaction.amount < 0) {
+                try {
+                  await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
+
+                  // Create the transaction data object
+                  const transactionData = {
+                    orderId: transaction.orderID,
+                    userId: transaction.userID,
+                    userName: transaction.userName,
+                    name: transaction.name,
+                    statusId: transaction.StatusID,
+                    transactionStatus: transaction.transactionStatus,
+                    amount: transaction.amount,
+                    requestDate: transaction.requestDate,
+                    paymentMethod: transaction.paymentMethod,
+                    holderName: transaction.holderName,
+                    bankName: transaction.bankName,
+                    accountNumber: transaction.number,
+                    iban: transaction.iBAN,
+                    cardNo: transaction.cardNo,
+                    utr: transaction.uTR,
+                    approvedOn: transaction.approvedOn,
+                    rejectedOn: transaction.rejectedOn,
+                    firstDeposit: transaction.firstDeposit,
+                    approvedBy: transaction.approvedBy,
+                    franchiseName: transaction.franchiseName,
+                    remarks: transaction.remarks,
+                    bonusIncluded: transaction.bonusIncluded,
+                    bonusExcluded: transaction.bonusExcluded,
+                    bonusThreshold: transaction.bonusThreshold,
+                    lastUpdatedUTROn: transaction.lastUpdatedUTROn,
+                    auditStatusId: transaction.auditStatusID,
+                    auditStatus: transaction.auditStatus,
+                    authorizedUserRemarks: transaction.authorizedUserRemarks,
+                    isImageAvailable: transaction.isImageAvailable
+                  };
+
+                  // Use findOneAndUpdate with upsert option to create or update
+                  const existingTransaction = await Transaction.findOne({ orderId: transaction.orderID });
+                  let checkingDeptApprovedOn = null;
+                  let bonusApprovedOn = null;
+                  
+                  if (existingTransaction && 
+                      existingTransaction.auditStatus === TRANSACTION_STATUS.PENDING && 
+                      (transaction.auditStatus === TRANSACTION_STATUS.SUCCESS || transaction.auditStatus === TRANSACTION_STATUS.REJECTED)) {
+                    checkingDeptApprovedOn = transaction.approvedOn
+                  }
+                  
+                  // Check if bonusIncluded or bonusExcluded is changing from 0 to non-zero
+                  if (existingTransaction && 
+                      ((existingTransaction.bonusIncluded === 0 && transaction.bonusIncluded !== 0) ||
+                       (existingTransaction.bonusExcluded === 0 && transaction.bonusExcluded !== 0))) {
+                    bonusApprovedOn = transaction.approvedOn;
+                  }
+                  
+                  transactionData.checkingDeptApprovedOn = checkingDeptApprovedOn;
+                  transactionData.bonusApprovedOn = bonusApprovedOn;
+                  
+                  // Check if isImageAvailable is changing from false to true
+                  const shouldFetchTranscript = existingTransaction && 
+                    existingTransaction.isImageAvailable === false && 
+                    transaction.isImageAvailable === true;
+                  
+                  await Transaction.findOneAndUpdate(
+                    { orderId: transaction.orderID },
+                    transactionData,
+                    {
+                      upsert: true,
+                      new: true,
+                      runValidators: true
+                    }
+                  );
+
+                  // Only fetch transcript if isImageAvailable changed from false to true
+                  if (shouldFetchTranscript) {
+                    await this.fetchTranscript(transaction.orderID);
+                  }
+
+                } catch (transactionError) {
+                  logger.error('Error processing individual transaction:', {
+                    orderId: transaction?.orderID,
+                    error: transactionError.message
+                  });
+                }
+              }
+            }
+          } catch (err) {
+            logger.error('Error processing API response:', {
+              url,
+              error: err.message
+            });
+          }
+        }
+      });
+
+      // Handle browser/page closure
+      this.rejectedWithdrawalsBrowser.on('disconnected', () => {
+        this.isMonitoring = false;
+        this.rejectedWithdrawalsBrowser = null;
+        this.rejectedWithdrawalsPage = null;
+      });
+
+      this.rejectedWithdrawalsPage.on('close', () => {
+        this.isMonitoring = false;
+        this.rejectedWithdrawalsPage = null;
+      });
+
+      // Only proceed with login if we're not already on the right page
+      if (!this.rejectedWithdrawalsPage.url().includes('/admin/deposit/recent-withdrawal')) {
+        // First handle login
+        await this.rejectedWithdrawalsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
+          waitUntil: 'networkidle2',
+          timeout: 90000
+        });
+
+        // Wait for selectors with increased timeouts
+        await this.rejectedWithdrawalsPage.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
+        await this.rejectedWithdrawalsPage.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
+
+        await this.rejectedWithdrawalsPage.type('input[type="text"]', process.env.SCRAPING_USERNAME);
+        await this.rejectedWithdrawalsPage.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
+
+        const loginButton = await this.rejectedWithdrawalsPage.$('button[type="submit"]');
+        if (!loginButton) {
+          throw new Error('Login button not found');
+        }
+
+        // Wait for navigation after login
+        await Promise.all([
+          this.rejectedWithdrawalsPage.waitForNavigation({ 
+            waitUntil: 'networkidle2',
+            timeout: 90000
+          }),
+          loginButton.click()
+        ]);
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        await this.rejectedWithdrawalsPage.goto(`${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-withdrawal`, {
+          waitUntil: 'networkidle2',
+          timeout: 30000
+        });
+
+        // Wait for the page to load and then click the rejected filter
+        try {
+          await this.rejectedWithdrawalsPage.waitForSelector('mat-select[aria-labelledby*="mat-mdc-form-field-label"]', { 
+            timeout: 10000,
+            visible: true 
+          });
+          
+          // Click the status filter dropdown
+          await this.rejectedWithdrawalsPage.click('mat-select[aria-labelledby*="mat-mdc-form-field-label"]');
+          
+          // Wait for the options panel to be visible
+          await this.rejectedWithdrawalsPage.waitForSelector('mat-option', { 
+            timeout: 5000,
+            visible: true 
+          });
+          
+          // Find and click the "Rejected" option using more specific selectors
+          const rejectedOptionSelector = 'mat-option span.mdc-list-item__primary-text';
+          const options = await this.rejectedWithdrawalsPage.$$(rejectedOptionSelector);
+          
+          let rejectedSelected = false;
+          for (const option of options) {
+            const text = await option.evaluate(el => el.textContent.trim());
+            if (text.toLowerCase() === 'reject') {
+              await option.click();
+              rejectedSelected = true;
+              break;
+            }
+          }
+
+          if (rejectedSelected) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const submitButtonSelector = 'button[mat-raised-button][type="submit"]';
+            await this.rejectedWithdrawalsPage.waitForSelector(submitButtonSelector, { 
+              visible: true,
+              timeout: 5000 
+            });
+            await this.rejectedWithdrawalsPage.click(submitButtonSelector);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+          
+        } catch (error) {
+          logger.error('Error setting rejected filter:', {
+            error: error.message,
+            stack: error.stack
+          });
+          
+          // Try alternative selector if the first one fails
+          try {
+            const statusLabel = await this.rejectedWithdrawalsPage
+            if (statusLabel.length > 0) {
+              const matSelect = await statusLabel[0].evaluateHandle(node => 
+                node.closest('mat-select') || node.parentElement.closest('mat-select')
+              );
+              
+              if (matSelect) {
+                await matSelect.click();                
+                await this.rejectedWithdrawalsPage.waitForSelector('mat-option', { timeout: 5000 });
+                const options = await this.rejectedWithdrawalsPage.$$('mat-option');
+                
+                let rejectedSelected = false;
+                for (const option of options) {
+                  const text = await option.evaluate(el => el.textContent.trim());
+                  if (text.toLowerCase() === 'rejected') {
+                    await option.click();
+                    rejectedSelected = true;
+                    break;
+                  }
+                }
+
+                if (rejectedSelected) {
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  try {
+                    // Try by button text
+                    const [submitButton] = await this.rejectedWithdrawalsPage.$x("//button[contains(., 'Submit')]");
+                    if (submitButton) {
+                      await submitButton.click();
+                    } else {
+                      // Try by class and type
+                      const submitButtonSelector = 'button.mat-mdc-raised-button[type="submit"]';
+                      await this.rejectedWithdrawalsPage.waitForSelector(submitButtonSelector, { 
+                        visible: true,
+                        timeout: 5000 
+                      });
+                      await this.rejectedWithdrawalsPage.click(submitButtonSelector);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                  } catch (submitError) {
+                    logger.error('Error clicking submit button:', {
+                      error: submitError.message,
+                      stack: submitError.stack
+                    });
+                  }
+                }
+              }
+            }
+          } catch (alternativeError) {
+            logger.error('Error with alternative selector:', {
+              error: alternativeError.message,
+              stack: alternativeError.stack
+            });
+          }
+        }
+      }
+
+      // Set up auto-refresh
+      const startAutoRefresh = async () => {
+        try {
+          const refreshButton = await this.rejectedWithdrawalsPage.$('span.d-flex.justify-content-center.align-items-center.pointer');
+          if (refreshButton) {
+            await refreshButton.click();
+          }
+        } catch (error) {}
+      };
+
+      // Start auto-refresh interval
+      const refreshInterval = setInterval(startAutoRefresh, 10000);
+
+      // Clean up interval when browser is closed
+      this.rejectedWithdrawalsBrowser.on('disconnected', () => {
+        clearInterval(refreshInterval);
+        this.isMonitoring = false;
+        this.rejectedWithdrawalsBrowser = null;
+        this.rejectedWithdrawalsPage = null;
+      });
+
+      this.rejectedWithdrawalsPage.on('close', () => {
+        clearInterval(refreshInterval);
+        this.isMonitoring = false;
+        this.rejectedWithdrawalsPage = null;
+      });
+
+      this.isMonitoring = true;
+      return { success: true, browser: this.rejectedWithdrawalsBrowser, page: this.rejectedWithdrawalsPage };
+    } catch (error) {
+      logger.error('Error monitoring rejected withdrawals:', {
+        error: error.message,
+        stack: error.stack
+      });
+      await this.cleanupRejectedWithdrawals();
+      throw error;
+    }
+  }
+
   async cleanup() {
     try {
       if (this.pendingDepositsBrowser) {
@@ -1125,15 +2111,30 @@ class NetworkInterceptor {
       if (this.rejectedDepositsBrowser) {
         await this.rejectedDepositsBrowser.close();
       }
+      if (this.pendingWithdrawlsBrowser) {
+        await this.pendingWithdrawlsBrowser.close();
+      }
+      if (this.approvedWithdrawalsBrowser) {
+        await this.approvedWithdrawalsBrowser.close();
+      }
+      if (this.rejectedWithdrawalsBrowser) {
+        await this.rejectedWithdrawalsBrowser.close();
+      }
     } catch (error) {
       logger.error('Error closing browsers:', error);
     } finally {
       this.pendingDepositsBrowser = null;
       this.recentDepositsBrowser = null;
       this.rejectedDepositsBrowser = null;
+      this.pendingWithdrawlsBrowser = null;
+      this.approvedWithdrawalsBrowser = null;
+      this.rejectedWithdrawalsBrowser = null;
       this.pendingDepositsPage = null;
       this.recentDepositsPage = null;
       this.rejectedDepositsPage = null;
+      this.pendingWithdrawlsPage = null;
+      this.approvedWithdrawalsPage = null;
+      this.rejectedWithdrawalsPage = null;
       this.isMonitoring = false;
     }
   }
@@ -1174,6 +2175,56 @@ class NetworkInterceptor {
     } finally {
       this.rejectedDepositsBrowser = null;
       this.rejectedDepositsPage = null;
+    }
+  }
+
+  async cleanupApprovedWithdrawals() {
+    try {
+      if (this.approvedWithdrawalsBrowser) {
+        await this.approvedWithdrawalsBrowser.close();
+      }
+    } catch (error) {
+      logger.error('Error closing approved withdrawals browser:', error);
+    } finally {
+      this.approvedWithdrawalsBrowser = null;
+      this.approvedWithdrawalsPage = null;
+    }
+  }
+
+  async cleanupRejectedWithdrawals() {
+    try {
+      if (this.rejectedWithdrawalsBrowser) {
+        await this.rejectedWithdrawalsBrowser.close();
+      }
+    } catch (error) {
+      logger.error('Error closing rejected withdrawals browser:', error);
+    } finally {
+      this.rejectedWithdrawalsBrowser = null;
+      this.rejectedWithdrawalsPage = null;
+    }
+  }
+
+  async runTranscriptFetchScheduler() {
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  
+    try {
+      const transactions = await Transaction.find({
+        isImageAvailable: true,
+        transcriptLink: null,
+        createdAt: { $gte: twentyFourHoursAgo }
+      }, 'orderId');
+  
+      logger.info(`[TranscriptScheduler] Found ${transactions.length} transactions needing transcript fetch.`);
+      for (const tx of transactions) {
+        try {
+          await this.fetchTranscript(tx.orderId);
+        } catch (err) {
+          logger.error(`[TranscriptScheduler] Error fetching transcript for orderId ${tx.orderId}:`, err);
+        }
+      }
+    } catch (err) {
+      logger.error('[TranscriptScheduler] Error fetching transactions for transcript:', err);
     }
   }
 
@@ -1254,4 +2305,5 @@ class NetworkInterceptor {
   }
 }
 
-module.exports = new NetworkInterceptor(); 
+
+module.exports = new NetworkInterceptor();

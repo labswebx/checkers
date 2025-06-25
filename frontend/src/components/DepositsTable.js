@@ -148,7 +148,7 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                 <TableCell>UTR</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Franchise</TableCell>
-                <TableCell>Request Time</TableCell>
+                <TableCell>Request Date</TableCell>
                 {
                   deposits.length > 0 ? deposits[0].status === TRANSACTION_STATUS.SUCCESS ? 
                   <TableCell>Approved Time</TableCell> : deposits[0].status === TRANSACTION_STATUS.REJECTED ? <TableCell>Rejected Time</TableCell> : null : null
@@ -184,9 +184,6 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                         <Box sx={{ cursor: 'pointer' }}>
                           <Typography variant="body2" sx={{ fontWeight: 500 }}>
                             {deposit.orderId}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {deposit.requestDate}
                           </Typography>
                         </Box>
                       </Tooltip>
@@ -243,9 +240,8 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                           <ElapsedTimer date={deposit.requestDate} />
                         )}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Receipt fontSize="small" color="action" />
                           <Typography variant="caption">
-                            Request Date: {formatInTimeZone(new Date(deposit.requestDate), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
+                            {formatInTimeZone(new Date(deposit.requestDate), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
                           </Typography>
                         </Box>
                       </Stack>
