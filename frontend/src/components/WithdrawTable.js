@@ -107,7 +107,7 @@ const WithdrawTimer = ({ withdraw }) => {
 export default function WithdrawTable({ withdraws, loading, totalPages, totalRecords, filters, handleFilterChange }) {
   const theme = useTheme();
   const [selectedImage, setSelectedImage] = useState(null);
-  const [accountNumberDialog, setAccountNumberDialog] = useState({ open: false, accountNumber: '' });
+  const [accountNumberDialog, setAccountNumberDialog] = useState({ open: false, paymentMethod: '', accountNumber: '', ifcsCode: '', holderName: '' });
 
   const statusColors = {
     Pending: {
@@ -143,17 +143,16 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
     setSelectedImage(transcriptLink);
   };
 
-  const handleAccountNumberClick = (accountNumber) => {
-    setAccountNumberDialog({ open: true, accountNumber });
+  const handleAccountNumberClick = (paymentMethod, accountNumber, ifcsCode, holderName) => {
+    setAccountNumberDialog({ open: true, paymentMethod, accountNumber, ifcsCode, holderName });
   };
 
-  const handleCopyAccountNumber = () => {
-    navigator.clipboard.writeText(accountNumberDialog.accountNumber);
-    // You could add a toast notification here
+  const handleCopyField = (value) => {
+    navigator.clipboard.writeText(value);
   };
 
   const handleCloseAccountDialog = () => {
-    setAccountNumberDialog({ open: false, accountNumber: '' });
+    setAccountNumberDialog({ open: false, paymentMethod: '', accountNumber: '', ifcsCode: '', holderName: '' });
   };
 
   // Flashing animation keyframes
@@ -225,6 +224,7 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Request Date</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>UTR</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Transcript</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Payment Method</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Account No</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Payable Amount</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Checking Dept</TableCell>
@@ -337,11 +337,18 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                         <PendingBadge label="Pending" color="primary" />
                       )}
                     </TableCell>
+
                     <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>
-                      <Tooltip title="View Account Number" arrow>
+                        <Typography variant="caption">
+                          {withdraw.paymentMethod}
+                        </Typography>
+                    </TableCell>
+
+                    <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>
+                      <Tooltip title="View Account Details" arrow>
                         <IconButton
                           size="small"
-                          onClick={() => handleAccountNumberClick(withdraw.accountNumber)}
+                          onClick={() => handleAccountNumberClick(withdraw.paymentMethod, withdraw.accountNumber, withdraw.ifcsCode, withdraw.holderName)}
                           sx={{
                             color: theme.palette.primary.main,
                             '&:hover': {
@@ -470,22 +477,38 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>
-          Account Number
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          Account Details
+          <Tooltip title="Copy all details" arrow>
+            <IconButton
+              onClick={() => {
+                const details = `Payment Method: ${accountNumberDialog.paymentMethod || '-'}\nHolder Name: ${accountNumberDialog.holderName || '-'}\nAccount Number: ${accountNumberDialog.accountNumber || '-'}\nIFSC Code: ${accountNumberDialog.ifcsCode || '-'}`;
+                navigator.clipboard.writeText(details);
+              }}
+              sx={{ color: theme.palette.primary.main }}
+            >
+              <ContentCopy />
+            </IconButton>
+          </Tooltip>
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-            <Typography variant="h6" sx={{ fontFamily: 'monospace', letterSpacing: '0.1em' }}>
-              {accountNumberDialog.accountNumber}
-            </Typography>
-            <Tooltip title="Copy to clipboard" arrow>
-              <IconButton
-                onClick={handleCopyAccountNumber}
-                sx={{ color: theme.palette.primary.main }}
-              >
-                <ContentCopy />
-              </IconButton>
-            </Tooltip>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ minWidth: 120 }}>Payment Method:</Typography>
+              <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>{accountNumberDialog.paymentMethod || '-'}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ minWidth: 120 }}>Holder Name:</Typography>
+              <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>{accountNumberDialog.holderName || '-'}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ minWidth: 120 }}>Account Number:</Typography>
+              <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>{accountNumberDialog.accountNumber || '-'}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ minWidth: 120 }}>IBAN/IFSC:</Typography>
+              <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>{accountNumberDialog.ifcsCode || '-'}</Typography>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
