@@ -18,19 +18,91 @@ import {
   DialogContent,
   DialogActions,
   keyframes,
-  Button
+  Button,
+  Stack
 } from '@mui/material'
 import {
   Person,
   Image,
   Visibility,
-  ContentCopy
+  ContentCopy,
+  Timer
 } from '@mui/icons-material'
 import Pagination from './Pagination';
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ImageOverlay from './ImageOverlay';
 import { formatInTimeZone } from 'date-fns-tz';
 import { TRANSACTION_STATUS } from '../constants';
+import { getElapsedTimeInIndianTimeZone } from '../utils/timezone.util';
+
+const WithdrawTimer = ({ withdraw }) => {
+  const [elapsedTime, setElapsedTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  const theme = useTheme();
+
+  useEffect(() => {
+    const updateTimer = () => {
+      let startDate;
+      
+      if (!withdraw.bonusApprovedOn) {
+        startDate = withdraw.requestDate;
+      }
+      else if (!withdraw.checkingDeptApprovedOn) {
+        startDate = withdraw.bonusApprovedOn;
+      }
+      else {
+        startDate = withdraw.checkingDeptApprovedOn;
+      }
+      if (withdraw.status === TRANSACTION_STATUS.SUCCESS || withdraw.status === TRANSACTION_STATUS.REJECTED) {
+        return;
+      }
+
+      setElapsedTime(getElapsedTimeInIndianTimeZone(startDate));
+    };
+    
+    updateTimer();
+    const intervalId = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [withdraw]);
+
+  const getTimerColor = () => {
+    const totalMinutes = elapsedTime.hours * 60 + elapsedTime.minutes;
+    if (totalMinutes < 5) return theme.palette.success.main;
+    if (totalMinutes < 8) return theme.palette.warning.main;
+    return theme.palette.error.main;
+  };
+
+  // Don't show timer if status is Success or Rejected
+  if (withdraw.status === TRANSACTION_STATUS.SUCCESS || withdraw.status === TRANSACTION_STATUS.REJECTED) {
+    return null;
+  }
+
+  return (
+    <Box sx={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: 1,
+      backgroundColor: `${getTimerColor()}15`, // 15% opacity of the color
+      padding: '4px 8px',
+      borderRadius: '4px',
+      border: `1px solid ${getTimerColor()}40`, // 40% opacity border
+    }}>
+      <Timer fontSize="small" sx={{ color: getTimerColor() }} />
+      <Typography 
+        variant="body2" 
+        sx={{ 
+          fontWeight: 'medium',
+          color: getTimerColor(),
+          fontFamily: 'monospace', // Use monospace for better number alignment
+        }}
+      >
+        {String(elapsedTime.hours).padStart(2, '0')}:
+        {String(elapsedTime.minutes).padStart(2, '0')}:
+        {String(elapsedTime.seconds).padStart(2, '0')}
+      </Typography>
+    </Box>
+  );
+};
 
 export default function WithdrawTable({ withdraws, loading, totalPages, totalRecords, filters, handleFilterChange }) {
   const theme = useTheme();
@@ -150,6 +222,7 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Order ID</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Customer</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Franchise</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Request Date</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>UTR</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Transcript</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>Account No</TableCell>
@@ -166,13 +239,13 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={withdraws.length > 0 && withdraws[0].status !== TRANSACTION_STATUS.SUCCESS && withdraws[0].status !== TRANSACTION_STATUS.REJECTED ? 13 : 11} align="center" sx={{ py: 3 }}>
                     <CircularProgress size={24} />
                   </TableCell>
                 </TableRow>
               ) : withdraws.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={withdraws.length > 0 && withdraws[0].status !== TRANSACTION_STATUS.SUCCESS && withdraws[0].status !== TRANSACTION_STATUS.REJECTED ? 13 : 11} align="center" sx={{ py: 3 }}>
                     <Typography variant="body1" color="text.secondary">
                       No withdraws found
                     </Typography>
@@ -191,9 +264,6 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                           <Typography variant="body2" sx={{ fontWeight: 500 }}>
                             {withdraw.orderId}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                          {formatInTimeZone(new Date(withdraw.requestDate), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
-                          </Typography>
                         </Box>
                       </Tooltip>
                     </TableCell>
@@ -205,13 +275,28 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, whiteSpace: 'nowrap' }}>
                         <Person fontSize="small" color="action" />
                         <Typography variant="body2">
                           {withdraw.franchise.split(' (')[0]}
                         </Typography>
                       </Box>
                     </TableCell>
+
+                    {/* Request Date */}
+                    <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>
+                      <Stack spacing={0.5}>
+                        {withdraw.status !== TRANSACTION_STATUS.SUCCESS && withdraw.status !== TRANSACTION_STATUS.REJECTED && (
+                          <WithdrawTimer withdraw={withdraw} />
+                        )}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption">
+                            {formatInTimeZone(new Date(withdraw.requestDate), 'Asia/Kolkata', 'MMM dd, yyyy HH:mm')}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </TableCell>
+
                     <TableCell>
                       {withdraw.utr ? (
                         <Tooltip title="Copy UTR" arrow>
@@ -222,7 +307,7 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                               '&:hover': { color: theme.palette.primary.main },
                               whiteSpace: 'pre-line',
                               wordBreak: 'break-all',
-                              maxWidth: 180
+                              minWidth: 200,
                             }}
                           >
                             {withdraw.utr}
@@ -312,39 +397,42 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                       }
                     </TableCell>
 
+                    {/* Status */}
                     {
-                      withdraw.status !== TRANSACTION_STATUS.SUCCESS && withdraw.status !== TRANSACTION_STATUS.REJECTED && <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>
-                      {(() => {
-                        // Check if all required conditions are met
-                        const hasUTR = withdraw.utr && withdraw.utr.trim() !== '';
-                        const hasTranscript = withdraw.transcriptLink && withdraw.transcriptLink.trim() !== '';
-                        const hasBonus = (withdraw.bonusIncluded && withdraw.bonusIncluded > 0) || 
-                                       (withdraw.bonusExcluded && withdraw.bonusExcluded > 0);
-                        const isAuditApproved = withdraw.auditStatus === TRANSACTION_STATUS.SUCCESS;
-                        
-                        const allConditionsMet = hasUTR && hasTranscript && hasBonus && isAuditApproved;
-                        
-                        if (allConditionsMet) {
-                          return (
-                            <Chip
-                              label={withdraw.status}
-                              size="small"
-                              sx={{ 
-                                textTransform: 'capitalize',
-                                bgcolor: statusColors[withdraw.status].bg,
-                                color: statusColors[withdraw.status].color,
-                                fontWeight: 500,
-                                minWidth: 100
-                              }}
-                            />
-                          );
-                        } else {
-                          return (
-                            <PendingBadge label="Confirmation Awaited" color="info" />
-                          );
-                        }
-                      })()}
-                    </TableCell>
+                      (withdraw.status !== TRANSACTION_STATUS.SUCCESS && withdraw.status !== TRANSACTION_STATUS.REJECTED)
+                        ? (
+                          <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120 }}>
+                            {(() => {
+                              // Check if all required conditions are met
+                              const hasUTR = withdraw.utr && withdraw.utr.trim() !== '';
+                              const hasTranscript = withdraw.transcriptLink && withdraw.transcriptLink.trim() !== '';
+                              const hasBonus = (withdraw.bonusIncluded && withdraw.bonusIncluded > 0) || 
+                                            (withdraw.bonusExcluded && withdraw.bonusExcluded > 0);
+                              const isAuditApproved = withdraw.auditStatus === TRANSACTION_STATUS.SUCCESS;
+                              const allConditionsMet = hasUTR && hasTranscript && hasBonus && isAuditApproved;
+                              if (allConditionsMet) {
+                                return (
+                                  <Chip
+                                    label={withdraw.status}
+                                    size="small"
+                                    sx={{ 
+                                      textTransform: 'capitalize',
+                                      bgcolor: statusColors[withdraw.status].bg,
+                                      color: statusColors[withdraw.status].color,
+                                      fontWeight: 500,
+                                      minWidth: 100
+                                    }}
+                                  />
+                                );
+                              } else {
+                                return (
+                                  <PendingBadge label="Confirmation Awaited" color="info" />
+                                );
+                              }
+                            })()}
+                          </TableCell>
+                        )
+                        : null
                     }
                   </TableRow>
                 ))

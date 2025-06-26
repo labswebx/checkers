@@ -14,7 +14,8 @@ import {
   MenuItem,
   Select,
   FormControl,
-  InputLabel
+  InputLabel,
+  Chip
 } from '@mui/material';
 import { Search, FilterList, Refresh } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
@@ -22,17 +23,26 @@ import { fetchWithdraws, fetchFranchises } from '../../store/slices/depositSlice
 import WithdrawTable from '../../components/WithdrawTable';
 import { TRANSACTION_STATUS } from '../../constants';
 
+const timeSlabs = [
+  { label: 'All Time', value: 'all' },
+  { label: '20-30 mins', value: '20-30' },
+  { label: '30-45 mins', value: '30-45' },
+  { label: '45-60 mins', value: '45-60' },
+  { label: '60+ mins', value: '60-above' }
+];
+
 const REFRESH_INTERVAL = 15000; // 15 seconds
 
 const PendingWithdraws = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
-  const { withdraws = [], loading, totalPages, totalRecords, franchises = [] } = useSelector(state => state.deposits);
+  const { withdraws = [], loading, totalPages, totalRecords, timeSlabCounts = [], franchises = [] } = useSelector(state => state.deposits);
 
   // Filter states
   const [filters, setFilters] = useState({
     search: '',
     status: TRANSACTION_STATUS.PENDING,
+    timeSlab: 'all',
     franchise: 'all',
     page: 1,
     limit: 10
@@ -150,6 +160,44 @@ const PendingWithdraws = () => {
                   ))}
                 </Select>
               </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 2, 
+                flexWrap: 'wrap' 
+              }}>
+                {timeSlabs.map((slab) => {
+                  const count = timeSlabCounts.find(s => s.label === slab.value)?.count || 0;
+                  return (
+                    <Button
+                      key={slab.value}
+                      variant={filters.timeSlab === slab.value ? "contained" : "outlined"}
+                      onClick={() => handleFilterChange('timeSlab', slab.value)}
+                      sx={{
+                        borderRadius: 2,
+                        position: 'relative',
+                        minWidth: '120px'
+                      }}
+                    >
+                      {slab.label}
+                      {count > 0 && (
+                        <Chip
+                          size="small"
+                          label={count}
+                          sx={{
+                            position: 'absolute',
+                            top: -8,
+                            right: -8,
+                            backgroundColor: theme.palette.primary.main,
+                            color: 'white'
+                          }}
+                        />
+                      )}
+                    </Button>
+                  );
+                })}
+              </Box>
             </Grid>
           </Grid>
         )}

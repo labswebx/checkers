@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
   DASHBOARD_STATUS_UPDATE_STATS: '/api/transactions/status-update-stats',
   FRANCHISES: 'api/transactions/franchises',
   WITHDRAWS: '/api/transactions/withdraws',
+  WITHDRAW_ANALYSIS_STATS: '/api/transactions/withdraw-analysis-stats',
 };
 
 export const TRANSACTION_STATUS = {

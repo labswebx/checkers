@@ -17,6 +17,14 @@ const TIME_SLABS = [
   { min: 20, max: 'above', label: '20-above' }
 ];
 
+// Time slab configurations for withdraws
+const WITHDRAW_TIME_SLABS = [
+  { min: 20, max: 30, label: '20-30' },
+  { min: 30, max: 45, label: '30-45' },
+  { min: 45, max: 60, label: '45-60' },
+  { min: 60, max: 'above', label: '60-above' }
+];
+
 const depositsCache = new Cache({ max: 100, ttl: 300 }); // Caching for 5 mins
 
 // Get deposits with filters and pagination
@@ -487,7 +495,7 @@ router.get('/withdraws', auth, async (req, res) => {
     }
 
     if (timeSlab && timeSlab !== 'all') {
-      const range = TIME_SLABS.find(slab => slab.label === timeSlab);
+      const range = WITHDRAW_TIME_SLABS.find(slab => slab.label === timeSlab);
       if (range) {
         matchStage.$expr = {
           $let: {
@@ -495,28 +503,10 @@ router.get('/withdraws', auth, async (req, res) => {
               timeDiffMinutes: {
                 $divide: [
                   {
-                    $switch: {
-                      branches: [
-                        {
-                          case: {
-                            $and: [
-                              { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
-                              { $ne: ['$approvedOn', null] }
-                            ]
-                          },
-                          then: { $subtract: ['$approvedOn', '$requestDate'] }
-                        },
-                        {
-                          case: {
-                            $and: [
-                              { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
-                              { $ne: ['$approvedOn', null] }
-                            ]
-                          },
-                          then: { $subtract: ['$approvedOn', '$requestDate'] }
-                        }
-                      ],
-                      default: { $subtract: [new Date(), '$requestDate'] }
+                    $cond: {
+                      if: { $ne: ['$approvedOn', null] },
+                      then: { $subtract: ['$approvedOn', '$requestDate'] },
+                      else: { $subtract: [new Date(), '$requestDate'] }
                     }
                   },
                   60 * 1000 // ms to minutes
@@ -547,58 +537,24 @@ router.get('/withdraws', auth, async (req, res) => {
       $addFields: {
         currentTime: '$$NOW',
         timeDifference: {
-          $switch: {
-            branches: [
-              {
-                case: {
-                  $and: [
-                    { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
-                    { $ne: ['$approvedOn', null] }
-                  ]
-                },
-                then: { $subtract: ['$approvedOn', '$requestDate'] }
-              },
-              {
-                case: {
-                  $and: [
-                    { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
-                    { $ne: ['$approvedOn', null] }
-                  ]
-                },
-                then: { $subtract: ['$approvedOn', '$requestDate'] }
-              }
-            ],
-            default: { $subtract: ['$$NOW', '$requestDate'] }
+          $cond: {
+            if: { $ne: ['$approvedOn', null] },
+            then: { $subtract: ['$approvedOn', '$requestDate'] },
+            else: { $subtract: ['$$NOW', '$requestDate'] }
           }
         },
-        minutes: { $divide: [
-          {
-            $switch: {
-              branches: [
-                {
-                  case: {
-                    $and: [
-                      { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
-                      { $ne: ['$approvedOn', null] }
-                    ]
-                  },
-                  then: { $subtract: ['$approvedOn', '$requestDate'] }
-                },
-                {
-                  case: {
-                    $and: [
-                      { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
-                      { $ne: ['$approvedOn', null] }
-                    ]
-                  },
-                  then: { $subtract: ['$approvedOn', '$requestDate'] }
-                }
-              ],
-              default: { $subtract: ['$$NOW', '$requestDate'] }
-            }
-          },
-          1000 * 60
-        ]}
+        minutes: { 
+          $divide: [
+            {
+              $cond: {
+                if: { $ne: ['$approvedOn', null] },
+                then: { $subtract: ['$approvedOn', '$requestDate'] },
+                else: { $subtract: ['$$NOW', '$requestDate'] }
+              }
+            },
+            1000 * 60
+          ]
+        }
       }
     };
 
@@ -621,42 +577,33 @@ router.get('/withdraws', auth, async (req, res) => {
                 { 
                   case: { 
                     $and: [
-                      { $gte: ['$minutes', 2] },
-                      { $lt: ['$minutes', 5] }
+                      { $gte: ['$minutes', 20] },
+                      { $lt: ['$minutes', 30] }
                     ]
                   }, 
-                  then: '2-5' 
+                  then: '20-30' 
                 },
                 { 
                   case: { 
                     $and: [
-                      { $gte: ['$minutes', 5] },
-                      { $lt: ['$minutes', 8] }
+                      { $gte: ['$minutes', 30] },
+                      { $lt: ['$minutes', 45] }
                     ]
                   }, 
-                  then: '5-8' 
+                  then: '30-45' 
                 },
                 { 
                   case: { 
                     $and: [
-                      { $gte: ['$minutes', 8] },
-                      { $lt: ['$minutes', 12] }
+                      { $gte: ['$minutes', 45] },
+                      { $lt: ['$minutes', 60] }
                     ]
                   }, 
-                  then: '8-12' 
+                  then: '45-60' 
                 },
                 { 
-                  case: { 
-                    $and: [
-                      { $gte: ['$minutes', 12] },
-                      { $lt: ['$minutes', 20] }
-                    ]
-                  }, 
-                  then: '12-20' 
-                },
-                { 
-                  case: { $gte: ['$minutes', 20] }, 
-                  then: '20-above' 
+                  case: { $gte: ['$minutes', 60] }, 
+                  then: '60-above' 
                 }
               ],
               default: 'other'
@@ -717,11 +664,10 @@ router.get('/withdraws', auth, async (req, res) => {
 
     // Ensure all time slabs are present with zero counts if missing
     const allTimeSlabs = [
-      { label: '2-5', count: 0 },
-      { label: '5-8', count: 0 },
-      { label: '8-12', count: 0 },
-      { label: '12-20', count: 0 },
-      { label: '20-above', count: 0 }
+      { label: '20-30', count: 0 },
+      { label: '30-45', count: 0 },
+      { label: '45-60', count: 0 },
+      { label: '60-above', count: 0 }
     ];
 
     // Merge existing counts with default slabs
@@ -831,6 +777,18 @@ router.get('/withdraws', auth, async (req, res) => {
   } catch (error) {
     logger.error('Error in /withdraws endpoint:', error);
     return errorResponse(res, 'Error fetching withdraws', error, STATUS_CODES.INTERNAL_SERVER_ERROR);
+  }
+});
+
+
+// Get withdraw analysis time statistics (custom time slabs)
+router.get('/withdraw-analysis-stats', auth, async (req, res) => {
+  try {
+    const { status, timeFrame } = req.query;
+    const stats = await transactionService.getWithdrawAnalysisStats({ status, timeFrame });
+    return successResponse(res, 'Withdraw analysis statistics fetched successfully', stats);
+  } catch (error) {
+    return errorResponse(res, 'Error fetching withdraw analysis statistics', error, STATUS_CODES.SERVER_ERROR);
   }
 });
 

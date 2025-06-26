@@ -27,6 +27,7 @@ export const fetchWithdraws = createAsyncThunk(
     const queryParams = new URLSearchParams();
     if (filters.search) queryParams.append('search', filters.search);
     if (filters.status) queryParams.append('status', filters.status);
+    if (filters.timeSlab && filters.timeSlab !== 'all') queryParams.append('timeSlab', filters.timeSlab);
     if (filters.page) queryParams.append('page', filters.page);
     if (filters.limit) queryParams.append('limit', filters.limit);
     if (filters.franchise) queryParams.append('franchise', filters.franchise);
@@ -45,6 +46,15 @@ export const fetchFranchises = createAsyncThunk(
   }
 );
 
+// Async thunk for fetching withdraw analysis stats
+export const fetchWithdrawAnalysisStats = createAsyncThunk(
+  'withdrawAnalysis/fetchWithdrawAnalysisStats',
+  async (filters) => {
+    const response = await api.get(API_ENDPOINTS.WITHDRAW_ANALYSIS_STATS, { params: filters });
+    return response.data.data;
+  }
+);
+
 const depositSlice = createSlice({
   name: 'deposits',
   initialState: {
@@ -55,7 +65,12 @@ const depositSlice = createSlice({
     error: null,
     totalPages: 0,
     totalRecords: 0,
-    timeSlabCounts: []
+    timeSlabCounts: [],
+    withdrawAnalysis: {
+      data: null,
+      loading: false,
+      error: null
+    },
   },
   reducers: {
     clearDeposits: (state) => {
@@ -68,6 +83,9 @@ const depositSlice = createSlice({
       state.withdraws = [];
       state.totalPages = 0;
       state.totalRecords = 0;
+    },
+    clearWithdrawAnalysis: (state) => {
+      state.withdrawAnalysis = { data: null, loading: false, error: null };
     }
   },
   extraReducers: (builder) => {
@@ -97,6 +115,8 @@ const depositSlice = createSlice({
         state.withdraws = action.payload.data;
         state.totalPages = action.payload.totalPages;
         state.totalRecords = action.payload.totalRecords;
+        state.timeSlabCounts = Array.isArray(action.payload.timeSlabCounts) ? 
+          action.payload.timeSlabCounts : [];
       })
       .addCase(fetchWithdraws.rejected, (state, action) => {
         state.loading = false;
@@ -104,9 +124,21 @@ const depositSlice = createSlice({
       })
       .addCase(fetchFranchises.fulfilled, (state, action) => {
         state.franchises = action.payload;
+      })
+      .addCase(fetchWithdrawAnalysisStats.pending, (state) => {
+        state.withdrawAnalysis.loading = true;
+        state.withdrawAnalysis.error = null;
+      })
+      .addCase(fetchWithdrawAnalysisStats.fulfilled, (state, action) => {
+        state.withdrawAnalysis.loading = false;
+        state.withdrawAnalysis.data = action.payload;
+      })
+      .addCase(fetchWithdrawAnalysisStats.rejected, (state, action) => {
+        state.withdrawAnalysis.loading = false;
+        state.withdrawAnalysis.error = action.error.message;
       });
   }
 });
 
-export const { clearDeposits, clearWithdraws } = depositSlice.actions;
+export const { clearDeposits, clearWithdraws, clearWithdrawAnalysis } = depositSlice.actions;
 export default depositSlice.reducer; 

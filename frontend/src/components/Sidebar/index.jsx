@@ -7,7 +7,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Typography,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
@@ -20,6 +19,7 @@ import {
   Cancel
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import logo from '../../assets/images/logo.png'
 
 const drawerWidth = 240;
 
@@ -32,6 +32,7 @@ const menuItems = [
   { text: 'Approved Withdraws', icon: <CheckCircle />, path: '/approved-withdraws' },
   { text: 'Rejected Withdraws', icon: <Cancel />, path: '/rejected-withdraws' },
   { text: 'Deposits Analysis', icon: <Analytics />, path: '/status-analysis' },
+  { text: 'Withdraw Analysis', icon: <Analytics />, path: '/withdraw-analysis' },
   { text: 'Users', icon: <People />, path: '/users' },
 ];
 
@@ -43,10 +44,8 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
 
   const drawer = (
     <>
-      <Box sx={{ p: 2 }}>
-        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
-          Checkers
-        </Typography>
+      <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <img src={logo} alt="Company Logo" style={{ height: 55 }} />
       </Box>
 
       <List sx={{ px: 1 }}>

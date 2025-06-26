@@ -10,7 +10,6 @@ import {
   useTheme,
   Button,
   Stack,
-  Tooltip,
   Chip,
   FormControl,
   InputLabel,
@@ -27,14 +26,13 @@ import { fetchWithdraws, fetchFranchises } from '../../store/slices/depositSlice
 import WithdrawTable from '../../components/WithdrawTable';
 import { TRANSACTION_STATUS } from '../../constants';
 
-// const timeSlabs = [
-//   { label: 'All Time', value: 'all' },
-//   { label: '2-5 mins', value: '2-5' },
-//   { label: '5-8 mins', value: '5-8' },
-//   { label: '8-12 mins', value: '8-12' },
-//   { label: '12-20 mins', value: '12-20' },
-//   { label: '20+ mins', value: '20-above' }
-// ];
+const timeSlabs = [
+  { label: 'All Time', value: 'all' },
+  { label: '20-30 mins', value: '20-30' },
+  { label: '30-45 mins', value: '30-45' },
+  { label: '45-60 mins', value: '45-60' },
+  { label: '60+ mins', value: '60-above' }
+];
 
 const RejectedWithdraws = () => {
   const theme = useTheme();
@@ -160,7 +158,7 @@ const RejectedWithdraws = () => {
                 </Select>
               </FormControl>
             </Grid>
-            {/* <Grid item xs={12}>
+            <Grid item xs={12}>
               <Box sx={{ 
                 display: 'flex', 
                 gap: 2, 
@@ -197,7 +195,7 @@ const RejectedWithdraws = () => {
                   );
                 })}
               </Box>
-            </Grid> */}
+            </Grid>
           </Grid>
         )}
       </Paper>

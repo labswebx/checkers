@@ -19,9 +19,9 @@ import {
   CircularProgress,
   Chip
 } from '@mui/material';
-import { API_ENDPOINTS } from '../../constants';
-import api from '../../services/api';
-import { colors } from '../../theme/colors';
+import { API_ENDPOINTS } from '../constants';
+import api from '../services/api';
+import { colors } from '../theme/colors';
 
 const timeFrameOptions = [
   { value: '1h', label: 'Last 1 Hour' },
@@ -41,7 +41,7 @@ const statusOptions = [
   { value: 'Rejected', label: 'Rejected' }
 ];
 
-const StatusAnalysis = () => {
+const WithdrawAnalysis = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -54,13 +54,16 @@ const StatusAnalysis = () => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const response = await api.get(`${API_ENDPOINTS.DASHBOARD_STATUS_UPDATE_STATS}`, {
+        const response = await api.get(`${API_ENDPOINTS.WITHDRAW_ANALYSIS_STATS}`, {
           params: filters
         });
+        console.log('========================================')
+        console.log(response.data.data)
+        console.log('========================================')
         setStats(response.data.data);
         setError(null);
       } catch (err) {
-        setError('Failed to fetch status update statistics');
+        setError('Failed to fetch withdraw analysis statistics');
         console.error('Error fetching stats:', err);
       } finally {
         setLoading(false);
@@ -101,7 +104,7 @@ const StatusAnalysis = () => {
   const totalTransactions = Object.values(stats.overall).reduce((sum, count) => sum + count, 0);
   const totalByTimeSlab = timeSlabLabels.map(label => ({
     label,
-    count: agentData.reduce((sum, agent) => sum + (agent.timeSlabs[label] || 0), 0)
+    count: stats.overall[label]
   }));
 
   return (
@@ -118,10 +121,10 @@ const StatusAnalysis = () => {
         {/* Title and Total Count */}
         <Box>
           <Typography variant="h4" sx={{ mb: 1 }}>
-            Deposits Status Analysis
+            Withdraw Status Analysis
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
-            Total Transactions: <Chip 
+            Total Withdrawals: <Chip 
               label={totalTransactions} 
               color="primary" 
               sx={{ 
@@ -200,110 +203,111 @@ const StatusAnalysis = () => {
         </Grid>
       </Box>
 
-      {/* Agent-wise Statistics Table */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Agent-wise Status Update Statistics
-          </Typography>
-          <TableContainer component={Paper} sx={{ 
-            maxHeight: 'calc(100vh - 400px)',
-            overflowY: 'auto',
-            '& .MuiTableCell-head': {
-              backgroundColor: colors.background.default,
-              fontWeight: 'bold',
-              position: 'sticky',
-              top: 0,
-              zIndex: 1
-            }
-          }}>
-            <Table stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ minWidth: 200 }}>Franchise</TableCell>
-                  {timeSlabLabels.map((label) => (
+      {/* Agent Table */}
+      <Box>
+        <Typography variant="h6" sx={{ mb: 2 }}>Agent-wise Distribution</Typography>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Agent-wise Withdraw Analysis Statistics
+            </Typography>
+            <TableContainer component={Paper} sx={{
+              maxHeight: 'calc(100vh - 400px)',
+              overflowY: 'auto',
+              '& .MuiTableCell-head': {
+                backgroundColor: colors.background.default,
+                fontWeight: 'bold',
+                position: 'sticky',
+                top: 0,
+                zIndex: 1
+              }
+            }}>
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ minWidth: 200 }}>Franchise</TableCell>
+                    {timeSlabLabels.map((label) => (
+                      <TableCell 
+                        align="right" 
+                        key={label}
+                        sx={{ minWidth: 120 }}
+                      >
+                        {label}
+                      </TableCell>
+                    ))}
                     <TableCell 
                       align="right" 
-                      key={label}
-                      sx={{ minWidth: 120 }}
-                    >
-                      {label}
-                    </TableCell>
-                  ))}
-                  <TableCell 
-                    align="right" 
-                    sx={{ 
-                      minWidth: 120,
-                      fontWeight: 'bold',
-                      backgroundColor: `${colors.primary.main}15 !important`
-                    }}
-                  >
-                    Total
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {agentData.map((agent) => {
-                  const agentTotal = timeSlabLabels.reduce(
-                    (sum, label) => sum + (agent.timeSlabs[label] || 0),
-                    0
-                  );
-                  return (
-                    <TableRow 
-                      key={agent.name}
-                      sx={{
-                        '&:hover': {
-                          backgroundColor: colors.background.default
-                        }
+                      sx={{ 
+                        minWidth: 120,
+                        fontWeight: 'bold',
+                        backgroundColor: `${colors.primary.main}15 !important`
                       }}
                     >
-                      <TableCell sx={{ fontWeight: 'medium' }}>{agent.name}</TableCell>
-                      {/* <TableCell>{agent.franchise}</TableCell> */}
-                      {timeSlabLabels.map((label) => (
-                        <TableCell align="right" key={label}>
-                          {agent.timeSlabs[label] || 0}
-                        </TableCell>
-                      ))}
-                      <TableCell 
-                        align="right"
-                        sx={{ 
-                          fontWeight: 'bold',
-                          backgroundColor: `${colors.primary.main}15`
+                      Total
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {agentData.map((agent) => {
+                    const agentTotal = timeSlabLabels.reduce(
+                      (sum, label) => sum + (agent.timeSlabs[label] || 0),
+                      0
+                    );
+                    return (
+                      <TableRow
+                        key={agent.name}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: colors.background.default
+                          }
                         }}
                       >
-                        {agentTotal}
+                        <TableCell sx={{ fontWeight: 'medium' }}>{agent.name}</TableCell>
+                        {timeSlabLabels.map((label) => (
+                          <TableCell align="right" key={label}>
+                            {agent.timeSlabs[label] || 0}
+                          </TableCell>
+                        ))}
+                        <TableCell
+                          align="right"
+                          sx={{
+                            fontWeight: 'bold',
+                            backgroundColor: `${colors.primary.main}15`
+                          }}
+                        >
+                          {agentTotal}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {/* Total Row */}
+                  <TableRow sx={{
+                    backgroundColor: colors.background.default,
+                    '& .MuiTableCell-root': {
+                      fontWeight: 'bold'
+                    }
+                  }}>
+                    <TableCell>Total</TableCell>
+                    {timeSlabLabels.map((label) => (
+                      <TableCell align="right" key={label}>
+                        {agentData.reduce((sum, agent) => sum + (agent.timeSlabs[label] || 0), 0)}
                       </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {/* Total Row */}
-                <TableRow sx={{ 
-                  backgroundColor: colors.background.default,
-                  '& .MuiTableCell-root': {
-                    fontWeight: 'bold'
-                  }
-                }}>
-                  <TableCell>Total</TableCell>
-                  {/* <TableCell>-</TableCell> */}
-                  {timeSlabLabels.map((label) => (
-                    <TableCell align="right" key={label}>
-                      {totalByTimeSlab.find(t => t.label === label)?.count || 0}
+                    ))}
+                    <TableCell
+                      align="right"
+                      sx={{ backgroundColor: `${colors.primary.main}15` }}
+                    >
+                      {agentData.reduce((sum, agent) => sum + timeSlabLabels.reduce((s, label) => s + (agent.timeSlabs[label] || 0), 0), 0)}
                     </TableCell>
-                  ))}
-                  <TableCell 
-                    align="right"
-                    sx={{ backgroundColor: `${colors.primary.main}15` }}
-                  >
-                    {totalTransactions}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Box>
     </Box>
   );
 };
 
-export default StatusAnalysis; 
+export default WithdrawAnalysis; 

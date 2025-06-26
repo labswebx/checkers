@@ -19,6 +19,7 @@ import StatusAnalysis from './pages/StatusAnalysis';
 import PendingWithdraws from './pages/PendingWithdraws';
 import ApprovedWithdraws from './pages/ApprovedWithdraws';
 import RejectedWithdraws from './pages/RejectedWithdraws';
+import WithdrawAnalysis from './pages/WithdrawAnalysis';
 
 // Create a theme instance
 const theme = createTheme({
@@ -223,6 +224,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <RejectedWithdraws />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/withdraw-analysis"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <WithdrawAnalysis />
                 </Layout>
               </ProtectedRoute>
             }

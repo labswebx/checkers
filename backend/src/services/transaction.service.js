@@ -503,6 +503,123 @@ class TransactionService {
       throw error;
     }
   }
+
+  async getWithdrawAnalysisStats(filters = {}) {
+    try {
+      // Custom time slabs for withdraw analysis
+      const timeSlabs = [
+        { min: 0, max: 20, label: '0-20 minutes' },
+        { min: 20, max: 30, label: '20-30 minutes' },
+        { min: 30, max: 45, label: '30-45 minutes' },
+        { min: 45, max: 60, label: '45-60 minutes' },
+        { min: 60, max: null, label: 'Above 60 minutes' }
+      ];
+
+      // Initialize results object
+      const results = {
+        overall: {},
+        byAgent: {}
+      };
+      const baseMatch = {
+        amount: { $lt: 0 },
+      };
+
+      if (filters.status && filters.status !== 'all') {
+        // Map frontend status to database status
+        const statusMap = {
+          'success': TRANSACTION_STATUS.SUCCESS,
+          'rejected': TRANSACTION_STATUS.REJECTED,
+          'pending': TRANSACTION_STATUS.PENDING
+        };
+        baseMatch.transactionStatus = statusMap[filters.status.toLowerCase()] || filters.status;
+      }
+      // Time frame filter
+      if (filters.timeFrame && filters.timeFrame !== 'all') {
+        const now = new Date();
+        let fromDate = new Date(now);
+        switch (filters.timeFrame) {
+          case '1h': fromDate.setHours(now.getHours() - 1); break;
+          case '3h': fromDate.setHours(now.getHours() - 3); break;
+          case '6h': fromDate.setHours(now.getHours() - 6); break;
+          case '1d': fromDate.setDate(now.getDate() - 1); break;
+          case '3d': fromDate.setDate(now.getDate() - 3); break;
+          case '1w': fromDate.setDate(now.getDate() - 7); break;
+          case '1m': fromDate.setMonth(now.getMonth() - 1); break;
+          default: fromDate = null;
+        }
+        if (fromDate) baseMatch.requestDate = { $gte: fromDate };
+      }
+
+      for (const slab of timeSlabs) {
+        const matchStage = {
+          $match: {
+            ...baseMatch,
+            $expr: {
+              $let: {
+                vars: {
+                  timeDiffMinutes: {
+                    $divide: [
+                      {
+                        $cond: {
+                          if: { $ne: ['$approvedOn', null] },
+                          then: { $subtract: ['$approvedOn', '$requestDate'] },
+                          else: { $subtract: ['$$NOW', '$requestDate'] }
+                        }
+                      },
+                      60 * 1000
+                    ]
+                  }
+                },
+                in: slab.max
+                  ? {
+                      $and: [
+                        { $gte: ['$$timeDiffMinutes', slab.min] },
+                        { $lt: ['$$timeDiffMinutes', slab.max] }
+                      ]
+                    }
+                  : { $gte: ['$$timeDiffMinutes', slab.min] }
+              }
+            }
+          }
+        };
+        // Overall count
+        const count = await Transaction.countDocuments(matchStage.$match);
+        results.overall[slab.label] = count;
+
+        // Agent-wise aggregation by franchiseName
+        const agentStats = await Transaction.aggregate([
+          matchStage,
+          {
+            $group: {
+              _id: '$franchiseName',
+              count: { $sum: 1 }
+            }
+          },
+          {
+            $project: {
+              agentName: { $arrayElemAt: [{ $split: ['$_id', ' ('] }, 0] },
+              franchise: '$_id',
+              count: 1
+            }
+          }
+        ]);
+
+        agentStats.forEach(stat => {
+          if (!results.byAgent[stat.franchise]) {
+            results.byAgent[stat.franchise] = {
+              name: stat.agentName,
+              franchise: stat.franchise,
+              timeSlabs: {}
+            };
+          }
+          results.byAgent[stat.franchise].timeSlabs[slab.label] = stat.count;
+        });
+      }
+      return results;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 module.exports = new TransactionService(); 
