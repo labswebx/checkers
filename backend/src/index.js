@@ -9,12 +9,12 @@ const userRoutes = require('./routes/user.routes');
 const scrapingRoutes = require('./routes/scraping.routes');
 const transactionRoutes = require('./routes/transaction.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
-const { schedulerUtil, depositListTask, recentDepositsTask } = require('./utils/scheduler.util');
+const { schedulerUtil } = require('./utils/scheduler.util');
 
 // Load environment variables
 dotenv.config();
 const app = express();
-// app.use(morgan('combined'));
+app.use(morgan('combined'));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
