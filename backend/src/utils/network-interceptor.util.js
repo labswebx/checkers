@@ -635,6 +635,7 @@ class NetworkInterceptor {
             // Process transactions
             for (const transaction of transactions) {
               try {
+                logger.debug(`[RecentDeposits] Processing transaction ${transaction.orderID}`);
                 await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
 
                 // Create the transaction data object
@@ -680,11 +681,12 @@ class NetworkInterceptor {
                     runValidators: true
                   }
                 );
-
+                logger.info(`[RecentDeposits] Update result ${transaction.orderID}`);
               } catch (transactionError) {
-                logger.error('Error processing individual transaction:', {
+                logger.error('[RecentDeposits] Error -------------------------------- processing individual transaction', {
                   orderId: transaction?.orderID,
-                  error: transactionError.message
+                  error: transactionError.message,
+                  stack: transactionError.stack
                 });
               }
             }
@@ -866,7 +868,7 @@ class NetworkInterceptor {
             const json = await interceptedResponse.json();
             const transactions = Array.isArray(json) ? json : json.data || [];
 
-            // Process transactions
+            logger.debug(`[RejectedDeposits] Raw transactions count ${transactions.length}`);
             for (const transaction of transactions) {
               try {
                 await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
@@ -914,11 +916,12 @@ class NetworkInterceptor {
                     runValidators: true
                   }
                 );
-
+                logger.info(`[RejectedDeposits] Update result ${transaction.orderID}`);
               } catch (transactionError) {
-                logger.error('Error processing individual transaction:', {
+                logger.error('[RejectedDeposits] Error -------------------------------- processing individual transaction', {
                   orderId: transaction?.orderID,
-                  error: transactionError.message
+                  error: transactionError.message,
+                  stack: transactionError.stack
                 });
               }
             }
@@ -1547,7 +1550,7 @@ class NetworkInterceptor {
             const json = await interceptedResponse.json();
             const transactions = Array.isArray(json) ? json : json.data || [];
 
-            // Process transactions
+            logger.debug(`[ApprovedWithdrawals] Raw transactions count ${transactions.length}`);
             for (const transaction of transactions) {
               if (transaction.amount < 0) {
                 try {
@@ -1621,18 +1624,21 @@ class NetworkInterceptor {
                       runValidators: true
                     }
                   );
-
-                  // Only fetch transcript if isImageAvailable changed from false to true
+                  logger.info(`[ApprovedWithdrawals] Update result ${transaction.orderID}`);
                   if (shouldFetchTranscript) {
+                    logger.info(`[ApprovedWithdrawals] Fetching transcript ${transaction.orderID}`);
                     await this.fetchTranscript(transaction.orderID);
                   }
 
                 } catch (transactionError) {
-                  logger.error('Error processing individual transaction:', {
+                  logger.error('[ApprovedWithdrawals] Error -------------------------------- processing individual transaction', {
                     orderId: transaction?.orderID,
-                    error: transactionError.message
+                    error: transactionError.message,
+                    stack: transactionError.stack
                   });
                 }
+              } else {
+                logger.debug(`[ApprovedWithdrawals] Skipping transaction with non-negative amount ${transaction.orderID}`);
               }
             }
           } catch (err) {
@@ -1852,8 +1858,9 @@ class NetworkInterceptor {
                     isImageAvailable: transaction.isImageAvailable
                   };
 
-                  // Use findOneAndUpdate with upsert option to create or update
+                  logger.debug(`[RejectedWithdrawals] Prepared transactionData ${transaction.orderID}`);
                   const existingTransaction = await Transaction.findOne({ orderId: transaction.orderID });
+                  logger.debug(`[RejectedWithdrawals] Existing transaction ${transaction.orderID}`);
                   let checkingDeptApprovedOn = null;
                   let bonusApprovedOn = null;
                   
@@ -1878,6 +1885,7 @@ class NetworkInterceptor {
                     existingTransaction.isImageAvailable === false && 
                     transaction.isImageAvailable === true;
                   
+                  logger.debug(`[RejectedWithdrawals] Final transactionData before update ${transaction.orderID}`);
                   await Transaction.findOneAndUpdate(
                     { orderId: transaction.orderID },
                     transactionData,
@@ -1887,18 +1895,21 @@ class NetworkInterceptor {
                       runValidators: true
                     }
                   );
-
-                  // Only fetch transcript if isImageAvailable changed from false to true
+                  logger.info(`[RejectedWithdrawals] Update result ${transaction.orderID}`);
                   if (shouldFetchTranscript) {
+                    logger.info(`[RejectedWithdrawals] Fetching transcript ${transaction.orderID}`);
                     await this.fetchTranscript(transaction.orderID);
                   }
 
                 } catch (transactionError) {
-                  logger.error('Error processing individual transaction:', {
+                  logger.error('[RejectedWithdrawals] Error -------------------------------- processing individual transaction', {
                     orderId: transaction?.orderID,
-                    error: transactionError.message
+                    error: transactionError.message,
+                    stack: transactionError.stack
                   });
                 }
+              } else {
+                logger.debug('[RejectedWithdrawals] Skipping transaction with non-negative amount', { orderId: transaction.orderID, amount: transaction.amount });
               }
             }
           } catch (err) {
