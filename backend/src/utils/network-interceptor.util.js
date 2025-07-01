@@ -635,7 +635,6 @@ class NetworkInterceptor {
             // Process transactions
             for (const transaction of transactions) {
               try {
-                logger.debug(`[RecentDeposits] Processing transaction ${transaction.orderID}`);
                 await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
 
                 // Create the transaction data object
@@ -681,9 +680,8 @@ class NetworkInterceptor {
                     runValidators: true
                   }
                 );
-                logger.info(`[RecentDeposits] Update result ${transaction.orderID}`);
               } catch (transactionError) {
-                logger.error('[RecentDeposits] Error -------------------------------- processing individual transaction', {
+                logger.error('[ApprovedDeposits] Error -------------------------------- processing individual transaction', {
                   orderId: transaction?.orderID,
                   error: transactionError.message,
                   stack: transactionError.stack
@@ -868,7 +866,6 @@ class NetworkInterceptor {
             const json = await interceptedResponse.json();
             const transactions = Array.isArray(json) ? json : json.data || [];
 
-            logger.debug(`[RejectedDeposits] Raw transactions count ${transactions.length}`);
             for (const transaction of transactions) {
               try {
                 await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
@@ -916,7 +913,6 @@ class NetworkInterceptor {
                     runValidators: true
                   }
                 );
-                logger.info(`[RejectedDeposits] Update result ${transaction.orderID}`);
               } catch (transactionError) {
                 logger.error('[RejectedDeposits] Error -------------------------------- processing individual transaction', {
                   orderId: transaction?.orderID,
@@ -1550,7 +1546,6 @@ class NetworkInterceptor {
             const json = await interceptedResponse.json();
             const transactions = Array.isArray(json) ? json : json.data || [];
 
-            logger.debug(`[ApprovedWithdrawals] Raw transactions count ${transactions.length}`);
             for (const transaction of transactions) {
               if (transaction.amount < 0) {
                 try {
@@ -1624,9 +1619,7 @@ class NetworkInterceptor {
                       runValidators: true
                     }
                   );
-                  logger.info(`[ApprovedWithdrawals] Update result ${transaction.orderID}`);
                   if (shouldFetchTranscript) {
-                    logger.info(`[ApprovedWithdrawals] Fetching transcript ${transaction.orderID}`);
                     await this.fetchTranscript(transaction.orderID);
                   }
 
@@ -1885,7 +1878,6 @@ class NetworkInterceptor {
                     existingTransaction.isImageAvailable === false && 
                     transaction.isImageAvailable === true;
                   
-                  logger.debug(`[RejectedWithdrawals] Final transactionData before update ${transaction.orderID}`);
                   await Transaction.findOneAndUpdate(
                     { orderId: transaction.orderID },
                     transactionData,
@@ -1895,9 +1887,7 @@ class NetworkInterceptor {
                       runValidators: true
                     }
                   );
-                  logger.info(`[RejectedWithdrawals] Update result ${transaction.orderID}`);
                   if (shouldFetchTranscript) {
-                    logger.info(`[RejectedWithdrawals] Fetching transcript ${transaction.orderID}`);
                     await this.fetchTranscript(transaction.orderID);
                   }
 
@@ -2228,7 +2218,6 @@ class NetworkInterceptor {
         createdAt: { $gte: twentyFourHoursAgo }
       }, 'orderId');
   
-      logger.info(`[TranscriptScheduler] Found ${transactions.length} transactions needing transcript fetch.`);
       for (const tx of transactions) {
         try {
           await this.fetchTranscript(tx.orderId);
