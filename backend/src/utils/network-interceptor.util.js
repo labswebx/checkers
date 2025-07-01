@@ -634,58 +634,71 @@ class NetworkInterceptor {
 
             // Process transactions
             for (const transaction of transactions) {
-              try {
-                await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
-
-                // Create the transaction data object
-                const transactionData = {
-                  orderId: transaction.orderID,
-                  userId: transaction.userID,
-                  userName: transaction.userName,
-                  name: transaction.name,
-                  statusId: transaction.StatusID,
-                  transactionStatus: transaction.transactionStatus,
-                  amount: transaction.amount,
-                  requestDate: transaction.requestDate, // Convert UTC to IST
-                  paymentMethod: transaction.paymentMethod,
-                  holderName: transaction.holderName,
-                  bankName: transaction.bankName,
-                  accountNumber: transaction.number,
-                  iban: transaction.iBAN,
-                  cardNo: transaction.cardNo,
-                  utr: transaction.uTR,
-                  approvedOn: transaction.approvedOn,
-                  rejectedOn: transaction.rejectedOn,
-                  firstDeposit: transaction.firstDeposit,
-                  approvedBy: transaction.approvedBy,
-                  franchiseName: transaction.franchiseName,
-                  remarks: transaction.remarks,
-                  bonusIncluded: transaction.bonusIncluded,
-                  bonusExcluded: transaction.bonusExcluded,
-                  bonusThreshold: transaction.bonusThreshold,
-                  lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                  auditStatusId: transaction.auditStatusID,
-                  auditStatus: transaction.auditStatus,
-                  authorizedUserRemarks: transaction.authorizedUserRemarks,
-                  isImageAvailable: transaction.isImageAvailable
-                };
-
-                // Use findOneAndUpdate with upsert option to create or update
-                await Transaction.findOneAndUpdate(
-                  { orderId: transaction.orderID },
-                  transactionData,
-                  {
-                    upsert: true,
-                    new: true,
-                    runValidators: true
+              if (transaction.amount >= 0) {
+                try {
+                  // skip the update is transaction is already in Success status in the database
+                  const existingTransaction = await Transaction.findOne({ orderId: transaction.orderID });
+                  if(existingTransaction && existingTransaction.transactionStatus === TRANSACTION_STATUS.SUCCESS) {
+                    continue;
                   }
-                );
-              } catch (transactionError) {
-                logger.error('[ApprovedDeposits] Error -------------------------------- processing individual transaction', {
-                  orderId: transaction?.orderID,
-                  error: transactionError.message,
-                  stack: transactionError.stack
-                });
+
+                  await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
+  
+                  // Create the transaction data object
+                  const transactionData = {
+                    orderId: transaction.orderID,
+                    userId: transaction.userID,
+                    userName: transaction.userName,
+                    name: transaction.name,
+                    statusId: transaction.StatusID,
+                    transactionStatus: transaction.transactionStatus,
+                    amount: transaction.amount,
+                    requestDate: transaction.requestDate, // Convert UTC to IST
+                    paymentMethod: transaction.paymentMethod,
+                    holderName: transaction.holderName,
+                    bankName: transaction.bankName,
+                    accountNumber: transaction.number,
+                    iban: transaction.iBAN,
+                    cardNo: transaction.cardNo,
+                    utr: transaction.uTR,
+                    approvedOn: transaction.approvedOn,
+                    rejectedOn: transaction.rejectedOn,
+                    firstDeposit: transaction.firstDeposit,
+                    approvedBy: transaction.approvedBy,
+                    franchiseName: transaction.franchiseName,
+                    remarks: transaction.remarks,
+                    bonusIncluded: transaction.bonusIncluded,
+                    bonusExcluded: transaction.bonusExcluded,
+                    bonusThreshold: transaction.bonusThreshold,
+                    lastUpdatedUTROn: transaction.lastUpdatedUTROn,
+                    auditStatusId: transaction.auditStatusID,
+                    auditStatus: transaction.auditStatus,
+                    authorizedUserRemarks: transaction.authorizedUserRemarks,
+                    isImageAvailable: transaction.isImageAvailable
+                  };
+  
+                  logger.info(`Transaction orderID - ${transaction.orderID}`);
+                  if(transaction.orderID === '3560182') {
+                    logger.info('Inside successful transaction ------------------', transaction.orderID);
+                  }
+  
+                  // Use findOneAndUpdate with upsert option to create or update
+                  await Transaction.findOneAndUpdate(
+                    { orderId: transaction.orderID },
+                    transactionData,
+                    {
+                      upsert: true,
+                      new: true,
+                      runValidators: true
+                    }
+                  );
+                } catch (transactionError) {
+                  logger.error('[ApprovedDeposits] Error -------------------------------- processing individual transaction', {
+                    orderId: transaction?.orderID,
+                    error: transactionError.message,
+                    stack: transactionError.stack
+                  });
+                }
               }
             }
           } catch (err) {
@@ -867,58 +880,65 @@ class NetworkInterceptor {
             const transactions = Array.isArray(json) ? json : json.data || [];
 
             for (const transaction of transactions) {
-              try {
-                await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
-
-                // Create the transaction data object
-                const transactionData = {
-                  orderId: transaction.orderID,
-                  userId: transaction.userID,
-                  userName: transaction.userName,
-                  name: transaction.name,
-                  statusId: transaction.StatusID,
-                  transactionStatus: transaction.transactionStatus,
-                  amount: transaction.amount,
-                  requestDate: transaction.requestDate, // Convert UTC to IST
-                  paymentMethod: transaction.paymentMethod,
-                  holderName: transaction.holderName,
-                  bankName: transaction.bankName,
-                  accountNumber: transaction.number,
-                  iban: transaction.iBAN,
-                  cardNo: transaction.cardNo,
-                  utr: transaction.uTR,
-                  approvedOn: transaction.approvedOn,
-                  rejectedOn: transaction.rejectedOn,
-                  firstDeposit: transaction.firstDeposit,
-                  approvedBy: transaction.approvedBy,
-                  franchiseName: transaction.franchiseName,
-                  remarks: transaction.remarks,
-                  bonusIncluded: transaction.bonusIncluded,
-                  bonusExcluded: transaction.bonusExcluded,
-                  bonusThreshold: transaction.bonusThreshold,
-                  lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                  auditStatusId: transaction.auditStatusID,
-                  auditStatus: transaction.auditStatus,
-                  authorizedUserRemarks: transaction.authorizedUserRemarks,
-                  isImageAvailable: transaction.isImageAvailable
-                };
-
-                // Use findOneAndUpdate with upsert option to create or update
-                await Transaction.findOneAndUpdate(
-                  { orderId: transaction.orderID },
-                  transactionData,
-                  {
-                    upsert: true,
-                    new: true,
-                    runValidators: true
+              if (transaction.amount >= 0) {
+                try {
+                  // skip the update is transaction is already in Rejected status in the database
+                  const existingTransaction = await Transaction.findOne({ orderId: transaction.orderID });
+                  if(existingTransaction && existingTransaction.transactionStatus === TRANSACTION_STATUS.REJECTED) {
+                    continue;
                   }
-                );
-              } catch (transactionError) {
-                logger.error('[RejectedDeposits] Error -------------------------------- processing individual transaction', {
-                  orderId: transaction?.orderID,
-                  error: transactionError.message,
-                  stack: transactionError.stack
-                });
+                  await transactionService.findOrCreateAgent(transaction.franchiseName.split(' (')[0]);
+
+                  // Create the transaction data object
+                  const transactionData = {
+                    orderId: transaction.orderID,
+                    userId: transaction.userID,
+                    userName: transaction.userName,
+                    name: transaction.name,
+                    statusId: transaction.StatusID,
+                    transactionStatus: transaction.transactionStatus,
+                    amount: transaction.amount,
+                    requestDate: transaction.requestDate, // Convert UTC to IST
+                    paymentMethod: transaction.paymentMethod,
+                    holderName: transaction.holderName,
+                    bankName: transaction.bankName,
+                    accountNumber: transaction.number,
+                    iban: transaction.iBAN,
+                    cardNo: transaction.cardNo,
+                    utr: transaction.uTR,
+                    approvedOn: transaction.approvedOn,
+                    rejectedOn: transaction.rejectedOn,
+                    firstDeposit: transaction.firstDeposit,
+                    approvedBy: transaction.approvedBy,
+                    franchiseName: transaction.franchiseName,
+                    remarks: transaction.remarks,
+                    bonusIncluded: transaction.bonusIncluded,
+                    bonusExcluded: transaction.bonusExcluded,
+                    bonusThreshold: transaction.bonusThreshold,
+                    lastUpdatedUTROn: transaction.lastUpdatedUTROn,
+                    auditStatusId: transaction.auditStatusID,
+                    auditStatus: transaction.auditStatus,
+                    authorizedUserRemarks: transaction.authorizedUserRemarks,
+                    isImageAvailable: transaction.isImageAvailable
+                  };
+
+                  // Use findOneAndUpdate with upsert option to create or update
+                  await Transaction.findOneAndUpdate(
+                    { orderId: transaction.orderID },
+                    transactionData,
+                    {
+                      upsert: true,
+                      new: true,
+                      runValidators: true
+                    }
+                  );
+                } catch (transactionError) {
+                  logger.error('[RejectedDeposits] Error -------------------------------- processing individual transaction', {
+                    orderId: transaction?.orderID,
+                    error: transactionError.message,
+                    stack: transactionError.stack
+                  });
+                }
               }
             }
           } catch (err) {
