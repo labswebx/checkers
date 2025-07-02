@@ -93,6 +93,7 @@ transactionSchema.index({ orderId: 1 });
 
 // Create compound indexes for common query patterns
 transactionSchema.index({ requestDate: 1, transactionStatus: 1, franchiseName: 1 });
+transactionSchema.index({ transactionStatus: 1, amount: 1, requestDate: 1 });
 transactionSchema.index({ createdAt: -1 });
 
 // Additional indexes for optimization

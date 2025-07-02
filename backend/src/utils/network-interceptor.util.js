@@ -236,7 +236,7 @@ class NetworkInterceptor {
   async monitorPendingDeposits() {
     try {
       // Clean up existing pending deposits browser instance first
-      // await this.cleanupPendingDeposits();
+      await this.cleanupPendingDeposits();
 
       const executablePath = await this.findChromePath();
       this.pendingDepositsBrowser = await puppeteer.launch({
@@ -1144,6 +1144,9 @@ class NetworkInterceptor {
 
   async monitorPendingWithdrawals() {
     try {
+      // Clean up existing pending withdrawals browser instance first
+      await this.cleanupPendingWithdrawals();
+
       const executablePath = await this.findChromePath();
       this.pendingWithdrawlsBrowser = await puppeteer.launch({
         headless: 'new',
@@ -2198,6 +2201,19 @@ class NetworkInterceptor {
     } finally {
       this.rejectedDepositsBrowser = null;
       this.rejectedDepositsPage = null;
+    }
+  }
+
+  async cleanupPendingWithdrawals() {
+    try {
+      if (this.pendingWithdrawlsBrowser) {
+        await this.pendingWithdrawlsBrowser.close();
+      }
+    } catch (error) {
+      logger.error('Error closing pending withdrawals browser:', error);
+    } finally {
+      this.pendingWithdrawlsBrowser = null;
+      this.pendingWithdrawlsPage = null;
     }
   }
 
