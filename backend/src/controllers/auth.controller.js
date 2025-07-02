@@ -28,6 +28,8 @@ const login = async (req, res) => {
 
     const { email, password } = req.body;
     const { user, token } = await AuthService.loginUser(email, password);
+    user.lastLogin = new Date();
+    await user.save();
     return successResponse(res, 'Login successful', { user, token }, STATUS_CODES.OK);
   } catch (error) {
     return errorResponse(res, error.message, {}, STATUS_CODES.UNAUTHORIZED);

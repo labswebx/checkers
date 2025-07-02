@@ -207,6 +207,8 @@ const RejectedWithdraws = () => {
         totalRecords={totalRecords}
         filters={filters}
         handleFilterChange={handleFilterChange}
+        perPage={filters.limit}
+        onPerPageChange={(e) => handleFilterChange('limit', e.target.value)}
       />
     </Box>
   );

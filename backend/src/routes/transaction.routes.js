@@ -504,9 +504,15 @@ router.get('/withdraws', auth, async (req, res) => {
                 $divide: [
                   {
                     $cond: {
-                      if: { $ne: ['$approvedOn', null] },
-                      then: { $subtract: ['$approvedOn', '$requestDate'] },
-                      else: { $subtract: [new Date(), '$requestDate'] }
+                      if: { $eq: ['$transactionStatus', TRANSACTION_STATUS.PENDING] },
+                      then: { $subtract: [new Date(), '$requestDate'] },
+                      else: {
+                        $cond: {
+                          if: { $ne: ['$approvedOn', null] },
+                          then: { $subtract: ['$approvedOn', '$requestDate'] },
+                          else: { $subtract: [new Date(), '$requestDate'] }
+                        }
+                      }
                     }
                   },
                   60 * 1000 // ms to minutes
@@ -538,18 +544,30 @@ router.get('/withdraws', auth, async (req, res) => {
         currentTime: '$$NOW',
         timeDifference: {
           $cond: {
-            if: { $ne: ['$approvedOn', null] },
-            then: { $subtract: ['$approvedOn', '$requestDate'] },
-            else: { $subtract: ['$$NOW', '$requestDate'] }
+            if: { $eq: ['$transactionStatus', TRANSACTION_STATUS.PENDING] },
+            then: { $subtract: ['$$NOW', '$requestDate'] },
+            else: {
+              $cond: {
+                if: { $ne: ['$approvedOn', null] },
+                then: { $subtract: ['$approvedOn', '$requestDate'] },
+                else: { $subtract: ['$$NOW', '$requestDate'] }
+              }
+            }
           }
         },
         minutes: { 
           $divide: [
             {
               $cond: {
-                if: { $ne: ['$approvedOn', null] },
-                then: { $subtract: ['$approvedOn', '$requestDate'] },
-                else: { $subtract: ['$$NOW', '$requestDate'] }
+                if: { $eq: ['$transactionStatus', TRANSACTION_STATUS.PENDING] },
+                then: { $subtract: ['$$NOW', '$requestDate'] },
+                else: {
+                  $cond: {
+                    if: { $ne: ['$approvedOn', null] },
+                    then: { $subtract: ['$approvedOn', '$requestDate'] },
+                    else: { $subtract: ['$$NOW', '$requestDate'] }
+                  }
+                }
               }
             },
             1000 * 60

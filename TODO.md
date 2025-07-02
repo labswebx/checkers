@@ -1,12 +1,10 @@
+- [ ] In the perPage component in the Pagination, backend gives BSONObjectTooLarge error if pagination is set to 50 or more, fix this.
 - [ ] Create a deploy.sh file so that whenever we deploy on server, we just have to run that file. It will install the packages, close running PORTS from NGINX, run mongod & run the server. Basically it will be the one file to run for deployment, no need to install packages & all
 - [ ] Setup automatic env detection on Frontend so that we don't have to change the URL everytime we deploy
 - [ ] Show proper error message in case of Login & register. Try register with duplicate email or try login with agent email.
-- [ ] For every franchise it is creating a new user. Verify why & how is this happening & whats the need for this.
 
 - [ ] Remove auth from scraping APIs
 - [ ] Backend code is not properly modularised. All the logic is in routes or controllers.
-- [ ] Remove all loggers
-- [ ] Prod is taking a lot of storage, fix it
 
 
 
@@ -27,3 +25,10 @@
 - [x] Add a page where we can show the performance of every franchise
 - [x] We need to keep a track of the time when the status was updated, will be helpful in performance page.
 - [x] Complete the withdrawal page as well. Keep it on a separate branch
+- [x] For every franchise it is creating a new user. Verify why & how is this happening & whats the need for this.
+- [x] Remove all loggers
+- [x] Prod is taking a lot of storage, fix it
+- [x] Add the option to give perPage on the UI
+- [x] In deposits analysis, add the transactions completed <= 2 min.
+- [x] On the pending withdraw page, the count is not correct in the timer slab. If any transaction takes more than 20 mins, it's not coming in the 20-30 min wala slab.
+- [x] Keep a track of the users. Who all visited the website, if not this, atleast how many unique users visited the website. And their duration and the page they visited as well.

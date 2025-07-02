@@ -55,6 +55,8 @@ const userSchema = new mongoose.Schema({
     }
   },
   lastLogin: Date,
+  lastVisited: Date,
+  lastVisitedPage: String,
   metadata: {
     type: mongoose.Schema.Types.Mixed,
     default: {}

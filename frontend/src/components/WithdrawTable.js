@@ -104,7 +104,7 @@ const WithdrawTimer = ({ withdraw }) => {
   );
 };
 
-export default function WithdrawTable({ withdraws, loading, totalPages, totalRecords, filters, handleFilterChange }) {
+export default function WithdrawTable({ withdraws, loading, totalPages, totalRecords, filters, handleFilterChange, perPage, onPerPageChange }) {
   const theme = useTheme();
   const [selectedImage, setSelectedImage] = useState(null);
   const [accountNumberDialog, setAccountNumberDialog] = useState({ open: false, paymentMethod: '', accountNumber: '', ifcsCode: '', holderName: '' });
@@ -463,8 +463,9 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
             <Pagination
               count={totalPages}
               page={filters.page}
-              onChange={(e, page) => handleFilterChange('page', page)}
-              size="small"
+              onChange={(_, value) => handleFilterChange('page', value)}
+              perPage={perPage}
+              onPerPageChange={onPerPageChange}
             />
           </Box>
         )}

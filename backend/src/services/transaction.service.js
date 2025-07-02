@@ -335,6 +335,7 @@ class TransactionService {
   async getStatusUpdateStats(filters = {}) {
     try {
       const timeSlabs = [
+        { min: 0, max: 2, label: '0-2 minutes' },
         { min: 2, max: 5, label: '2-5 minutes' },
         { min: 5, max: 8, label: '5-8 minutes' },
         { min: 8, max: 12, label: '8-12 minutes' },
