@@ -677,12 +677,8 @@ class NetworkInterceptor {
                     isImageAvailable: transaction.isImageAvailable
                   };
   
-                  logger.info(`Transaction orderID - ${transaction.orderID}`);
-                  if(transaction.orderID === '3560182') {
-                    logger.info('Inside successful transaction ------------------', transaction.orderID);
-                  }
-  
                   // Use findOneAndUpdate with upsert option to create or update
+                  logger.info(`Marking Deposit orderID as approved - ${transaction.orderID}, new status - ${transactionData.transactionStatus}`);
                   await Transaction.findOneAndUpdate(
                     { orderId: transaction.orderID },
                     transactionData,
@@ -923,6 +919,7 @@ class NetworkInterceptor {
                   };
 
                   // Use findOneAndUpdate with upsert option to create or update
+                  logger.info(`Marking Deposit orderID as rejected - ${transaction.orderID}, new status - ${transactionData.transactionStatus}`);
                   await Transaction.findOneAndUpdate(
                     { orderId: transaction.orderID },
                     transactionData,
