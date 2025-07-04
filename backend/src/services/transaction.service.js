@@ -1,9 +1,12 @@
-const User = require('../models/user.model');
-const Transaction = require('../models/transaction.model');
-const whatsapp = require('../utils/whatsapp.util');
-const logger = require('../utils/logger.util');
-const { TRANSACTION_STATUS } = require('../constants');
-const { convertToUAETime, convertFromUAETime } = require('../config/timezone.config');
+const User = require("../models/user.model");
+const Transaction = require("../models/transaction.model");
+const whatsapp = require("../utils/whatsapp.util");
+const logger = require("../utils/logger.util");
+const { TRANSACTION_STATUS } = require("../constants");
+const {
+  convertToUAETime,
+  convertFromUAETime,
+} = require("../config/timezone.config");
 
 class TransactionService {
   /**
@@ -19,39 +22,45 @@ class TransactionService {
         statusChanged: 0,
         failed: 0,
         total: transactions.length,
-        errors: []
+        errors: [],
       };
 
       for (const transaction of transactions) {
         try {
           if (!transaction || !transaction.id) {
             results.failed++;
-            results.errors.push('Invalid transaction data');
+            results.errors.push("Invalid transaction data");
             continue;
           }
 
           // Find or create agent user
           const agent = await this.findOrCreateAgent(transaction.franchise);
-          
+
           // Map scraped data to our schema
-          const mappedData = this.mapTransactionData(transaction, type, agent._id);
+          const mappedData = this.mapTransactionData(
+            transaction,
+            type,
+            agent._id
+          );
 
           // Validate mapped data
           if (!mappedData.transactionId || !mappedData.status) {
             results.failed++;
-            results.errors.push(`Invalid mapped data for transaction ${transaction.id}`);
+            results.errors.push(
+              `Invalid mapped data for transaction ${transaction.id}`
+            );
             continue;
           }
 
           // Update or create transaction
           const existingTransaction = await Transaction.findOne({
-            transactionId: mappedData.transactionId
+            transactionId: mappedData.transactionId,
           });
 
           if (existingTransaction) {
             const updateData = {
               ...mappedData,
-              lastScrapedAt: convertToUAETime(new Date())
+              lastScrapedAt: convertToUAETime(new Date()),
             };
 
             // Only update statusUpdatedAt if status has changed
@@ -69,7 +78,9 @@ class TransactionService {
 
             if (!updated) {
               results.failed++;
-              results.errors.push(`Failed to update transaction ${mappedData.transactionId}`);
+              results.errors.push(
+                `Failed to update transaction ${mappedData.transactionId}`
+              );
               continue;
             }
 
@@ -80,28 +91,34 @@ class TransactionService {
               await Transaction.create({
                 ...mappedData,
                 lastScrapedAt: convertToUAETime(new Date()),
-                statusUpdatedAt: convertToUAETime(new Date()) // Set initial statusUpdatedAt
+                statusUpdatedAt: convertToUAETime(new Date()), // Set initial statusUpdatedAt
               });
               results.created++;
             } catch (createError) {
               results.failed++;
-              results.errors.push(`Failed to create transaction ${mappedData.transactionId}: ${createError.message}`);
+              results.errors.push(
+                `Failed to create transaction ${mappedData.transactionId}: ${createError.message}`
+              );
               continue;
             }
           }
         } catch (error) {
-          logger.error('Error processing transaction:', {
+          logger.error("Error processing transaction:", {
             error: error.message,
-            transaction: transaction?.id || 'unknown'
+            transaction: transaction?.id || "unknown",
           });
           results.failed++;
-          results.errors.push(`Error processing transaction ${transaction?.id || 'unknown'}: ${error.message}`);
+          results.errors.push(
+            `Error processing transaction ${transaction?.id || "unknown"}: ${
+              error.message
+            }`
+          );
         }
       }
 
       return results;
     } catch (error) {
-      logger.error('Error in processTransactions:', error);
+      logger.error("Error in processTransactions:", error);
       throw error;
     }
   }
@@ -113,35 +130,35 @@ class TransactionService {
   async findOrCreateAgent(franchise) {
     try {
       // Look for existing agent user with this franchise
-      let agent = await User.findOne({ 
+      let agent = await User.findOne({
         franchise,
-        role: 'agent',
-        isActive: true
+        role: "agent",
+        isActive: true,
       });
-      
+
       if (!agent) {
         // Create new agent user
         agent = await User.create({
           name: franchise,
-          email: `${franchise.toLowerCase().replace(/\s+/g, '.')}@agent.com`,
+          email: `${franchise.toLowerCase().replace(/\s+/g, ".")}@agent.com`,
           franchise,
-          role: 'agent',
+          role: "agent",
           isActive: true,
           password: Math.random().toString(36).slice(-8), // Generate random password
           contactNumber: 1234567891, // Will be updated later
           notificationPreferences: {
             email: true,
             sms: true,
-            whatsapp: false
-          }
+            whatsapp: false,
+          },
         });
       }
 
       return agent;
     } catch (error) {
-      logger.error('Error in findOrCreateAgent:', {
+      logger.error("Error in findOrCreateAgent:", {
         error: error.message,
-        franchise
+        franchise,
       });
       throw error;
     }
@@ -156,9 +173,10 @@ class TransactionService {
   mapTransactionData(data, type, agentId) {
     try {
       // Extract transaction ID from data based on type
-      const transactionId = type === 'deposit' 
-        ? data.deposit_id || data.id
-        : data.withdrawal_id || data.id;
+      const transactionId =
+        type === "deposit"
+          ? data.deposit_id || data.id
+          : data.withdrawal_id || data.id;
 
       // Map status
       const status = this.mapStatus(data.status);
@@ -168,7 +186,7 @@ class TransactionService {
       const processedAt = this.parseDate(data.processed_at || data.updated_at);
 
       // Clean amount string and convert to number
-      const amount = parseFloat(String(data.amount).replace(/[₹,]/g, ''));
+      const amount = parseFloat(String(data.amount).replace(/[₹,]/g, ""));
       if (isNaN(amount)) {
         throw new Error(`Invalid amount: ${data.amount}`);
       }
@@ -188,13 +206,13 @@ class TransactionService {
         processedAt,
         remarks: data.remarks,
         metadata: {
-          raw: data
-        }
+          raw: data,
+        },
       };
     } catch (error) {
-      logger.error('Error mapping transaction data:', {
+      logger.error("Error mapping transaction data:", {
         error: error.message,
-        data
+        data,
       });
       throw error;
     }
@@ -206,27 +224,45 @@ class TransactionService {
    */
   mapStatus(status) {
     if (!status) return TRANSACTION_STATUS.PENDING;
-    
+
     // Convert to lowercase and remove extra spaces
     status = String(status).toLowerCase().trim();
 
     // Common variations of status text
-    const approvedKeywords = ['approved', 'success', 'completed', 'done', 'processed'];
-    const rejectedKeywords = ['rejected', 'failed', 'cancelled', 'declined', 'error'];
-    const pendingKeywords = ['Pending', 'statuspen', 'processing', 'in progress', 'waiting'];
+    const approvedKeywords = [
+      "approved",
+      "success",
+      "completed",
+      "done",
+      "processed",
+    ];
+    const rejectedKeywords = [
+      "rejected",
+      "failed",
+      "cancelled",
+      "declined",
+      "error",
+    ];
+    const pendingKeywords = [
+      "Pending",
+      "statuspen",
+      "processing",
+      "in progress",
+      "waiting",
+    ];
 
     // Check for approved status
-    if (approvedKeywords.some(keyword => status.includes(keyword))) {
+    if (approvedKeywords.some((keyword) => status.includes(keyword))) {
       return TRANSACTION_STATUS.SUCCESS;
     }
 
     // Check for rejected status
-    if (rejectedKeywords.some(keyword => status.includes(keyword))) {
+    if (rejectedKeywords.some((keyword) => status.includes(keyword))) {
       return TRANSACTION_STATUS.REJECTED;
     }
 
     // Check for pending status
-    if (pendingKeywords.some(keyword => status.includes(keyword))) {
+    if (pendingKeywords.some((keyword) => status.includes(keyword))) {
       return TRANSACTION_STATUS.PENDING;
     }
 
@@ -243,7 +279,7 @@ class TransactionService {
       const date = new Date(dateStr);
       return convertToUAETime(date);
     } catch (error) {
-      logger.error('Error parsing date:', { dateStr, error: error.message });
+      logger.error("Error parsing date:", { dateStr, error: error.message });
       return null;
     }
   }
@@ -259,32 +295,32 @@ class TransactionService {
         {
           $group: {
             _id: {
-              type: '$type',
-              status: '$status'
+              type: "$type",
+              status: "$status",
             },
             count: { $sum: 1 },
-            totalAmount: { $sum: '$amount' }
-          }
+            totalAmount: { $sum: "$amount" },
+          },
         },
         {
           $group: {
-            _id: '$_id.type',
+            _id: "$_id.type",
             stats: {
               $push: {
-                status: '$_id.status',
-                count: '$count',
-                amount: '$totalAmount'
-              }
+                status: "$_id.status",
+                count: "$count",
+                amount: "$totalAmount",
+              },
             },
-            totalCount: { $sum: '$count' },
-            totalAmount: { $sum: '$totalAmount' }
-          }
-        }
+            totalCount: { $sum: "$count" },
+            totalAmount: { $sum: "$totalAmount" },
+          },
+        },
       ]);
 
       return stats;
     } catch (error) {
-      logger.error('Error getting transaction stats:', error);
+      logger.error("Error getting transaction stats:", error);
       throw error;
     }
   }
@@ -303,25 +339,28 @@ class TransactionService {
         requestedAt: { $lte: twoMinutesAgo },
         $or: [
           { lastNotificationSent: { $exists: false } },
-          { lastNotificationSent: { $lte: thirtyMinutesAgo } }
-        ]
-      }).populate('agentId');
+          { lastNotificationSent: { $lte: thirtyMinutesAgo } },
+        ],
+      }).populate("agentId");
 
       // Send notifications for each transaction
       for (const transaction of pendingTransactions) {
         if (transaction.agentId && transaction.agentId.contactNumber) {
           try {
-            await whatsapp.sendPendingTransactionAlert(transaction, transaction.agentId);
-            
+            await whatsapp.sendPendingTransactionAlert(
+              transaction,
+              transaction.agentId
+            );
+
             // Update the lastNotificationSent timestamp
             await Transaction.findByIdAndUpdate(transaction._id, {
-              lastNotificationSent: new Date()
+              lastNotificationSent: new Date(),
             });
           } catch (error) {}
         }
       }
     } catch (error) {
-      logger.error('Error checking pending transactions:', error);
+      logger.error("Error checking pending transactions:", error);
       throw error;
     }
   }
@@ -335,74 +374,88 @@ class TransactionService {
   async getStatusUpdateStats(filters = {}) {
     try {
       const timeSlabs = [
-        { min: 0, max: 2, label: '0-2 minutes' },
-        { min: 2, max: 5, label: '2-5 minutes' },
-        { min: 5, max: 8, label: '5-8 minutes' },
-        { min: 8, max: 12, label: '8-12 minutes' },
-        { min: 12, max: 20, label: '12-20 minutes' },
-        { min: 20, max: null, label: 'Above 20 minutes' }
+        { min: 0, max: 2, label: "0-2 minutes" },
+        { min: 2, max: 5, label: "2-5 minutes" },
+        { min: 5, max: 8, label: "5-8 minutes" },
+        { min: 8, max: 12, label: "8-12 minutes" },
+        { min: 12, max: 20, label: "12-20 minutes" },
+        { min: 20, max: null, label: "Above 20 minutes" },
       ];
 
-      // Initialize results object
       const results = {
         overall: {},
-        byAgent: {}
+        byAgent: {},
       };
+
       const baseMatch = {
         amount: { $gte: 0 },
       };
 
-      if (filters.status && filters.status !== 'all') {
-        // Map frontend status to database status
+      //  Status filter
+      if (filters.status && filters.status !== "all") {
         const statusMap = {
-          'success': TRANSACTION_STATUS.SUCCESS,
-          'rejected': TRANSACTION_STATUS.REJECTED,
-          'pending': TRANSACTION_STATUS.PENDING
+          success: TRANSACTION_STATUS.SUCCESS,
+          rejected: TRANSACTION_STATUS.REJECTED,
+          pending: TRANSACTION_STATUS.PENDING,
         };
-        baseMatch.transactionStatus = statusMap[filters.status.toLowerCase()] || filters.status;
+        baseMatch.transactionStatus =
+          statusMap[filters.status.toLowerCase()] || filters.status;
       }
 
-      // Add time frame filter if provided
-      if (filters.timeFrame && filters.timeFrame !== 'all') {
-        const now = new Date();
+      //  Time filtering
+      const now = new Date();
+
+      if (
+        filters.timeFrame === "custom" &&
+        filters.startDate &&
+        filters.endDate
+      ) {
+        // Handle custom date range
+        const start = new Date(`${filters.startDate}`);
+        const end = new Date(`${filters.endDate}`);
+
+        baseMatch.requestDate = {
+          $gte: start,
+          $lte: end,
+        };
+      } else if (filters.timeFrame && filters.timeFrame !== "all") {
+        // Handle predefined timeFrame
         let startDate;
 
         switch (filters.timeFrame) {
-          case '1h':
-            startDate = new Date(now - 60 * 60 * 1000);
+          case "1h":
+            startDate = new Date(now.getTime() - 1 * 60 * 60 * 1000);
             break;
-          case '3h':
-            startDate = new Date(now - 3 * 60 * 60 * 1000);
+          case "3h":
+            startDate = new Date(now.getTime() - 3 * 60 * 60 * 1000);
             break;
-          case '6h':
-            startDate = new Date(now - 6 * 60 * 60 * 1000);
+          case "6h":
+            startDate = new Date(now.getTime() - 6 * 60 * 60 * 1000);
             break;
-          case '1d':
-            startDate = new Date(now - 24 * 60 * 60 * 1000);
+          case "1d":
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
             break;
-          case '3d':
-            startDate = new Date(now - 3 * 24 * 60 * 60 * 1000);
+          case "3d":
+            startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
             break;
-          case '1w':
-            startDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
+          case "1w":
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             break;
-          case '1m':
-            startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+          case "1m":
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
             break;
           default:
-            startDate = new Date(now - 24 * 60 * 60 * 1000); // Default to last 24 hours
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         }
 
         baseMatch.requestDate = { $gte: startDate };
       } else {
-        // Default to last 24 hours if no timeFrame specified
-        const last24Hours = new Date();
-        last24Hours.setHours(last24Hours.getHours() - 24);
-        baseMatch.requestDate = { $gte: last24Hours };
+        // Default fallback to last 24 hours
+        const last24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        baseMatch.requestDate = { $gte: last24 };
       }
-
+      // ⏱ Loop over time slabs and run aggregation
       for (const slab of timeSlabs) {
-        // Calculate time difference in minutes between status update and request date
         const matchStage = {
           $match: {
             ...baseMatch,
@@ -417,77 +470,93 @@ class TransactionService {
                             {
                               case: {
                                 $and: [
-                                  { $eq: ['$transactionStatus', TRANSACTION_STATUS.SUCCESS] },
-                                  { $ne: ['$approvedOn', null] }
-                                ]
+                                  {
+                                    $eq: [
+                                      "$transactionStatus",
+                                      TRANSACTION_STATUS.SUCCESS,
+                                    ],
+                                  },
+                                  { $ne: ["$approvedOn", null] },
+                                ],
                               },
-                              then: { $subtract: ['$approvedOn', '$requestDate'] }
+                              then: {
+                                $subtract: ["$approvedOn", "$requestDate"],
+                              },
                             },
                             {
                               case: {
                                 $and: [
-                                  { $eq: ['$transactionStatus', TRANSACTION_STATUS.REJECTED] },
-                                  { $ne: ['$approvedOn', null] }
-                                ]
+                                  {
+                                    $eq: [
+                                      "$transactionStatus",
+                                      TRANSACTION_STATUS.REJECTED,
+                                    ],
+                                  },
+                                  { $ne: ["$approvedOn", null] },
+                                ],
                               },
-                              then: { $subtract: ['$approvedOn', '$requestDate'] }
-                            }
+                              then: {
+                                $subtract: ["$approvedOn", "$requestDate"],
+                              },
+                            },
                           ],
-                          default: { $subtract: ['$$NOW', '$requestDate'] }
-                        }
+                          default: { $subtract: [new Date(), "$requestDate"] },
+                        },
                       },
-                      60 * 1000 // ms to minutes
-                    ]
-                  }
+                      60 * 1000,
+                    ],
+                  },
                 },
                 in: slab.max
                   ? {
                       $and: [
-                        { $gte: ['$$timeDiffMinutes', slab.min] },
-                        { $lt: ['$$timeDiffMinutes', slab.max] }
-                      ]
+                        { $gte: ["$$timeDiffMinutes", slab.min] },
+                        { $lt: ["$$timeDiffMinutes", slab.max] },
+                      ],
                     }
-                  : { $gte: ['$$timeDiffMinutes', slab.min] }
-              }
-            }
-          }
+                  : { $gte: ["$$timeDiffMinutes", slab.min] },
+              },
+            },
+          },
         };
 
-        // Get overall count for this time slab
+        // 🔢 Get overall counts
         const overallCount = await Transaction.aggregate([
           matchStage,
           {
             $group: {
               _id: null,
-              count: { $sum: 1 }
-            }
-          }
+              count: { $sum: 1 },
+            },
+          },
         ]);
         results.overall[slab.label] = overallCount[0]?.count || 0;
 
+        // 👥 Get counts grouped by franchise
         const agentStats = await Transaction.aggregate([
           matchStage,
           {
             $group: {
-              _id: '$franchiseName',
-              count: { $sum: 1 }
-            }
+              _id: "$franchiseName",
+              count: { $sum: 1 },
+            },
           },
           {
             $project: {
-              agentName: { $arrayElemAt: [{ $split: ['$_id', ' ('] }, 0] },
-              franchise: '$_id',
-              count: 1
-            }
-          }
+              agentName: { $arrayElemAt: [{ $split: ["$_id", " ("] }, 0] },
+              franchise: "$_id",
+              count: 1,
+            },
+          },
         ]);
 
-        agentStats.forEach(stat => {
+        // ⬆️ Organize results into final format
+        agentStats.forEach((stat) => {
           if (!results.byAgent[stat._id]) {
             results.byAgent[stat._id] = {
               name: stat.agentName,
               franchise: stat.franchise,
-              timeSlabs: {}
+              timeSlabs: {},
             };
           }
           results.byAgent[stat._id].timeSlabs[slab.label] = stat.count;
@@ -496,10 +565,10 @@ class TransactionService {
 
       return results;
     } catch (error) {
-      logger.error('Error getting status update stats:', {
+      logger.error("Error getting status update stats:", {
         error: error.message,
         stack: error.stack,
-        filters
+        filters,
       });
       throw error;
     }
@@ -509,44 +578,60 @@ class TransactionService {
     try {
       // Custom time slabs for withdraw analysis
       const timeSlabs = [
-        { min: 0, max: 20, label: '0-20 minutes' },
-        { min: 20, max: 30, label: '20-30 minutes' },
-        { min: 30, max: 45, label: '30-45 minutes' },
-        { min: 45, max: 60, label: '45-60 minutes' },
-        { min: 60, max: null, label: 'Above 60 minutes' }
+        { min: 0, max: 20, label: "0-20 minutes" },
+        { min: 20, max: 30, label: "20-30 minutes" },
+        { min: 30, max: 45, label: "30-45 minutes" },
+        { min: 45, max: 60, label: "45-60 minutes" },
+        { min: 60, max: null, label: "Above 60 minutes" },
       ];
 
       // Initialize results object
       const results = {
         overall: {},
-        byAgent: {}
+        byAgent: {},
       };
       const baseMatch = {
         amount: { $lt: 0 },
       };
 
-      if (filters.status && filters.status !== 'all') {
+      if (filters.status && filters.status !== "all") {
         // Map frontend status to database status
         const statusMap = {
-          'success': TRANSACTION_STATUS.SUCCESS,
-          'rejected': TRANSACTION_STATUS.REJECTED,
-          'pending': TRANSACTION_STATUS.PENDING
+          success: TRANSACTION_STATUS.SUCCESS,
+          rejected: TRANSACTION_STATUS.REJECTED,
+          pending: TRANSACTION_STATUS.PENDING,
         };
-        baseMatch.transactionStatus = statusMap[filters.status.toLowerCase()] || filters.status;
+        baseMatch.transactionStatus =
+          statusMap[filters.status.toLowerCase()] || filters.status;
       }
       // Time frame filter
-      if (filters.timeFrame && filters.timeFrame !== 'all') {
+      if (filters.timeFrame && filters.timeFrame !== "all") {
         const now = new Date();
         let fromDate = new Date(now);
         switch (filters.timeFrame) {
-          case '1h': fromDate.setHours(now.getHours() - 1); break;
-          case '3h': fromDate.setHours(now.getHours() - 3); break;
-          case '6h': fromDate.setHours(now.getHours() - 6); break;
-          case '1d': fromDate.setDate(now.getDate() - 1); break;
-          case '3d': fromDate.setDate(now.getDate() - 3); break;
-          case '1w': fromDate.setDate(now.getDate() - 7); break;
-          case '1m': fromDate.setMonth(now.getMonth() - 1); break;
-          default: fromDate = null;
+          case "1h":
+            fromDate.setHours(now.getHours() - 1);
+            break;
+          case "3h":
+            fromDate.setHours(now.getHours() - 3);
+            break;
+          case "6h":
+            fromDate.setHours(now.getHours() - 6);
+            break;
+          case "1d":
+            fromDate.setDate(now.getDate() - 1);
+            break;
+          case "3d":
+            fromDate.setDate(now.getDate() - 3);
+            break;
+          case "1w":
+            fromDate.setDate(now.getDate() - 7);
+            break;
+          case "1m":
+            fromDate.setMonth(now.getMonth() - 1);
+            break;
+          default:
+            fromDate = null;
         }
         if (fromDate) baseMatch.requestDate = { $gte: fromDate };
       }
@@ -562,26 +647,26 @@ class TransactionService {
                     $divide: [
                       {
                         $cond: {
-                          if: { $ne: ['$approvedOn', null] },
-                          then: { $subtract: ['$approvedOn', '$requestDate'] },
-                          else: { $subtract: ['$$NOW', '$requestDate'] }
-                        }
+                          if: { $ne: ["$approvedOn", null] },
+                          then: { $subtract: ["$approvedOn", "$requestDate"] },
+                          else: { $subtract: ["$$NOW", "$requestDate"] },
+                        },
                       },
-                      60 * 1000
-                    ]
-                  }
+                      60 * 1000,
+                    ],
+                  },
                 },
                 in: slab.max
                   ? {
                       $and: [
-                        { $gte: ['$$timeDiffMinutes', slab.min] },
-                        { $lt: ['$$timeDiffMinutes', slab.max] }
-                      ]
+                        { $gte: ["$$timeDiffMinutes", slab.min] },
+                        { $lt: ["$$timeDiffMinutes", slab.max] },
+                      ],
                     }
-                  : { $gte: ['$$timeDiffMinutes', slab.min] }
-              }
-            }
-          }
+                  : { $gte: ["$$timeDiffMinutes", slab.min] },
+              },
+            },
+          },
         };
         // Overall count
         const count = await Transaction.countDocuments(matchStage.$match);
@@ -592,25 +677,25 @@ class TransactionService {
           matchStage,
           {
             $group: {
-              _id: '$franchiseName',
-              count: { $sum: 1 }
-            }
+              _id: "$franchiseName",
+              count: { $sum: 1 },
+            },
           },
           {
             $project: {
-              agentName: { $arrayElemAt: [{ $split: ['$_id', ' ('] }, 0] },
-              franchise: '$_id',
-              count: 1
-            }
-          }
+              agentName: { $arrayElemAt: [{ $split: ["$_id", " ("] }, 0] },
+              franchise: "$_id",
+              count: 1,
+            },
+          },
         ]);
 
-        agentStats.forEach(stat => {
+        agentStats.forEach((stat) => {
           if (!results.byAgent[stat.franchise]) {
             results.byAgent[stat.franchise] = {
               name: stat.agentName,
               franchise: stat.franchise,
-              timeSlabs: {}
+              timeSlabs: {},
             };
           }
           results.byAgent[stat.franchise].timeSlabs[slab.label] = stat.count;
@@ -623,4 +708,4 @@ class TransactionService {
   }
 }
 
-module.exports = new TransactionService(); 
+module.exports = new TransactionService();

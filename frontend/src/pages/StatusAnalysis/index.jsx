@@ -27,6 +27,7 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { API_ENDPOINTS } from "../../constants";
 import api from "../../services/api";
 import { colors } from "../../theme/colors";
+import { format } from "date-fns";
 
 const timeFrameOptions = [
   { value: "1h", label: "Last 1 Hour" },
@@ -62,7 +63,7 @@ const StatusAnalysis = () => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-
+        console.log("Current filters:", filters);
         const params = {
           status: filters.status,
         };
@@ -71,8 +72,9 @@ const StatusAnalysis = () => {
           params.timeFrame = filters.timeFrame;
         } else if (filters.startDate && filters.endDate) {
           // Convert dates to ISO strings and remove timezone info
-          params.startDate = filters.startDate.toISOString().split("T")[0];
-          params.endDate = filters.endDate.toISOString().split("T")[0];
+          params.timeFrame = "custom";
+          params.startDate = format(filters.startDate, "yyyy-MM-dd");
+          params.endDate = format(filters.endDate, "yyyy-MM-dd");
         }
 
         const response = await api.get(
@@ -106,6 +108,7 @@ const StatusAnalysis = () => {
     setFilters((prev) => ({
       ...prev,
       [name]: value,
+      timeFrame: "custom",
     }));
   };
 
