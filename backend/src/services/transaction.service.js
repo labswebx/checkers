@@ -454,7 +454,7 @@ class TransactionService {
         const last24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         baseMatch.requestDate = { $gte: last24 };
       }
-      // ⏱ Loop over time slabs and run aggregation
+      //  Loop over time slabs and run aggregation
       for (const slab of timeSlabs) {
         const matchStage = {
           $match: {
@@ -520,7 +520,7 @@ class TransactionService {
           },
         };
 
-        // 🔢 Get overall counts
+        //  Get overall counts
         const overallCount = await Transaction.aggregate([
           matchStage,
           {
@@ -532,7 +532,7 @@ class TransactionService {
         ]);
         results.overall[slab.label] = overallCount[0]?.count || 0;
 
-        // 👥 Get counts grouped by franchise
+        //  Get counts grouped by franchise
         const agentStats = await Transaction.aggregate([
           matchStage,
           {
@@ -550,7 +550,7 @@ class TransactionService {
           },
         ]);
 
-        // ⬆️ Organize results into final format
+        //  Organize results into final format
         agentStats.forEach((stat) => {
           if (!results.byAgent[stat._id]) {
             results.byAgent[stat._id] = {
@@ -604,36 +604,58 @@ class TransactionService {
         baseMatch.transactionStatus =
           statusMap[filters.status.toLowerCase()] || filters.status;
       }
+
       // Time frame filter
-      if (filters.timeFrame && filters.timeFrame !== "all") {
-        const now = new Date();
-        let fromDate = new Date(now);
+      const now = new Date();
+
+      if (
+        filters.timeFrame === "custom" &&
+        filters.startDate &&
+        filters.endDate
+      ) {
+        // Handle custom date range
+        const start = new Date(`${filters.startDate}T00:00:00`);
+        const end = new Date(`${filters.endDate}T23:59:59.999`);
+
+        baseMatch.requestDate = {
+          $gte: start,
+          $lte: end,
+        };
+      } else if (filters.timeFrame && filters.timeFrame !== "all") {
+        // Handle predefined timeFrame
+        let startDate;
+
         switch (filters.timeFrame) {
           case "1h":
-            fromDate.setHours(now.getHours() - 1);
+            startDate = new Date(now.getTime() - 1 * 60 * 60 * 1000);
             break;
           case "3h":
-            fromDate.setHours(now.getHours() - 3);
+            startDate = new Date(now.getTime() - 3 * 60 * 60 * 1000);
             break;
           case "6h":
-            fromDate.setHours(now.getHours() - 6);
+            startDate = new Date(now.getTime() - 6 * 60 * 60 * 1000);
             break;
           case "1d":
-            fromDate.setDate(now.getDate() - 1);
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
             break;
           case "3d":
-            fromDate.setDate(now.getDate() - 3);
+            startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
             break;
           case "1w":
-            fromDate.setDate(now.getDate() - 7);
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             break;
           case "1m":
-            fromDate.setMonth(now.getMonth() - 1);
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
             break;
           default:
-            fromDate = null;
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         }
-        if (fromDate) baseMatch.requestDate = { $gte: fromDate };
+
+        baseMatch.requestDate = { $gte: startDate };
+      } else {
+        // Default fallback to last 24 hours
+        const last24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        baseMatch.requestDate = { $gte: last24 };
       }
 
       for (const slab of timeSlabs) {
