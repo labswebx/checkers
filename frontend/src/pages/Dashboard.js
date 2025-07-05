@@ -116,8 +116,11 @@ const Dashboard = () => {
     <Container maxWidth="xl">
       <Box>
         {/* Deposit Statistics */}
-        <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: colors.success.main }}>
-          Deposit Statistics (Last 24 Hours)
+        <Typography
+          variant="h6"
+          sx={{ mb: 2, fontWeight: "bold", color: colors.success.main }}
+        >
+          Deposit Statistics (Today)
         </Typography>
         <Grid container spacing={3}>
           <Grid item xs={12} sm={6} md={3}>
@@ -159,8 +162,16 @@ const Dashboard = () => {
         </Grid>
 
         {/* Withdrawal Statistics */}
-        <Typography variant="h6" sx={{ mt: 5, mb: 2, fontWeight: 'bold', color: colors.secondary.main }}>
-          Withdrawal Statistics (Last 24 Hours)
+        <Typography
+          variant="h6"
+          sx={{
+            mt: 5,
+            mb: 2,
+            fontWeight: "bold",
+            color: colors.secondary.main,
+          }}
+        >
+          Withdrawal Statistics (Today)
         </Typography>
         <Grid container spacing={3}>
           <Grid item xs={12} sm={6} md={3}>
@@ -202,7 +213,10 @@ const Dashboard = () => {
         </Grid>
 
         {/* User Statistics */}
-        <Typography variant="h6" sx={{ mt: 5, mb: 2, fontWeight: 'bold', color: colors.primary.main }}>
+        <Typography
+          variant="h6"
+          sx={{ mt: 5, mb: 2, fontWeight: "bold", color: colors.primary.main }}
+        >
           User Statistics
         </Typography>
         <Grid container spacing={3}>
