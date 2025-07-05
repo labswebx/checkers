@@ -1,7 +1,11 @@
-const User = require('../models/user.model');
-const Transaction = require('../models/transaction.model');
-const { successResponse, errorResponse } = require('../utils/response.util');
-const { STATUS_CODES, USER_ROLES, TRANSACTION_STATUS } = require('../constants');
+const User = require("../models/user.model");
+const Transaction = require("../models/transaction.model");
+const { successResponse, errorResponse } = require("../utils/response.util");
+const {
+  STATUS_CODES,
+  USER_ROLES,
+  TRANSACTION_STATUS,
+} = require("../constants");
 
 /**
  * Get dashboard statistics
@@ -10,142 +14,158 @@ const { STATUS_CODES, USER_ROLES, TRANSACTION_STATUS } = require('../constants')
  */
 const getDashboardStats = async (req, res) => {
   try {
-    // Calculate the date 24 hours ago
-    const last24Hours = new Date();
-    last24Hours.setHours(last24Hours.getHours() - 24);
+    // Calculate today's starting point (midnight)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
 
     // Get user statistics
     const totalUsers = await User.countDocuments({ isActive: true });
-    const totalAdmins = await User.countDocuments({ role: USER_ROLES.ADMIN, isActive: true });
-    const totalAgents = await User.countDocuments({ role: USER_ROLES.AGENT, isActive: true });
+    const totalAdmins = await User.countDocuments({
+      role: USER_ROLES.ADMIN,
+      isActive: true,
+    });
+    const totalAgents = await User.countDocuments({
+      role: USER_ROLES.AGENT,
+      isActive: true,
+    });
 
     // Get transaction statistics for last 24 hours
-    const totalTransactions = await Transaction.countDocuments({ createdAt: { $gte: last24Hours } });
-    const pendingTransactions = await Transaction.countDocuments({ 
+    const totalTransactions = await Transaction.countDocuments({
+      createdAt: { $gte: todayStart, $lte: endOfToday },
+    });
+    const pendingTransactions = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.PENDING,
-      createdAt: { $gte: last24Hours },
-      amount: { $gte: 0 }
+      createdAt: { $gte: todayStart, $lte: endOfToday },
+      amount: { $gte: 0 },
     });
-    const approvedTransactions = await Transaction.countDocuments({ 
+    const approvedTransactions = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.SUCCESS,
-      createdAt: { $gte: last24Hours }
+      createdAt: { $gte: todayStart, $lte: endOfToday },
     });
-    const rejectedTransactions = await Transaction.countDocuments({ 
+    const rejectedTransactions = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.REJECTED,
-      createdAt: { $gte: last24Hours }
+      createdAt: { $gte: todayStart, $lte: endOfToday },
     });
 
     // Get withdrawal statistics for last 24 hours
-    const totalWithdraws = await Transaction.countDocuments({ createdAt: { $gte: last24Hours }, amount: { $lt: 0 } });
-    const pendingWithdraws = await Transaction.countDocuments({ 
+    const totalWithdraws = await Transaction.countDocuments({
+      createdAt: { $gte: todayStart, $lte: endOfToday },
+      amount: { $lt: 0 },
+    });
+    const pendingWithdraws = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.PENDING,
-      createdAt: { $gte: last24Hours },
-      amount: { $lt: 0 }
+      createdAt: { $gte: todayStart, $lte: endOfToday },
+      amount: { $lt: 0 },
     });
-    const approvedWithdraws = await Transaction.countDocuments({ 
+    const approvedWithdraws = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.SUCCESS,
-      createdAt: { $gte: last24Hours },
-      amount: { $lt: 0 }
+      createdAt: { $gte: todayStart, $lte: endOfToday },
+      amount: { $lt: 0 },
     });
-    const rejectedWithdraws = await Transaction.countDocuments({ 
+    const rejectedWithdraws = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.REJECTED,
-      createdAt: { $gte: last24Hours },
-      amount: { $lt: 0 }
+      createdAt: { $gte: todayStart, $lte: endOfToday },
+      amount: { $lt: 0 },
     });
 
     // Calculate total amounts for last 24 hours
     const totalAmountStats = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: last24Hours },
-          amount: { $gte: 0 }
-        }
+          createdAt: { $gte: todayStart, $lte: endOfToday },
+          amount: { $gte: 0 },
+        },
       },
       {
         $group: {
-          _id: '$transactionStatus',
-          totalAmount: { $sum: { $toDouble: '$amount' } }
-        }
-      }
+          _id: "$transactionStatus",
+          totalAmount: { $sum: { $toDouble: "$amount" } },
+        },
+      },
     ]);
 
     // Calculate total withdrawal amounts for last 24 hours
     const withdrawAmountStats = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: last24Hours },
-          amount: { $lt: 0 }
-        }
+          createdAt: { $gte: todayStart, $lte: endOfToday },
+          amount: { $lt: 0 },
+        },
       },
       {
         $group: {
-          _id: '$transactionStatus',
-          totalAmount: { $sum: { $toDouble: '$amount' } }
-        }
-      }
+          _id: "$transactionStatus",
+          totalAmount: { $sum: { $toDouble: "$amount" } },
+        },
+      },
     ]);
 
     // Get hourly trends for last 24 hours
     const hourlyTrends = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: last24Hours }
-        }
+          createdAt: { $gte: todayStart, $lte: endOfToday },
+        },
       },
       {
         $group: {
           _id: {
-            hour: { $dateToString: { format: '%Y-%m-%d %H:00', date: '$createdAt' } },
-            status: '$transactionStatus'
+            hour: {
+              $dateToString: { format: "%Y-%m-%d %H:00", date: "$createdAt" },
+            },
+            status: "$transactionStatus",
           },
           count: { $sum: 1 },
-          totalAmount: { $sum: { $toDouble: '$amount' } }
-        }
+          totalAmount: { $sum: { $toDouble: "$amount" } },
+        },
       },
       {
-        $sort: { '_id.hour': 1 }
-      }
+        $sort: { "_id.hour": 1 },
+      },
     ]);
 
     // Get top performing agents in last 24 hours
     const topAgents = await Transaction.aggregate([
       {
-        $match: { 
+        $match: {
           transactionStatus: TRANSACTION_STATUS.SUCCESS,
-          createdAt: { $gte: last24Hours }
-        }
+          createdAt: { $gte: todayStart, $lte: endOfToday },
+        },
       },
       {
         $group: {
-          _id: '$agentId',
+          _id: "$agentId",
           totalTransactions: { $sum: 1 },
-          totalAmount: { $sum: { $toDouble: '$amount' } }
-        }
+          totalAmount: { $sum: { $toDouble: "$amount" } },
+        },
       },
       {
-        $sort: { totalAmount: -1 }
+        $sort: { totalAmount: -1 },
       },
       {
-        $limit: 5
+        $limit: 5,
       },
       {
         $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'agentDetails'
-        }
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "agentDetails",
+        },
       },
       {
-        $unwind: '$agentDetails'
+        $unwind: "$agentDetails",
       },
       {
         $project: {
-          agentName: '$agentDetails.name',
+          agentName: "$agentDetails.name",
           totalTransactions: 1,
-          totalAmount: 1
-        }
-      }
+          totalAmount: 1,
+        },
+      },
     ]);
 
     // Format amounts from totalAmountStats
@@ -160,45 +180,50 @@ const getDashboardStats = async (req, res) => {
       return acc;
     }, {});
 
-    return successResponse(res, 'Dashboard statistics fetched successfully', {
-      users: {
-        total: totalUsers,
-        admins: totalAdmins,
-        agents: totalAgents,
-        customers: totalUsers - totalAdmins - totalAgents
+    return successResponse(
+      res,
+      "Dashboard statistics fetched successfully",
+      {
+        users: {
+          total: totalUsers,
+          admins: totalAdmins,
+          agents: totalAgents,
+          customers: totalUsers - totalAdmins - totalAgents,
+        },
+        transactions: {
+          total: totalTransactions,
+          pending: pendingTransactions,
+          approved: approvedTransactions,
+          rejected: rejectedTransactions,
+        },
+        amounts: {
+          total: amountsByStatus.success || 0,
+          pending: amountsByStatus.pending || 0,
+          rejected: amountsByStatus.rejected || 0,
+        },
+        withdraws: {
+          total: totalWithdraws,
+          pending: pendingWithdraws,
+          approved: approvedWithdraws,
+          rejected: rejectedWithdraws,
+        },
+        withdrawAmounts: {
+          total: Math.abs(withdrawAmountsByStatus.success || 0),
+          pending: Math.abs(withdrawAmountsByStatus.pending || 0),
+          rejected: Math.abs(withdrawAmountsByStatus.rejected || 0),
+        },
+        trends: {
+          hourly: hourlyTrends,
+        },
+        topAgents,
       },
-      transactions: {
-        total: totalTransactions,
-        pending: pendingTransactions,
-        approved: approvedTransactions,
-        rejected: rejectedTransactions
-      },
-      amounts: {
-        total: amountsByStatus.success || 0,
-        pending: amountsByStatus.pending || 0,
-        rejected: amountsByStatus.rejected || 0
-      },
-      withdraws: {
-        total: totalWithdraws,
-        pending: pendingWithdraws,
-        approved: approvedWithdraws,
-        rejected: rejectedWithdraws
-      },
-      withdrawAmounts: {
-        total: Math.abs(withdrawAmountsByStatus.success || 0),
-        pending: Math.abs(withdrawAmountsByStatus.pending || 0),
-        rejected: Math.abs(withdrawAmountsByStatus.rejected || 0)
-      },
-      trends: {
-        hourly: hourlyTrends
-      },
-      topAgents
-    }, STATUS_CODES.OK);
+      STATUS_CODES.OK
+    );
   } catch (error) {
     return errorResponse(res, error.message, {}, STATUS_CODES.SERVER_ERROR);
   }
 };
 
 module.exports = {
-  getDashboardStats
-}; 
+  getDashboardStats,
+};
