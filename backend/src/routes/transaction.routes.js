@@ -898,13 +898,23 @@ router.get("/withdraws", auth, async (req, res) => {
 // Get withdraw analysis time statistics (custom time slabs)
 router.get("/withdraw-analysis-stats", auth, async (req, res) => {
   try {
-    const { status, timeFrame, startDate, endDate } = req.query;
-    const stats = await transactionService.getWithdrawAnalysisStats({
+    const {
       status,
       timeFrame,
-      startDate: timeFrame === "custom" ? startDate : undefined,
-      endDate: timeFrame === "custom" ? endDate : undefined,
-    });
+      startDate,
+      endDate,
+      timeField = "approvedOn",
+    } = req.query;
+
+    const stats = await transactionService.getWithdrawAnalysisStats(
+      {
+        status,
+        timeFrame,
+        startDate: timeFrame === "custom" ? startDate : undefined,
+        endDate: timeFrame === "custom" ? endDate : undefined,
+      },
+      timeField
+    );
     return successResponse(
       res,
       "Withdraw analysis statistics fetched successfully",

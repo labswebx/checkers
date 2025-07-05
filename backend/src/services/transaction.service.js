@@ -574,17 +574,27 @@ class TransactionService {
     }
   }
 
-  async getWithdrawAnalysisStats(filters = {}) {
+  async getWithdrawAnalysisStats(filters = {}, timeField) {
     try {
       // Custom time slabs for withdraw analysis
-      const timeSlabs = [
-        { min: 0, max: 20, label: "0-20 minutes" },
-        { min: 20, max: 30, label: "20-30 minutes" },
-        { min: 30, max: 45, label: "30-45 minutes" },
-        { min: 45, max: 60, label: "45-60 minutes" },
-        { min: 60, max: null, label: "Above 60 minutes" },
-      ];
-
+      const timeSlabs =
+        timeField === "bonusApprovedOn"
+          ? [
+              { min: 0, max: 2, label: "0-2 minutes" },
+              { min: 2, max: 5, label: "2-5 minutes" },
+              { min: 5, max: 8, label: "5-8 minutes" },
+              { min: 8, max: 12, label: "8-12 minutes" },
+              { min: 12, max: 20, label: "12-20 minutes" },
+              { min: 20, max: null, label: "20+ minutes" },
+            ]
+          : [
+              { min: 0, max: 20, label: "0-20 minutes" },
+              { min: 20, max: 30, label: "20-30 minutes" },
+              { min: 30, max: 45, label: "30-45 minutes" },
+              { min: 45, max: 50, label: "45-50 minutes" },
+              { min: 50, max: 60, label: "50-60 minutes" },
+              { min: 60, max: null, label: "60+ minutes" },
+            ];
       // Initialize results object
       const results = {
         overall: {},
@@ -592,6 +602,7 @@ class TransactionService {
       };
       const baseMatch = {
         amount: { $lt: 0 },
+        [timeField]: { $exists: true, $ne: null }, // time field exists
       };
 
       if (filters.status && filters.status !== "all") {
@@ -665,12 +676,17 @@ class TransactionService {
             $expr: {
               $let: {
                 vars: {
+                  timeValue: {
+                    $getField: { input: "$$ROOT", field: timeField },
+                  },
                   timeDiffMinutes: {
                     $divide: [
                       {
                         $cond: {
-                          if: { $ne: ["$approvedOn", null] },
-                          then: { $subtract: ["$approvedOn", "$requestDate"] },
+                          if: { $ne: [`$${timeField}`, null] },
+                          then: {
+                            $subtract: [`$${timeField}`, "$requestDate"],
+                          },
                           else: { $subtract: ["$$NOW", "$requestDate"] },
                         },
                       },

@@ -24,9 +24,9 @@ import {
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { API_ENDPOINTS } from "../constants";
-import api from "../services/api";
-import { colors } from "../theme/colors";
+import { API_ENDPOINTS } from "../../constants/index";
+import api from "../..//services/api";
+import { colors } from "../../theme/colors";
 import { format } from "date-fns";
 
 const timeFrameOptions = [
@@ -48,7 +48,7 @@ const statusOptions = [
   { value: "Rejected", label: "Rejected" },
 ];
 
-const WithdrawAnalysis = () => {
+const BonusAnalysis = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,7 +65,7 @@ const WithdrawAnalysis = () => {
         setLoading(true);
         const params = {
           status: filters.status,
-          timeField: "approvedOn",
+          timeField: "bonusApprovedOn",
         };
 
         if (filters.timeFrame !== "custom") {
@@ -75,11 +75,14 @@ const WithdrawAnalysis = () => {
           params.startDate = format(filters.startDate, "yyyy-MM-dd");
           params.endDate = format(filters.endDate, "yyyy-MM-dd");
         }
-
+        console.log("params", params);
         const response = await api.get(
           `${API_ENDPOINTS.WITHDRAW_ANALYSIS_STATS}`,
           { params }
         );
+        console.log("Response data structure:", response.data);
+        console.log("Overall stats:", response.data.data?.overall);
+        console.log("By Agent stats:", response.data.data?.byAgent);
         console.log("========================================");
         console.log(response.data.data);
         console.log("========================================");
@@ -147,9 +150,11 @@ const WithdrawAnalysis = () => {
   }
 
   const agentData = Object.values(stats.byAgent || {});
-
+  console.log("stats", stats);
+  console.log("agent data", agentData);
+  console.log("stats overall0", stats.overall);
   const timeSlabLabels = Object.keys(stats.overall || {});
-
+  console.log("time slab labels", timeSlabLabels);
   const totalByTimeSlab = timeSlabLabels.map((label) => ({
     label,
     count: agentData.reduce(
@@ -184,7 +189,7 @@ const WithdrawAnalysis = () => {
         {/* Title and Total Count */}
         <Box>
           <Typography variant="h4" sx={{ mb: 1 }}>
-            Withdraw Status Analysis
+            Withdraw Bonus Analysis
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
             Total Withdrawals:{" "}
@@ -454,4 +459,4 @@ const WithdrawAnalysis = () => {
   );
 };
 
-export default WithdrawAnalysis;
+export default BonusAnalysis;
