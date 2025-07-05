@@ -58,6 +58,9 @@ const BonusAnalysis = () => {
     startDate: null,
     endDate: null,
   });
+  
+  // State to track if date changes should trigger API call
+  const [dateTrigger, setDateTrigger] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -75,17 +78,12 @@ const BonusAnalysis = () => {
           params.startDate = format(filters.startDate, "yyyy-MM-dd");
           params.endDate = format(filters.endDate, "yyyy-MM-dd");
         }
-        console.log("params", params);
+
         const response = await api.get(
           `${API_ENDPOINTS.WITHDRAW_ANALYSIS_STATS}`,
           { params }
         );
-        console.log("Response data structure:", response.data);
-        console.log("Overall stats:", response.data.data?.overall);
-        console.log("By Agent stats:", response.data.data?.byAgent);
-        console.log("========================================");
-        console.log(response.data.data);
-        console.log("========================================");
+
         setStats(response.data.data);
         setError(null);
       } catch (err) {
@@ -97,7 +95,7 @@ const BonusAnalysis = () => {
     };
 
     fetchStats();
-  }, [filters]);
+  }, [filters.status, filters.timeFrame, dateTrigger]);
 
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({
@@ -112,6 +110,7 @@ const BonusAnalysis = () => {
       [name]: value,
       timeFrame: "custom",
     }));
+    // Don't trigger API call for date changes
   };
 
   const handleApplyCustomDate = () => {
@@ -123,10 +122,8 @@ const BonusAnalysis = () => {
       setError("Start date must be before end date");
       return;
     }
-    setFilters((prev) => ({
-      ...prev,
-      timeFrame: "custom",
-    }));
+    // Trigger API call for custom date range
+    setDateTrigger(prev => prev + 1);
   };
   if (loading) {
     return (
@@ -150,11 +147,7 @@ const BonusAnalysis = () => {
   }
 
   const agentData = Object.values(stats.byAgent || {});
-  console.log("stats", stats);
-  console.log("agent data", agentData);
-  console.log("stats overall0", stats.overall);
   const timeSlabLabels = Object.keys(stats.overall || {});
-  console.log("time slab labels", timeSlabLabels);
   const totalByTimeSlab = timeSlabLabels.map((label) => ({
     label,
     count: agentData.reduce(
@@ -338,9 +331,9 @@ const BonusAnalysis = () => {
               <Typography variant="h6" gutterBottom>
                 Agent-wise Withdraw Analysis Statistics
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              {/* <Typography variant="body2" color="text.secondary">
                 Showing {agentData.length} of {agentData.length} franchises
-              </Typography>
+              </Typography> */}
             </Box>
             <TableContainer
               component={Paper}

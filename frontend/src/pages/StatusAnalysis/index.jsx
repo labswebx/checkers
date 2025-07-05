@@ -58,12 +58,14 @@ const StatusAnalysis = () => {
     startDate: null,
     endDate: null,
   });
+  
+  // State to track if date changes should trigger API call
+  const [dateTrigger, setDateTrigger] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        console.log("Current filters:", filters);
         const params = {
           status: filters.status,
         };
@@ -95,7 +97,7 @@ const StatusAnalysis = () => {
     };
 
     fetchStats();
-  }, [filters]);
+  }, [filters.status, filters.timeFrame, dateTrigger]);
 
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({
@@ -110,6 +112,7 @@ const StatusAnalysis = () => {
       [name]: value,
       timeFrame: "custom",
     }));
+    // Don't trigger API call for date changes
   };
 
   const handleApplyCustomDate = () => {
@@ -118,10 +121,8 @@ const StatusAnalysis = () => {
         setError("Start date must be before end date");
         return;
       }
-      setFilters((prev) => ({
-        ...prev,
-        timeFrame: "custom",
-      }));
+      // Trigger API call for custom date range
+      setDateTrigger(prev => prev + 1);
     }
   };
 

@@ -602,7 +602,6 @@ class TransactionService {
       };
       const baseMatch = {
         amount: { $lt: 0 },
-        [timeField]: { $exists: true, $ne: null }, // time field exists
       };
 
       if (filters.status && filters.status !== "all") {

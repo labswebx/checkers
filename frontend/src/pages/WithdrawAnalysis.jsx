@@ -58,6 +58,9 @@ const WithdrawAnalysis = () => {
     startDate: null,
     endDate: null,
   });
+  
+  // State to track if date changes should trigger API call
+  const [dateTrigger, setDateTrigger] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -80,9 +83,7 @@ const WithdrawAnalysis = () => {
           `${API_ENDPOINTS.WITHDRAW_ANALYSIS_STATS}`,
           { params }
         );
-        console.log("========================================");
-        console.log(response.data.data);
-        console.log("========================================");
+
         setStats(response.data.data);
         setError(null);
       } catch (err) {
@@ -94,7 +95,7 @@ const WithdrawAnalysis = () => {
     };
 
     fetchStats();
-  }, [filters]);
+  }, [filters.status, filters.timeFrame, dateTrigger]);
 
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({
@@ -109,6 +110,7 @@ const WithdrawAnalysis = () => {
       [name]: value,
       timeFrame: "custom",
     }));
+    // Don't trigger API call for date changes
   };
 
   const handleApplyCustomDate = () => {
@@ -120,10 +122,8 @@ const WithdrawAnalysis = () => {
       setError("Start date must be before end date");
       return;
     }
-    setFilters((prev) => ({
-      ...prev,
-      timeFrame: "custom",
-    }));
+    // Trigger API call for custom date range
+    setDateTrigger(prev => prev + 1);
   };
   if (loading) {
     return (
@@ -333,9 +333,9 @@ const WithdrawAnalysis = () => {
               <Typography variant="h6" gutterBottom>
                 Agent-wise Withdraw Analysis Statistics
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              {/* <Typography variant="body2" color="text.secondary">
                 Showing {agentData.length} of {agentData.length} franchises
-              </Typography>
+              </Typography> */}
             </Box>
             <TableContainer
               component={Paper}
