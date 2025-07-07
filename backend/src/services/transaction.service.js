@@ -411,8 +411,11 @@ class TransactionService {
         filters.endDate
       ) {
         // Handle custom date range
-        const start = new Date(`${filters.startDate}`);
-        const end = new Date(`${filters.endDate}`);
+        const start = new Date(`${filters.startDate}T00:00:00`);
+        const end = new Date(`${filters.endDate}T23:59:59.999`);
+
+        if (isNaN(start.getTime())) throw new Error("Invalid start date");
+        if (isNaN(end.getTime())) throw new Error("Invalid end date");
 
         baseMatch.requestDate = {
           $gte: start,
