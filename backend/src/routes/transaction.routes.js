@@ -27,6 +27,24 @@ const WITHDRAW_TIME_SLABS = [
 
 const depositsCache = new Cache({ max: 100, ttl: 300 }); // Caching for 5 mins
 
+// Fetch the transcript link for a single deposit transaction by its ID
+router.get("/deposits/:id/transcript", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const txn = await Transaction.findById(id).select("transcriptLink");
+
+    if (!txn) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+
+    return res.json({ transcriptLink: txn.transcriptLink });
+  } catch (error) {
+    console.error("Error fetching transcript:", error);
+    return res.status(500).json({ message: "Server Error", error });
+  }
+});
+
 // Get deposits with filters and pagination
 router.get("/deposits", auth, async (req, res) => {
   try {
@@ -434,7 +452,7 @@ router.get("/deposits", auth, async (req, res) => {
                 status: "$transactionStatus",
                 franchise: "$franchiseName",
                 createdAt: 1,
-                transcriptLink: 1,
+                // transcriptLink: 1,
                 agentId: 1,
               },
             },

@@ -414,9 +414,6 @@ class TransactionService {
         const start = new Date(`${filters.startDate}T00:00:00`);
         const end = new Date(`${filters.endDate}T23:59:59.999`);
 
-        if (isNaN(start.getTime())) throw new Error("Invalid start date");
-        if (isNaN(end.getTime())) throw new Error("Invalid end date");
-
         baseMatch.requestDate = {
           $gte: start,
           $lte: end,
@@ -622,7 +619,6 @@ class TransactionService {
         filters.startDate &&
         filters.endDate
       ) {
-        // Handle custom date range
         const start = new Date(`${filters.startDate}T00:00:00`);
         const end = new Date(`${filters.endDate}T23:59:59.999`);
 
@@ -630,6 +626,7 @@ class TransactionService {
           $gte: start,
           $lte: end,
         };
+
       } else if (filters.timeFrame && filters.timeFrame !== "all") {
         // Handle predefined timeFrame
         let startDate;
