@@ -6,7 +6,7 @@ const { registerValidation, loginValidation } = require('../middleware/validatio
 
 // Public routes
 router.post('/login', loginValidation, login);
-router.get('/verify-token', verifyToken);
+// router.get('/verify-token', verifyToken);
 
 // Protected routes
 router.get('/profile', auth, getProfile);
