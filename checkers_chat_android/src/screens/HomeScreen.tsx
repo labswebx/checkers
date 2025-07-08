@@ -22,8 +22,15 @@ export const HomeScreen: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showToast } = useToast();
 
+  const getTimeOfDay = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
+
   const handleSearch = () => {
-    showToast('Search coming soon', 'info');
+    // showToast('Search coming soon', 'info');
   };
 
   const handleNotifications = () => {
@@ -79,14 +86,27 @@ export const HomeScreen: React.FC = () => {
             </>
           ) : (
             <>
-              <Avatar
-                name={user?.name}
-                imageUrl={user?.profileImage}
-                size={37}
-                backgroundColor={colors.background}
-                textColor={colors.primary}
-              />
-              <Text style={styles.headerTitle}>Hello, {user?.name || 'User'}!</Text>
+              <View style={styles.headerLeft}>
+                <Avatar
+                  name={user?.name}
+                  imageUrl={user?.profileImage}
+                  size={44}
+                  backgroundColor={colors.background}
+                  textColor={colors.primary}
+                />
+                <View style={styles.headerText}>
+                  <Text style={styles.greeting}>Hello {user?.name}</Text>
+                  {/* <Text style={styles.userName}>{ || 'User'}</Text> */}
+                </View>
+              </View>
+              <View style={styles.headerActions}>
+                <TouchableOpacity style={styles.headerButton} onPress={handleSearch}>
+                  <Ionicons name="search" size={20} color={colors.background} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.headerButton} onPress={handleNotifications}>
+                  <Ionicons name="notifications-outline" size={20} color={colors.background} />
+                </TouchableOpacity>
+              </View>
             </>
           )}
         </View>
@@ -147,7 +167,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.md,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
@@ -158,6 +178,38 @@ const styles = StyleSheet.create({
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerText: {
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  greeting: {
+    fontSize: typography.fontSize.lg,
+    color: 'white',
+    fontWeight: typography.fontWeight.medium,
+  },
+  userName: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.background,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.xs,
   },
   headerTitle: {
     fontSize: typography.fontSize.lg,
@@ -173,11 +225,16 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: colors.background,
-    paddingVertical: spacing.xs,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
   },
   tab: {
     flex: 1,
