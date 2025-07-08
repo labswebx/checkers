@@ -757,10 +757,6 @@ class NetworkInterceptor {
                     isImageAvailable: transaction.isImageAvailable,
                   };
 
-                  // Use findOneAndUpdate with upsert option to create or update
-                  logger.info(
-                    `Marking Deposit orderID as approved - ${transaction.orderID}, new status - ${transactionData.transactionStatus}`
-                  );
                   await Transaction.findOneAndUpdate(
                     { orderId: transaction.orderID },
                     transactionData,
@@ -1045,10 +1041,6 @@ class NetworkInterceptor {
                     isImageAvailable: transaction.isImageAvailable,
                   };
 
-                  // Use findOneAndUpdate with upsert option to create or update
-                  logger.info(
-                    `Marking Deposit orderID as rejected - ${transaction.orderID}, new status - ${transactionData.transactionStatus}`
-                  );
                   await Transaction.findOneAndUpdate(
                     { orderId: transaction.orderID },
                     transactionData,
@@ -2762,72 +2754,162 @@ class NetworkInterceptor {
    */
   async fetchTranscript(orderId) {
     try {
-      // First try with current token
-      let authToken = await this.getAuthToken();
+      const authToken = await this.getAuthToken();
       if (!authToken) {
-        throw new Error("Failed to obtain auth token");
+        logger.error('No auth token found in constants');
+        return false;
       }
 
-      // Helper to make the transcript request
-      const makeRequest = async () => {
-        return axios.post(
-          `${process.env.SCRAPING_WEBSITE_URL}/accounts/GetSnap`,
-          { orderID: orderId },
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              "Content-Type": "application/json",
-            },
-            timeout: 10000, // 10 second timeout
+      const response = await axios.post(
+        `${process.env.SCRAPING_WEBSITE_URL}/accounts/GetSnap`,
+        { orderID: orderId },
+        {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
           }
-        );
-      };
-
-      // Initial request attempt
-      let response;
-      try {
-        response = await makeRequest();
-      } catch (error) {
-        // If 401 Unauthorized, refresh token and retry once
-        if (error.response?.status === 401) {
-          logger.warn("Received 401 - refreshing auth token and retrying");
-          await this.ensureLogin();
-          authToken = await this.getAuthToken();
-
-          if (!authToken) {
-            throw new Error("Failed to refresh auth token after 401");
-          }
-
-          response = await makeRequest();
-        } else {
-          // For other errors, rethrow
-          throw error;
         }
-      }
-
-      // If response contains imageData, update the transaction
-      if (response.data?.imageData) {
+      );
+  
+      if (response.data) {
+        // Update transaction with transcript link
         await Transaction.findOneAndUpdate(
           { orderId },
-          {
+          { 
             transcriptLink: response.data.imageData,
-            lastTranscriptUpdate: new Date(),
+            lastTranscriptUpdate: new Date()
           }
         );
         return true;
       }
-
-      // If response format is unexpected, log and return false
-      logger.error("Unexpected response format when fetching transcript");
       return false;
     } catch (error) {
-      // Log detailed error information for debugging
-      logger.error(`Error fetching transcript for order ${orderId}:`, {
-        error: error.message,
-        stack: error.stack,
-        response: error.response?.data,
-      });
+      if (error.response && error.response.status === 401) {
+        logger.warn(`401 error for transcript ${orderId}, refreshing token`);
+        try {
+          await this.refreshAuthToken();
+          // Retry with new token
+          const newAuthToken = await this.getAuthToken();
+          if (!newAuthToken) {
+            logger.error('Failed to get new auth token after refresh');
+            return false;
+          }
+
+          const retryResponse = await axios.post(
+            `${process.env.SCRAPING_WEBSITE_URL}/accounts/GetSnap`,
+            { orderID: orderId },
+            {
+              headers: {
+                'Authorization': `Bearer ${newAuthToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (retryResponse.data) {
+            await Transaction.findOneAndUpdate(
+              { orderId },
+              { 
+                transcriptLink: retryResponse.data.imageData,
+                lastTranscriptUpdate: new Date()
+              }
+            );
+            return true;
+          }
+          return false;
+        } catch (refreshError) {
+          logger.error(`Error refreshing token for transcript ${orderId}:`, refreshError);
+          return false;
+        }
+      }
+      logger.error(`Error fetching transcript for order ${orderId}:`, error);
       return false;
+    }
+  }
+
+  /**
+   * Refreshes the auth token by performing a fresh login using Puppeteer
+   */
+  async refreshAuthToken() {
+    let browser = null;
+    let page = null;
+    
+    try {
+      const executablePath = await this.findChromePath();
+      browser = await puppeteer.launch({
+        headless: "new",
+        executablePath,
+        product: "chrome",
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-web-security",
+          "--disable-gpu",
+        ],
+        defaultViewport: { width: 1920, height: 1080 },
+        ignoreHTTPSErrors: true,
+      });
+
+      page = await browser.newPage();
+      await page.setRequestInterception(true);
+
+      page.on("request", async (interceptedRequest) => {
+        try {
+          if (!interceptedRequest.isInterceptResolutionHandled()) {
+            await interceptedRequest.continue();
+          }
+        } catch (error) {}
+      });
+
+      page.on("response", async (interceptedResponse) => {
+        let url = interceptedResponse.url();
+        if (url.includes("/accounts/login")) {
+          try {
+            const responseData = await interceptedResponse.json();
+            if (responseData && responseData.detail.token) {
+              await Constant.findOneAndUpdate(
+                { key: "SCRAPING_AUTH_TOKEN" },
+                {
+                  value: responseData.detail.token,
+                  lastUpdated: new Date(),
+                },
+                { upsert: true }
+              );
+              logger.info('Auth token refreshed successfully');
+            }
+          } catch (error) {
+            logger.error("Error processing login response:", error);
+          }
+        }
+      });
+
+      await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
+        waitUntil: "networkidle2",
+        timeout: 90000,
+      });
+
+      await page.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
+      await page.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
+
+      await page.type('input[type="text"]', process.env.SCRAPING_USERNAME);
+      await page.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
+
+      const loginButton = await page.$('button[type="submit"]');
+      if (!loginButton) {
+        throw new Error("Login button not found");
+      }
+
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "networkidle2", timeout: 90000 }),
+        loginButton.click(),
+      ]);
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
     }
   }
 }
