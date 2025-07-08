@@ -1,12 +1,12 @@
-import axios from 'axios';
-import { LOCAL_STORAGE_KEYS } from '../constants/index';
+import axios from "axios";
+import { LOCAL_STORAGE_KEYS } from "../constants/index";
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://46.28.44.112:80';
+const API_URL = "http://localhost:5000" || "http://46.28.44.112:80";
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -24,11 +24,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      localStorage.removeItem("token");
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   }
 );
 
-export default api; 
+export default api;
