@@ -44,7 +44,9 @@ class ConversationService {
       const { page = 1, limit = 20 } = options;
       const skip = (page - 1) * limit;
       
-      const conversations = await Conversation.findUserConversations(userId, { skip, limit });
+      const conversations = await Conversation.findUserConversations(userId, { skip, limit })
+        .populate('participant1', 'name email')
+        .populate('participant2', 'name email');
       const totalConversations = await Conversation.countUserConversations(userId);
       
       return {
@@ -71,7 +73,9 @@ class ConversationService {
   async getConversation(conversationId, userId) {
     try {
       const conversation = await Conversation.findById(conversationId)
-      .populate('lastMessage', 'content senderId createdAt')
+        .populate('participant1', 'name email')
+        .populate('participant2', 'name email')
+        .populate('lastMessage', 'content senderId createdAt')
       
       if (!conversation) {
         throw new Error('Conversation not found');

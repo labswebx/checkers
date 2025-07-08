@@ -20,6 +20,8 @@ import PendingWithdraws from './pages/PendingWithdraws';
 import ApprovedWithdraws from './pages/ApprovedWithdraws';
 import RejectedWithdraws from './pages/RejectedWithdraws';
 import WithdrawAnalysis from './pages/WithdrawAnalysis';
+import Chat from './pages/Chat';
+import ChatConversation from './pages/ChatConversation';
 
 // Create a theme instance
 const theme = createTheme({
@@ -235,6 +237,24 @@ function App() {
                 <Layout>
                   <WithdrawAnalysis />
                 </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Chat />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat/:conversationId"
+            element={
+              <ProtectedRoute>
+                <ChatConversation />
               </ProtectedRoute>
             }
           />

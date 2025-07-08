@@ -156,6 +156,7 @@ messageSchema.statics.findConversationMessages = function(conversationId, option
   }
   
   return this.find(query)
+    .populate('senderId', 'name email')
     .populate('replyTo', 'content senderId')
     .sort({ createdAt: -1 })
     .skip(skip)

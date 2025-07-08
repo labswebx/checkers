@@ -82,6 +82,13 @@ class ConversationController {
       replyTo
     });
 
+    // Broadcast message via WebSocket
+    const wsManager = require('../utils/websocket.util');
+    wsManager.broadcastToConversation(conversationId, {
+      type: 'new_message',
+      message
+    }, senderId);
+
     return ResponseHandler.success(res, 'Message sent successfully', message, 201);
   });
 

@@ -133,7 +133,9 @@ conversationSchema.statics.findUserConversations = function(userId, options = {}
       { participant2: userId }
     ],
     deleted: { $ne: true }
-  }).populate('lastMessage', 'content senderId createdAt')
+  }).populate('participant1', 'name email')
+    .populate('participant2', 'name email')
+    .populate('lastMessage', 'content senderId createdAt')
     .sort({ lastMessageAt: -1, createdAt: -1 })
     .skip(skip)
     .limit(limit);

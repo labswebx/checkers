@@ -16,7 +16,8 @@ import {
   AccountBalance,
   Analytics,
   CheckCircle,
-  Cancel
+  Cancel,
+  Chat
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '../../assets/images/logo.png'
@@ -25,6 +26,7 @@ const drawerWidth = 240;
 
 const menuItems = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  { text: 'Chat', icon: <Chat />, path: '/chat' },
   { text: 'Pending Deposits', icon: <AccountBalance />, path: '/pending-deposits' },
   { text: 'Approved Deposits', icon: <CheckCircle />, path: '/approved-deposits' },
   { text: 'Rejected Deposits', icon: <Cancel />, path: '/rejected-deposits' },
