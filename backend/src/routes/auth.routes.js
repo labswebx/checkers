@@ -16,6 +16,6 @@ router.post("/login", loginValidation, login);
 
 // Protected routes
 router.get("/profile", auth, getProfile);
-router.post("/register", register);
+router.post("/register", auth, isAdmin, registerValidation, register);
 
 module.exports = router;

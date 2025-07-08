@@ -627,7 +627,6 @@ class TransactionService {
           $lte: end,
         };
 
-        logger.debug(`Found ${countInRange} documents in date range`);
       } else if (filters.timeFrame && filters.timeFrame !== "all") {
         // Handle predefined timeFrame
         let startDate;
