@@ -22,6 +22,8 @@ import { getElapsedTimeInIndianTimeZone } from "../utils/timezone.util";
 import ImageOverlay from "./ImageOverlay";
 import { formatInTimeZone } from "date-fns-tz";
 import { TRANSACTION_STATUS } from "../constants";
+import { fetchTranscriptById } from "../store/slices/depositSlice";
+import { useDispatch } from "react-redux";
 
 const ElapsedTimer = ({ date }) => {
   const [elapsedTime, setElapsedTime] = useState({
@@ -137,13 +139,27 @@ export default function DepositsTable({
     )}`;
     window.open(whatsappUrl, "_blank");
   };
+  const dispatch = useDispatch();
 
-  const handleTranscriptClick = (transcriptLink) => {
-    if (!transcriptLink) {
-      alert("No transcript available for this transaction");
+  const handleTranscriptClick = async (deposit) => {
+    if (deposit.transcriptLink) {
+      setSelectedImage(deposit.transcriptLink);
       return;
     }
-    setSelectedImage(transcriptLink);
+
+    try {
+      const resultAction = await dispatch(fetchTranscriptById(deposit._id));
+
+      if (fetchTranscriptById.fulfilled.match(resultAction)) {
+        const transcriptLink = resultAction.payload;
+        setSelectedImage(transcriptLink);
+      } else {
+        console.log("Transcript not available for this transaction.");
+      }
+    } catch (error) {
+      console.error("Failed to fetch transcript:", error);
+      console.log("An error occurred while fetching the transcript.");
+    }
   };
 
   return (
@@ -281,7 +297,7 @@ export default function DepositsTable({
                               gap: 1,
                             }}
                           >
-                            <Receipt fontSize="small" color="action" />
+                            {/* <Receipt fontSize="small" color="action" /> */}
                             <Typography variant="caption">
                               {formatInTimeZone(
                                 new Date(deposit.approvedOn),
@@ -294,13 +310,11 @@ export default function DepositsTable({
                       </TableCell>
                     ) : null}
                     <TableCell>
-                      {deposit.transcriptLink ? (
+                      {deposit ? (
                         <Tooltip title="View Transcript" arrow>
                           <IconButton
                             size="small"
-                            onClick={() =>
-                              handleTranscriptClick(deposit.transcriptLink)
-                            }
+                            onClick={() => handleTranscriptClick(deposit)}
                             sx={{
                               color: theme.palette.primary.main,
                               "&:hover": {

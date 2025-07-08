@@ -1,19 +1,36 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import api from '../../services/api';
-import { API_ENDPOINTS } from '../../constants/index';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import api from "../../services/api";
+import { API_ENDPOINTS } from "../../constants/index";
+
+export const fetchTranscriptById = createAsyncThunk(
+  "deposits/fetchTranscriptById",
+  async (transactionId, { rejectWithValue }) => {
+    try {
+      const response = await api.get(
+        `${API_ENDPOINTS.DEPOSITS}/${transactionId}/transcript`
+      );
+      return response.data.transcriptLink; // Only returning the transcript link
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to fetch transcript"
+      );
+    }
+  }
+);
 
 // Async thunk for fetching deposits
 export const fetchDeposits = createAsyncThunk(
-  'deposits/fetchDeposits',
+  "deposits/fetchDeposits",
   async (filters) => {
     const queryParams = new URLSearchParams();
-    
-    if (filters.search) queryParams.append('search', filters.search);
-    if (filters.status !== 'all') queryParams.append('status', filters.status);
-    if (filters.timeSlab !== 'all') queryParams.append('timeSlab', filters.timeSlab);
-    if (filters.page) queryParams.append('page', filters.page);
-    if (filters.limit) queryParams.append('limit', filters.limit);
-    if (filters.franchise) queryParams.append('franchise', filters.franchise);
+
+    if (filters.search) queryParams.append("search", filters.search);
+    if (filters.status !== "all") queryParams.append("status", filters.status);
+    if (filters.timeSlab !== "all")
+      queryParams.append("timeSlab", filters.timeSlab);
+    if (filters.page) queryParams.append("page", filters.page);
+    if (filters.limit) queryParams.append("limit", filters.limit);
+    if (filters.franchise) queryParams.append("franchise", filters.franchise);
 
     const response = await api.get(`${API_ENDPOINTS.DEPOSITS}?${queryParams}`);
     return response.data.data;
@@ -22,15 +39,16 @@ export const fetchDeposits = createAsyncThunk(
 
 // Async thunk for fetching withdrawals
 export const fetchWithdraws = createAsyncThunk(
-  'deposits/fetchWithdraws',
+  "deposits/fetchWithdraws",
   async (filters) => {
     const queryParams = new URLSearchParams();
-    if (filters.search) queryParams.append('search', filters.search);
-    if (filters.status) queryParams.append('status', filters.status);
-    if (filters.timeSlab && filters.timeSlab !== 'all') queryParams.append('timeSlab', filters.timeSlab);
-    if (filters.page) queryParams.append('page', filters.page);
-    if (filters.limit) queryParams.append('limit', filters.limit);
-    if (filters.franchise) queryParams.append('franchise', filters.franchise);
+    if (filters.search) queryParams.append("search", filters.search);
+    if (filters.status) queryParams.append("status", filters.status);
+    if (filters.timeSlab && filters.timeSlab !== "all")
+      queryParams.append("timeSlab", filters.timeSlab);
+    if (filters.page) queryParams.append("page", filters.page);
+    if (filters.limit) queryParams.append("limit", filters.limit);
+    if (filters.franchise) queryParams.append("franchise", filters.franchise);
 
     const response = await api.get(`${API_ENDPOINTS.WITHDRAWS}?${queryParams}`);
     return response.data.data;
@@ -39,7 +57,7 @@ export const fetchWithdraws = createAsyncThunk(
 
 // Async thunk for fetching franchises
 export const fetchFranchises = createAsyncThunk(
-  'deposits/fetchFranchises',
+  "deposits/fetchFranchises",
   async () => {
     const response = await api.get(API_ENDPOINTS.FRANCHISES);
     return response.data.data;
@@ -48,15 +66,17 @@ export const fetchFranchises = createAsyncThunk(
 
 // Async thunk for fetching withdraw analysis stats
 export const fetchWithdrawAnalysisStats = createAsyncThunk(
-  'withdrawAnalysis/fetchWithdrawAnalysisStats',
+  "withdrawAnalysis/fetchWithdrawAnalysisStats",
   async (filters) => {
-    const response = await api.get(API_ENDPOINTS.WITHDRAW_ANALYSIS_STATS, { params: filters });
+    const response = await api.get(API_ENDPOINTS.WITHDRAW_ANALYSIS_STATS, {
+      params: filters,
+    });
     return response.data.data;
   }
 );
 
 const depositSlice = createSlice({
-  name: 'deposits',
+  name: "deposits",
   initialState: {
     deposits: [],
     withdraws: [],
@@ -69,7 +89,7 @@ const depositSlice = createSlice({
     withdrawAnalysis: {
       data: null,
       loading: false,
-      error: null
+      error: null,
     },
   },
   reducers: {
@@ -86,7 +106,7 @@ const depositSlice = createSlice({
     },
     clearWithdrawAnalysis: (state) => {
       state.withdrawAnalysis = { data: null, loading: false, error: null };
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -99,8 +119,9 @@ const depositSlice = createSlice({
         state.deposits = action.payload.data;
         state.totalPages = action.payload.totalPages;
         state.totalRecords = action.payload.totalRecords;
-        state.timeSlabCounts = Array.isArray(action.payload.timeSlabCounts) ? 
-          action.payload.timeSlabCounts : [];
+        state.timeSlabCounts = Array.isArray(action.payload.timeSlabCounts)
+          ? action.payload.timeSlabCounts
+          : [];
       })
       .addCase(fetchDeposits.rejected, (state, action) => {
         state.loading = false;
@@ -115,8 +136,9 @@ const depositSlice = createSlice({
         state.withdraws = action.payload.data;
         state.totalPages = action.payload.totalPages;
         state.totalRecords = action.payload.totalRecords;
-        state.timeSlabCounts = Array.isArray(action.payload.timeSlabCounts) ? 
-          action.payload.timeSlabCounts : [];
+        state.timeSlabCounts = Array.isArray(action.payload.timeSlabCounts)
+          ? action.payload.timeSlabCounts
+          : [];
       })
       .addCase(fetchWithdraws.rejected, (state, action) => {
         state.loading = false;
@@ -137,8 +159,9 @@ const depositSlice = createSlice({
         state.withdrawAnalysis.loading = false;
         state.withdrawAnalysis.error = action.error.message;
       });
-  }
+  },
 });
 
-export const { clearDeposits, clearWithdraws, clearWithdrawAnalysis } = depositSlice.actions;
-export default depositSlice.reducer; 
+export const { clearDeposits, clearWithdraws, clearWithdrawAnalysis } =
+  depositSlice.actions;
+export default depositSlice.reducer;
