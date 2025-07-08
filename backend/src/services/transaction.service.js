@@ -452,10 +452,6 @@ class TransactionService {
         }
 
         baseMatch.requestDate = { $gte: startDate };
-      } else {
-        // Default fallback to last 24 hours
-        const last24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        baseMatch.requestDate = { $gte: last24 };
       }
       //  Loop over time slabs and run aggregation
       for (const slab of timeSlabs) {
@@ -665,10 +661,6 @@ class TransactionService {
         }
 
         baseMatch.requestDate = { $gte: startDate };
-      } else {
-        // Default fallback to last 24 hours
-        const last24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        baseMatch.requestDate = { $gte: last24 };
       }
 
       for (const slab of timeSlabs) {
