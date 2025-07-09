@@ -1,6 +1,27 @@
+require('dotenv').config();
+
+// Initialize Sentry BEFORE other imports
+const Sentry = require('@sentry/node');
+const { nodeProfilingIntegration } = require('@sentry/profiling-node');
+// Only initialize Sentry if DSN is provided
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    integrations: [
+      nodeProfilingIntegration(),
+    ],
+    tracesSampleRate: 1.0,
+    profilesSampleRate: 1.0,
+    environment: process.env.NODE_ENV || 'development',
+  });
+  console.log('Sentry initialized successfully');
+} else {
+  console.log('Sentry DSN not found - Sentry disabled');
+}
+
+
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const morgan = require('morgan');
 const path = require('path');
@@ -9,10 +30,8 @@ const userRoutes = require('./routes/user.routes');
 const scrapingRoutes = require('./routes/scraping.routes');
 const transactionRoutes = require('./routes/transaction.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
-const { schedulerUtil, depositListTask, recentDepositsTask } = require('./utils/scheduler.util');
+const { schedulerUtil } = require('./utils/scheduler.util');
 
-// Load environment variables
-dotenv.config();
 const app = express();
 // app.use(morgan('combined'));
 

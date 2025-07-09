@@ -5,6 +5,7 @@
 
 - [ ] Remove auth from scraping APIs
 - [ ] Backend code is not properly modularised. All the logic is in routes or controllers.
+- [ ] In the network-interceptor.js file, for rejected & approved deposits & withdraws - The response has a lot of items & hence it takes time to process them all. FIrst response is in progress and then we get another response, and hence because of this the older response closes & the later transactions status is not updatyed
 
 
 

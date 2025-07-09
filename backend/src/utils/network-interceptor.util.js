@@ -1,5 +1,6 @@
 const puppeteer = require("puppeteer");
 const logger = require("./logger.util");
+const sentryUtil = require("./sentry.util");
 const transactionService = require("../services/transaction.service");
 const fs = require("fs");
 const Transaction = require("../models/transaction.model");
@@ -458,6 +459,12 @@ class NetworkInterceptor {
                       orderId: transaction?.orderID,
                       error: transactionError.message,
                     });
+                    sentryUtil.captureException(transactionError, {
+                      context: 'monitorPendingDeposits_transaction_update',
+                      orderId: transaction?.orderID,
+                      method: 'monitorPendingDeposits',
+                      transactionType: 'deposit'
+                    });
                   }
                 }
               }
@@ -465,6 +472,12 @@ class NetworkInterceptor {
               logger.error("Error processing API response:", {
                 url,
                 error: err.message,
+              });
+              sentryUtil.captureException(err, {
+                context: 'monitorPendingDeposits_api_response',
+                url: url,
+                method: 'monitorPendingDeposits',
+                statusCode: err.response?.status || 'unknown'
               });
             }
           }
@@ -702,10 +715,19 @@ class NetworkInterceptor {
           logger.info("Deposits response - APPROVED");
           try {
             const json = await interceptedResponse.json();
-            const transactions = Array.isArray(json) ? json : json.data || [];
+            let transactions = Array.isArray(json) ? json : json.data || [];
+
+            // Filter transactions approved within last 10 minutes
+            // const tenMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
+            const tenMinutesAgo = new Date(Date.now() - (10 * 60 * 1000));
+            transactions = transactions.filter(transaction => {
+              if (!transaction.approvedOn) return false;
+              const approvedDate = new Date(transaction.approvedOn);
+              return approvedDate >= tenMinutesAgo;
+            });
 
             // Process transactions
-            for (const transaction of transactions) {
+            for (const [index, transaction] of transactions.entries()) {
               if (transaction.amount >= 0) {
                 try {
                   // skip the update is transaction is already in Success status in the database
@@ -775,6 +797,12 @@ class NetworkInterceptor {
                       stack: transactionError.stack,
                     }
                   );
+                  sentryUtil.captureException(transactionError, {
+                    context: 'monitorRecentDeposits_transaction_update',
+                    orderId: transaction?.orderID,
+                    method: 'monitorRecentDeposits',
+                    transactionType: 'deposit'
+                  });
                 }
               }
             }
@@ -897,6 +925,11 @@ class NetworkInterceptor {
         error: error.message,
         stack: error.stack,
       });
+      sentryUtil.captureException(error, {
+        context: 'monitorRecentDeposits_main_error',
+        method: 'monitorRecentDeposits',
+        statusCode: error.response?.status || 'unknown'
+      });
       await this.cleanupRecentDeposits();
       throw error;
     }
@@ -988,9 +1021,18 @@ class NetworkInterceptor {
           logger.info("Deposits response - REJECTED");
           try {
             const json = await interceptedResponse.json();
-            const transactions = Array.isArray(json) ? json : json.data || [];
+            let transactions = Array.isArray(json) ? json : json.data || [];
 
-            for (const transaction of transactions) {
+            // Updating only the transactions from last 10 minutes because others will be updated in the previous interation
+            // const tenMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
+            const tenMinutesAgo = new Date(Date.now() - (10 * 60 * 1000));
+            transactions = transactions.filter(transaction => {
+              if (!transaction.approvedOn) return false;
+              const approvedDate = new Date(transaction.approvedOn);
+              return approvedDate >= tenMinutesAgo;
+            });
+
+            for (const [index, transaction] of transactions.entries()) {
               if (transaction.amount >= 0) {
                 try {
                   // skip the update is transaction is already in Rejected status in the database
@@ -1059,6 +1101,12 @@ class NetworkInterceptor {
                       stack: transactionError.stack,
                     }
                   );
+                  sentryUtil.captureException(transactionError, {
+                    context: 'monitorRejectedDeposits_transaction_update',
+                    orderId: transaction?.orderID,
+                    method: 'monitorRejectedDeposits',
+                    transactionType: 'deposit'
+                  });
                 }
               }
             }
@@ -1314,6 +1362,11 @@ class NetworkInterceptor {
       logger.error("Error monitoring rejected deposits:", {
         error: error.message,
         stack: error.stack,
+      });
+      sentryUtil.captureException(error, {
+        context: 'monitorRejectedDeposits_main_error',
+        method: 'monitorRejectedDeposits',
+        statusCode: error.response?.status || 'unknown'
       });
       await this.cleanupRejectedDeposits();
       throw error;
@@ -1577,6 +1630,12 @@ class NetworkInterceptor {
                         orderId: transaction?.orderID,
                         error: transactionError.message,
                       });
+                      sentryUtil.captureException(transactionError, {
+                        context: 'monitorPendingWithdrawals_transaction_update',
+                        orderId: transaction?.orderID,
+                        method: 'monitorPendingWithdrawals',
+                        transactionType: 'withdrawal'
+                      });
                     }
                   }
                 }
@@ -1584,6 +1643,12 @@ class NetworkInterceptor {
                 logger.error("Error processing API response:", {
                   url,
                   error: err.message,
+                });
+                sentryUtil.captureException(err, {
+                  context: 'monitorPendingWithdrawals_api_response',
+                  url: url,
+                  method: 'monitorPendingWithdrawals',
+                  statusCode: err.response?.status || 'unknown'
                 });
               }
             }
@@ -1926,6 +1991,12 @@ class NetworkInterceptor {
                         stack: transactionError.stack,
                       }
                     );
+                    sentryUtil.captureException(transactionError, {
+                      context: 'monitorApprovedWithdrawals_transaction_update',
+                      orderId: transaction?.orderID,
+                      method: 'monitorApprovedWithdrawals',
+                      transactionType: 'withdrawal'
+                    });
                   }
                 } else {
                   logger.debug(
@@ -2054,6 +2125,11 @@ class NetworkInterceptor {
       logger.error("Error monitoring approved withdrawals:", {
         error: error.message,
         stack: error.stack,
+      });
+      sentryUtil.captureException(error, {
+        context: 'monitorApprovedWithdrawals_main_error',
+        method: 'monitorApprovedWithdrawals',
+        statusCode: error.response?.status || 'unknown'
       });
       await this.cleanupApprovedWithdrawals();
       throw error;
@@ -2255,6 +2331,12 @@ class NetworkInterceptor {
                         stack: transactionError.stack,
                       }
                     );
+                    sentryUtil.captureException(transactionError, {
+                      context: 'monitorRejectedWithdrawals_transaction_update',
+                      orderId: transaction?.orderID,
+                      method: 'monitorRejectedWithdrawals',
+                      transactionType: 'withdrawal'
+                    });
                   }
                 } else {
                   logger.debug(
@@ -2518,6 +2600,11 @@ class NetworkInterceptor {
       logger.error("Error monitoring rejected withdrawals:", {
         error: error.message,
         stack: error.stack,
+      });
+      sentryUtil.captureException(error, {
+        context: 'monitorRejectedWithdrawals_main_error',
+        method: 'monitorRejectedWithdrawals',
+        statusCode: error.response?.status || 'unknown'
       });
       await this.cleanupRejectedWithdrawals();
       throw error;
