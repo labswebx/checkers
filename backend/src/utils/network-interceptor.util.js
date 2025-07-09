@@ -1891,7 +1891,15 @@ class NetworkInterceptor {
             logger.info("Withdraw response - APPROVED");
             try {
               const json = await interceptedResponse.json();
-              const transactions = Array.isArray(json) ? json : json.data || [];
+              let transactions = Array.isArray(json) ? json : json.data || [];
+
+              // const tenMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
+              const tenMinutesAgo = new Date(Date.now() - (10 * 60 * 1000));
+              transactions = transactions.filter(transaction => {
+                if (!transaction.approvedOn) return false;
+                const approvedDate = new Date(transaction.approvedOn);
+                return approvedDate >= tenMinutesAgo;
+              });
 
               for (const transaction of transactions) {
                 if (transaction.amount < 0) {
@@ -2225,7 +2233,15 @@ class NetworkInterceptor {
             logger.info("Withdraw response - REJECTED");
             try {
               const json = await interceptedResponse.json();
-              const transactions = Array.isArray(json) ? json : json.data || [];
+              let transactions = Array.isArray(json) ? json : json.data || [];
+
+              // const tenMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
+              const tenMinutesAgo = new Date(Date.now() - (10 * 60 * 1000));
+              transactions = transactions.filter(transaction => {
+                if (!transaction.approvedOn) return false;
+                const approvedDate = new Date(transaction.approvedOn);
+                return approvedDate >= tenMinutesAgo;
+              });
 
               // Process transactions
               for (const transaction of transactions) {
