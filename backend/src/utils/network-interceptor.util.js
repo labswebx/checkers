@@ -718,16 +718,17 @@ class NetworkInterceptor {
             let transactions = Array.isArray(json) ? json : json.data || [];
 
             // Filter transactions approved within last 10 minutes
-            // const tenMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
-            const tenMinutesAgo = new Date(Date.now() - (10 * 60 * 1000));
+            // const sixtyMinutesAgo = new Date(Date.now() - (6 * 60 * 60 * 1000));
+            const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
             transactions = transactions.filter(transaction => {
               if (!transaction.approvedOn) return false;
               const approvedDate = new Date(transaction.approvedOn);
-              return approvedDate >= tenMinutesAgo;
+              return approvedDate >= sixtyMinutesAgo;
             });
 
             // Process transactions
             for (const [index, transaction] of transactions.entries()) {
+              // logger.info(`Traversing Approvde ${index + 1} / ${transactions.length} with orderID - ${transaction.orderID}`)
               if (transaction.amount >= 0) {
                 try {
                   // skip the update is transaction is already in Success status in the database
@@ -1024,16 +1025,20 @@ class NetworkInterceptor {
             let transactions = Array.isArray(json) ? json : json.data || [];
 
             // Updating only the transactions from last 10 minutes because others will be updated in the previous interation
-            // const tenMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
-            const tenMinutesAgo = new Date(Date.now() - (10 * 60 * 1000));
+            // const sixtyMinutesAgo = new Date(Date.now() - (6 * 60 * 60 * 1000));
+            const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
             transactions = transactions.filter(transaction => {
               if (!transaction.approvedOn) return false;
               const approvedDate = new Date(transaction.approvedOn);
-              return approvedDate >= tenMinutesAgo;
+              return approvedDate >= sixtyMinutesAgo;
             });
+
+            // console.log(`Rejected Length - ${transactions.length}`)
+            // console.log(transactions.filter(t => t.orderID === 3606280 || t.orderID === '3606280'), '========')
 
             for (const [index, transaction] of transactions.entries()) {
               if (transaction.amount >= 0) {
+                // logger.info(`Traversing Rejected ${index + 1} / ${transactions.length} with orderID - ${transaction.orderID}`)
                 try {
                   // skip the update is transaction is already in Rejected status in the database
                   const existingTransaction = await Transaction.findOne({
@@ -1893,12 +1898,12 @@ class NetworkInterceptor {
               const json = await interceptedResponse.json();
               let transactions = Array.isArray(json) ? json : json.data || [];
 
-              // const tenMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
-              const tenMinutesAgo = new Date(Date.now() - (10 * 60 * 1000));
+              // const sixtyMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
+              const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
               transactions = transactions.filter(transaction => {
                 if (!transaction.approvedOn) return false;
                 const approvedDate = new Date(transaction.approvedOn);
-                return approvedDate >= tenMinutesAgo;
+                return approvedDate >= sixtyMinutesAgo;
               });
 
               for (const transaction of transactions) {
@@ -2235,12 +2240,12 @@ class NetworkInterceptor {
               const json = await interceptedResponse.json();
               let transactions = Array.isArray(json) ? json : json.data || [];
 
-              // const tenMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
-              const tenMinutesAgo = new Date(Date.now() - (10 * 60 * 1000));
+              // const sixtyMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
+              const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
               transactions = transactions.filter(transaction => {
                 if (!transaction.approvedOn) return false;
                 const approvedDate = new Date(transaction.approvedOn);
-                return approvedDate >= tenMinutesAgo;
+                return approvedDate >= sixtyMinutesAgo;
               });
 
               // Process transactions
