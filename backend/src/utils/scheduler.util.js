@@ -30,7 +30,7 @@ class Task {
 // Create task instances
 const depositListTask = new Task(
   'Pending Deposits Monitor',
-  '0 * * * *', // Run every hour
+  null, // Run every hour
   async () => {
     try {
       await networkInterceptor.monitorPendingDeposits();
@@ -43,7 +43,7 @@ const depositListTask = new Task(
 
 const recentDepositsTask = new Task(
   'Approved Deposits Monitor',
-  '0 * * * *', // Run every hour
+  null, // Run every hour
   async () => {
     try {
       await networkInterceptor.monitorRecentDeposits();
@@ -56,7 +56,7 @@ const recentDepositsTask = new Task(
 
 const rejectedDepositsTask = new Task(
   'Rejected Deposits Monitor',
-  '0 * * * *', // Run every hour
+  null, // Run every hour
   async () => {
     try {
       await networkInterceptor.monitorRejectedDeposits();
@@ -69,7 +69,7 @@ const rejectedDepositsTask = new Task(
 
 const pendingWithdrawalsTask = new Task(
   'Pending Withdraws Monitor',
-  '0 * * * *', // Run every hour
+  null, // Run every hour
   async () => {
     try {
       await networkInterceptor.monitorPendingWithdrawals();
@@ -82,7 +82,7 @@ const pendingWithdrawalsTask = new Task(
 
 const approvedWithdrawalsTask = new Task(
   'Approved Withdraws Monitor',
-  '0 * * * *', // Run every hour
+  null, // Run every hour
   async () => {
     try {
       await networkInterceptor.monitorApprovedWithdrawals();
@@ -95,7 +95,7 @@ const approvedWithdrawalsTask = new Task(
 
 const rejectedWithdrawalsTask = new Task(
   'Rejected Withdraws Monitor',
-  '0 * * * *', // Run every hour
+  null, // Run every hour
   async () => {
     try {
       await networkInterceptor.monitorRejectedWithdrawals();
