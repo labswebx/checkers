@@ -24,8 +24,8 @@ import {
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { API_ENDPOINTS } from "../../constants";
-import api from "../../services/api";
+import { API_ENDPOINTS } from "../../constants/index";
+import api from "../..//services/api";
 import { colors } from "../../theme/colors";
 import { format } from "date-fns";
 
@@ -48,7 +48,7 @@ const statusOptions = [
   { value: "Rejected", label: "Rejected" },
 ];
 
-const StatusAnalysis = () => {
+const BonusAnalysis = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -68,28 +68,26 @@ const StatusAnalysis = () => {
         setLoading(true);
         const params = {
           status: filters.status,
+          timeField: "bonusApprovedOn",
         };
 
         if (filters.timeFrame !== "custom") {
           params.timeFrame = filters.timeFrame;
         } else if (filters.startDate && filters.endDate) {
-          // Convert dates to ISO strings and remove timezone info
           params.timeFrame = "custom";
           params.startDate = format(filters.startDate, "yyyy-MM-dd");
           params.endDate = format(filters.endDate, "yyyy-MM-dd");
         }
 
         const response = await api.get(
-          `${API_ENDPOINTS.DASHBOARD_STATUS_UPDATE_STATS}`,
-          {
-            params,
-          }
+          `${API_ENDPOINTS.WITHDRAW_ANALYSIS_STATS}`,
+          { params }
         );
 
         setStats(response.data.data);
         setError(null);
       } catch (err) {
-        setError("Failed to fetch status update statistics");
+        setError("Failed to fetch withdraw analysis statistics");
         console.error("Error fetching stats:", err);
       } finally {
         setLoading(false);
@@ -116,16 +114,17 @@ const StatusAnalysis = () => {
   };
 
   const handleApplyCustomDate = () => {
-    if (filters.startDate && filters.endDate) {
-      if (filters.startDate > filters.endDate) {
-        setError("Start date must be before end date");
-        return;
-      }
-      // Trigger API call for custom date range
-      setDateTrigger(prev => prev + 1);
+    if (!filters.startDate || !filters.endDate) {
+      setError("Please select both start and end dates");
+      return;
     }
+    if (filters.startDate > filters.endDate) {
+      setError("Start date must be before end date");
+      return;
+    }
+    // Trigger API call for custom date range
+    setDateTrigger(prev => prev + 1);
   };
-
   if (loading) {
     return (
       <Box
@@ -147,15 +146,12 @@ const StatusAnalysis = () => {
     );
   }
 
-  // Prepare data for the agent table
-  const agentData = Object.values(stats.byAgent);
-  const timeSlabLabels = Object.keys(stats.overall);
-
-  // Calculate totals for filtered data
+  const agentData = Object.values(stats.byAgent || {});
+  const timeSlabLabels = Object.keys(stats.overall || {});
   const totalByTimeSlab = timeSlabLabels.map((label) => ({
     label,
     count: agentData.reduce(
-      (sum, agent) => sum + (agent.timeSlabs[label] || 0),
+      (sum, agent) => sum + (agent.timeSlabs?.[label] || 0),
       0
     ),
   }));
@@ -164,7 +160,7 @@ const StatusAnalysis = () => {
     (sum, agent) =>
       sum +
       timeSlabLabels.reduce(
-        (agentSum, label) => agentSum + (agent.timeSlabs[label] || 0),
+        (agentSum, label) => agentSum + (agent.timeSlabs?.[label] || 0),
         0
       ),
     0
@@ -186,10 +182,10 @@ const StatusAnalysis = () => {
         {/* Title and Total Count */}
         <Box>
           <Typography variant="h4" sx={{ mb: 1 }}>
-            Deposits Status Analysis
+            Withdraw Bonus Analysis
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
-            Total Transactions:{" "}
+            Total Withdrawals:{" "}
             <Chip
               label={totalTransactions}
               color="primary"
@@ -240,8 +236,7 @@ const StatusAnalysis = () => {
           </FormControl>
         </Box>
       </Box>
-
-      {/* Custom Date Range Picker (shown only when timeFrame is 'custom') */}
+      {/* Custom Date Range Picker */}
       {filters.timeFrame === "custom" && (
         <Box
           sx={{
@@ -286,16 +281,9 @@ const StatusAnalysis = () => {
 
       {/* Time Slab Summary */}
       <Box sx={{ mb: 4 }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 2,
-          }}
-        >
-          <Typography variant="h6">Time Distribution Summary</Typography>
-        </Box>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Time Distribution Summary
+        </Typography>
         <Grid container spacing={2}>
           {totalByTimeSlab.map(({ label, count }) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={label}>
@@ -325,61 +313,68 @@ const StatusAnalysis = () => {
         </Grid>
       </Box>
 
-      {/* Agent-wise Statistics Table */}
-      <Card>
-        <CardContent>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 2,
-            }}
-          >
-            <Typography variant="h6">
-              Agent-wise Status Update Statistics
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Showing {agentData.length} of {agentData.length} franchises
-            </Typography>
-          </Box>
-          <TableContainer
-            component={Paper}
-            sx={{
-              maxHeight: "calc(100vh - 400px)",
-              overflowY: "auto",
-              "& .MuiTableCell-head": {
-                backgroundColor: colors.background.default,
-                fontWeight: "bold",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              },
-            }}
-          >
-            <Table stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ minWidth: 200 }}>Franchise</TableCell>
-                  {timeSlabLabels.map((label) => (
-                    <TableCell align="right" key={label} sx={{ minWidth: 120 }}>
-                      {label}
+      {/* Agent Table */}
+      <Box>
+        {/* <Typography variant="h6" sx={{ mb: 2 }}>
+          Agent-wise Distribution
+        </Typography> */}
+        <Card>
+          <CardContent>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                Agent-wise Withdraw Analysis Statistics
+              </Typography>
+              {/* <Typography variant="body2" color="text.secondary">
+                Showing {agentData.length} of {agentData.length} franchises
+              </Typography> */}
+            </Box>
+            <TableContainer
+              component={Paper}
+              sx={{
+                maxHeight: "calc(100vh - 400px)",
+                overflowY: "auto",
+                "& .MuiTableCell-head": {
+                  backgroundColor: colors.background.default,
+                  fontWeight: "bold",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 1,
+                },
+              }}
+            >
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ minWidth: 200 }}>Franchise</TableCell>
+                    {timeSlabLabels.map((label) => (
+                      <TableCell
+                        align="right"
+                        key={label}
+                        sx={{ minWidth: 120 }}
+                      >
+                        {label}
+                      </TableCell>
+                    ))}
+                    <TableCell
+                      align="right"
+                      sx={{
+                        minWidth: 120,
+                        fontWeight: "bold",
+                        backgroundColor: `${colors.primary.main}15 !important`,
+                      }}
+                    >
+                      Total
                     </TableCell>
-                  ))}
-                  <TableCell
-                    align="right"
-                    sx={{
-                      minWidth: 120,
-                      fontWeight: "bold",
-                      backgroundColor: `${colors.primary.main}15 !important`,
-                    }}
-                  >
-                    Total
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {agentData.map((agent) => {
                     const agentTotal = timeSlabLabels.reduce(
                       (sum, label) => sum + (agent.timeSlabs[label] || 0),
@@ -426,25 +421,35 @@ const StatusAnalysis = () => {
                     <TableCell>Total</TableCell>
                     {timeSlabLabels.map((label) => (
                       <TableCell align="right" key={label}>
-                        {totalByTimeSlab.find((t) => t.label === label)
-                          ?.count || 0}
+                        {agentData.reduce(
+                          (sum, agent) => sum + (agent.timeSlabs[label] || 0),
+                          0
+                        )}
                       </TableCell>
                     ))}
                     <TableCell
                       align="right"
                       sx={{ backgroundColor: `${colors.primary.main}15` }}
                     >
-                      {totalTransactions}
+                      {agentData.reduce(
+                        (sum, agent) =>
+                          sum +
+                          timeSlabLabels.reduce(
+                            (s, label) => s + (agent.timeSlabs[label] || 0),
+                            0
+                          ),
+                        0
+                      )}
                     </TableCell>
                   </TableRow>
-                </>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Box>
     </Box>
   );
 };
 
-export default StatusAnalysis;
+export default BonusAnalysis;

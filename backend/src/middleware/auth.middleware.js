@@ -1,6 +1,7 @@
 const AuthService = require('../services/auth.service');
 const { errorResponse } = require('../utils/response.util');
 const { STATUS_CODES, USER_ROLES } = require('../constants');
+const User = require('../models/user.model');
 
 const auth = async (req, res, next) => {
   try {
@@ -12,6 +13,14 @@ const auth = async (req, res, next) => {
     const { user } = await AuthService.verifyToken(token);
     req.user = user;
     req.token = token;
+
+    if (user && user._id) {
+      User.findByIdAndUpdate(user._id, {
+        lastVisited: new Date(),
+        lastVisitedPage: req.originalUrl
+      }).exec();
+    }
+
     next();
   } catch (error) {
     return errorResponse(res, error.message, {}, STATUS_CODES.UNAUTHORIZED);
