@@ -1040,6 +1040,7 @@ class NetworkInterceptor {
               if (transaction.amount >= 0) {
                 // logger.info(`Traversing Rejected ${index + 1} / ${transactions.length} with orderID - ${transaction.orderID}`)
                 try {
+                  // logger.info(`Inside rejected deposits for orderId - ${transaction.orderID}`)
                   // skip the update is transaction is already in Rejected status in the database
                   const existingTransaction = await Transaction.findOne({
                     orderId: transaction.orderID,
@@ -1199,7 +1200,7 @@ class NetworkInterceptor {
         // Wait for the page to load and then click the rejected filter
         try {
           await this.rejectedDepositsPage.waitForSelector(
-            'mat-select[aria-labelledby*="mat-mdc-form-field-label"]',
+            'mat-select.mat-mdc-select',
             {
               timeout: 10000,
               visible: true,
@@ -1208,7 +1209,7 @@ class NetworkInterceptor {
 
           // Click the status filter dropdown
           await this.rejectedDepositsPage.click(
-            'mat-select[aria-labelledby*="mat-mdc-form-field-label"]'
+            'mat-select.mat-mdc-select'
           );
 
           // Wait for the options panel to be visible
@@ -1217,12 +1218,8 @@ class NetworkInterceptor {
             visible: true,
           });
 
-          // Find and click the "Rejected" option using more specific selectors
-          const rejectedOptionSelector =
-            "mat-option span.mdc-list-item__primary-text";
-          const options = await this.rejectedDepositsPage.$$(
-            rejectedOptionSelector
-          );
+          // Find and click the "Reject" option
+          const options = await this.rejectedDepositsPage.$$('mat-option');
 
           let rejectedSelected = false;
           for (const option of options) {
@@ -1254,69 +1251,42 @@ class NetworkInterceptor {
             stack: error.stack,
           });
 
-          // Try alternative selector if the first one fails
+          // Try alternative approach - find mat-select directly
           try {
-            const statusLabel = await this.rejectedDepositsPage;
-            if (statusLabel.length > 0) {
-              const matSelect = await statusLabel[0].evaluateHandle(
-                (node) =>
-                  node.closest("mat-select") ||
-                  node.parentElement.closest("mat-select")
+            const matSelects = await this.rejectedDepositsPage.$$('mat-select');
+            if (matSelects.length > 0) {
+              const matSelect = matSelects[0];
+
+              await matSelect.click();
+              await this.rejectedDepositsPage.waitForSelector(
+                "mat-option",
+                { timeout: 5000 }
+              );
+              const options = await this.rejectedDepositsPage.$$(
+                "mat-option"
               );
 
-              if (matSelect) {
-                await matSelect.click();
-                await this.rejectedDepositsPage.waitForSelector("mat-option", {
-                  timeout: 5000,
-                });
-                const options = await this.rejectedDepositsPage.$$(
-                  "mat-option"
+              let rejectedSelected = false;
+              for (const option of options) {
+                const text = await option.evaluate((el) =>
+                  el.textContent.trim()
                 );
-
-                let rejectedSelected = false;
-                for (const option of options) {
-                  const text = await option.evaluate((el) =>
-                    el.textContent.trim()
-                  );
-                  if (text.toLowerCase() === "rejected") {
-                    await option.click();
-                    rejectedSelected = true;
-                    break;
-                  }
+                if (text.toLowerCase() === "reject") {
+                  await option.click();
+                  rejectedSelected = true;
+                  break;
                 }
+              }
 
-                if (rejectedSelected) {
-                  await new Promise((resolve) => setTimeout(resolve, 1000));
-                  try {
-                    // Try by button text
-                    const [submitButton] = await this.rejectedDepositsPage.$x(
-                      "//button[contains(., 'Submit')]"
-                    );
-                    if (submitButton) {
-                      await submitButton.click();
-                    } else {
-                      // Try by class and type
-                      const submitButtonSelector =
-                        'button.mat-mdc-raised-button[type="submit"]';
-                      await this.rejectedDepositsPage.waitForSelector(
-                        submitButtonSelector,
-                        {
-                          visible: true,
-                          timeout: 5000,
-                        }
-                      );
-                      await this.rejectedDepositsPage.click(
-                        submitButtonSelector
-                      );
-                    }
-                    await new Promise((resolve) => setTimeout(resolve, 3000));
-                  } catch (submitError) {
-                    logger.error("Error clicking submit button:", {
-                      error: submitError.message,
-                      stack: submitError.stack,
-                    });
-                  }
-                }
+              if (rejectedSelected) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                const submitButtonSelector = 'button[mat-raised-button][type="submit"]';
+                await this.rejectedDepositsPage.waitForSelector(
+                  submitButtonSelector,
+                  { visible: true, timeout: 5000 }
+                );
+                await this.rejectedDepositsPage.click(submitButtonSelector);
+                await new Promise((resolve) => setTimeout(resolve, 3000));
               }
             }
           } catch (alternativeError) {
@@ -2249,8 +2219,14 @@ class NetworkInterceptor {
               // });
 
               // Process transactions
+              // logger.info(`Rejected Transactions length - ${transactions.length}`)
+              // const last20OrderIds = transactions.slice(-120).map(t => ({"orderId": t.orderID, "status": t.transactionStatus}));
+              // logger.info(`Last 100 orderIds: ${JSON.stringify(last20OrderIds)}`);
               for (const transaction of transactions) {
                 if (transaction.amount < 0) {
+                  // if (transaction.orderID === '3611531' || transaction.orderID === 3611531)
+                  //   logger.info(`Inside Rejected Transactions loop orderID - ${transaction.orderID}`)
+
                   try {
                     await transactionService.findOrCreateAgent(
                       transaction.franchiseName.split(" (")[0]
@@ -2451,7 +2427,7 @@ class NetworkInterceptor {
         // Wait for the page to load and then click the rejected filter
         try {
           await this.rejectedWithdrawalsPage.waitForSelector(
-            'mat-select[aria-labelledby*="mat-mdc-form-field-label"]',
+            'mat-select.mat-mdc-select',
             {
               timeout: 10000,
               visible: true,
@@ -2460,21 +2436,17 @@ class NetworkInterceptor {
 
           // Click the status filter dropdown
           await this.rejectedWithdrawalsPage.click(
-            'mat-select[aria-labelledby*="mat-mdc-form-field-label"]'
+            'mat-select.mat-mdc-select'
           );
 
           // Wait for the options panel to be visible
           await this.rejectedWithdrawalsPage.waitForSelector("mat-option", {
-            timeout: 5000,
+            timeout: 10000,
             visible: true,
           });
 
-          // Find and click the "Rejected" option using more specific selectors
-          const rejectedOptionSelector =
-            "mat-option span.mdc-list-item__primary-text";
-          const options = await this.rejectedWithdrawalsPage.$$(
-            rejectedOptionSelector
-          );
+          // Find and click the "Reject" option
+          const options = await this.rejectedWithdrawalsPage.$$('mat-option');
 
           let rejectedSelected = false;
           for (const option of options) {
@@ -2494,7 +2466,7 @@ class NetworkInterceptor {
               submitButtonSelector,
               {
                 visible: true,
-                timeout: 5000,
+                timeout: 10000,
               }
             );
             await this.rejectedWithdrawalsPage.click(submitButtonSelector);
@@ -2506,71 +2478,42 @@ class NetworkInterceptor {
             stack: error.stack,
           });
 
-          // Try alternative selector if the first one fails
+          // Try alternative approach - find mat-select directly
           try {
-            const statusLabel = await this.rejectedWithdrawalsPage;
-            if (statusLabel.length > 0) {
-              const matSelect = await statusLabel[0].evaluateHandle(
-                (node) =>
-                  node.closest("mat-select") ||
-                  node.parentElement.closest("mat-select")
+            const matSelects = await this.rejectedWithdrawalsPage.$$('mat-select');
+            if (matSelects.length > 0) {
+              const matSelect = matSelects[0];
+
+              await matSelect.click();
+              await this.rejectedWithdrawalsPage.waitForSelector(
+                "mat-option",
+                { timeout: 5000 }
+              );
+              const options = await this.rejectedWithdrawalsPage.$$(
+                "mat-option"
               );
 
-              if (matSelect) {
-                await matSelect.click();
+              let rejectedSelected = false;
+              for (const option of options) {
+                const text = await option.evaluate((el) =>
+                  el.textContent.trim()
+                );
+                if (text.toLowerCase() === "reject") {
+                  await option.click();
+                  rejectedSelected = true;
+                  break;
+                }
+              }
+
+              if (rejectedSelected) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                const submitButtonSelector = 'button[mat-raised-button][type="submit"]';
                 await this.rejectedWithdrawalsPage.waitForSelector(
-                  "mat-option",
-                  { timeout: 5000 }
+                  submitButtonSelector,
+                  { visible: true, timeout: 5000 }
                 );
-                const options = await this.rejectedWithdrawalsPage.$$(
-                  "mat-option"
-                );
-
-                let rejectedSelected = false;
-                for (const option of options) {
-                  const text = await option.evaluate((el) =>
-                    el.textContent.trim()
-                  );
-                  if (text.toLowerCase() === "rejected") {
-                    await option.click();
-                    rejectedSelected = true;
-                    break;
-                  }
-                }
-
-                if (rejectedSelected) {
-                  await new Promise((resolve) => setTimeout(resolve, 1000));
-                  try {
-                    // Try by button text
-                    const [submitButton] =
-                      await this.rejectedWithdrawalsPage.$x(
-                        "//button[contains(., 'Submit')]"
-                      );
-                    if (submitButton) {
-                      await submitButton.click();
-                    } else {
-                      // Try by class and type
-                      const submitButtonSelector =
-                        'button.mat-mdc-raised-button[type="submit"]';
-                      await this.rejectedWithdrawalsPage.waitForSelector(
-                        submitButtonSelector,
-                        {
-                          visible: true,
-                          timeout: 5000,
-                        }
-                      );
-                      await this.rejectedWithdrawalsPage.click(
-                        submitButtonSelector
-                      );
-                    }
-                    await new Promise((resolve) => setTimeout(resolve, 3000));
-                  } catch (submitError) {
-                    logger.error("Error clicking submit button:", {
-                      error: submitError.message,
-                      stack: submitError.stack,
-                    });
-                  }
-                }
+                await this.rejectedWithdrawalsPage.click(submitButtonSelector);
+                await new Promise((resolve) => setTimeout(resolve, 3000));
               }
             }
           } catch (alternativeError) {
