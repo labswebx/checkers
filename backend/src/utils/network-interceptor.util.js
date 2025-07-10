@@ -391,6 +391,11 @@ class NetworkInterceptor {
               }
             } catch (error) {
               logger.error("Error processing login response:", error);
+              sentryUtil.captureException(error, {
+                context: 'monitor_pending_deposits_login_failed',
+                method: 'monitorPendingDeposits',
+                transactionType: 'deposit'
+              });
             }
           }
 
@@ -564,7 +569,13 @@ class NetworkInterceptor {
             });
             // Additional wait for API calls and data loading
             await new Promise((resolve) => setTimeout(resolve, 5000));
-          } catch (error) {}
+          } catch (error) {
+            sentryUtil.captureException(error, {
+              context: 'monitor_pending_deposits_waiting_for_table_failed',
+              method: 'monitorPendingDeposits',
+              transactionType: 'deposit'
+            });
+          }
         }
 
         this.isMonitoring = true;
@@ -585,6 +596,11 @@ class NetworkInterceptor {
       logger.error("Error monitoring deposit list:", {
         error: error.message,
         stack: error.stack,
+      });
+      sentryUtil.captureException(error, {
+        context: 'monitor_pending_deposits_failed_2',
+        method: 'monitorPendingDeposits',
+        transactionType: 'deposit'
       });
       // await this.cleanupPendingDeposits();
       throw error;
@@ -1249,6 +1265,11 @@ class NetworkInterceptor {
           logger.error("Error setting rejected filter:", {
             error: error.message,
             stack: error.stack,
+          });
+          sentryUtil.captureException(error, {
+            context: 'monitor_rejected_deposits_filter_change_failed',
+            method: 'monitorPendingDeposits',
+            statusCode: error.response?.status || 'unknown'
           });
 
           // Try alternative approach - find mat-select directly
@@ -2476,6 +2497,11 @@ class NetworkInterceptor {
           logger.error("Error setting rejected filter:", {
             error: error.message,
             stack: error.stack,
+          });
+          sentryUtil.captureException(error, {
+            context: 'monitor_rejected_withdraws_filter_change_failed',
+            method: 'monitorRejectedWithdraws',
+            statusCode: error.response?.status || 'unknown'
           });
 
           // Try alternative approach - find mat-select directly
