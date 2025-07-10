@@ -719,12 +719,12 @@ class NetworkInterceptor {
 
             // Filter transactions approved within last 10 minutes
             // const sixtyMinutesAgo = new Date(Date.now() - (6 * 60 * 60 * 1000));
-            const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
-            transactions = transactions.filter(transaction => {
-              if (!transaction.approvedOn) return false;
-              const approvedDate = new Date(transaction.approvedOn);
-              return approvedDate >= sixtyMinutesAgo;
-            });
+            // const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
+            // transactions = transactions.filter(transaction => {
+            //   if (!transaction.approvedOn) return false;
+            //   const approvedDate = new Date(transaction.approvedOn);
+            //   return approvedDate >= sixtyMinutesAgo;
+            // });
 
             // Process transactions
             for (const [index, transaction] of transactions.entries()) {
@@ -1026,12 +1026,12 @@ class NetworkInterceptor {
 
             // Updating only the transactions from last 10 minutes because others will be updated in the previous interation
             // const sixtyMinutesAgo = new Date(Date.now() - (6 * 60 * 60 * 1000));
-            const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
-            transactions = transactions.filter(transaction => {
-              if (!transaction.approvedOn) return false;
-              const approvedDate = new Date(transaction.approvedOn);
-              return approvedDate >= sixtyMinutesAgo;
-            });
+            // const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
+            // transactions = transactions.filter(transaction => {
+            //   if (!transaction.approvedOn) return false;
+            //   const approvedDate = new Date(transaction.approvedOn);
+            //   return approvedDate >= sixtyMinutesAgo;
+            // });
 
             // console.log(`Rejected Length - ${transactions.length}`)
             // console.log(transactions.filter(t => t.orderID === 3606280 || t.orderID === '3606280'), '========')
@@ -1899,12 +1899,12 @@ class NetworkInterceptor {
               let transactions = Array.isArray(json) ? json : json.data || [];
 
               // const sixtyMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
-              const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
-              transactions = transactions.filter(transaction => {
-                if (!transaction.approvedOn) return false;
-                const approvedDate = new Date(transaction.approvedOn);
-                return approvedDate >= sixtyMinutesAgo;
-              });
+              // const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
+              // transactions = transactions.filter(transaction => {
+              //   if (!transaction.approvedOn) return false;
+              //   const approvedDate = new Date(transaction.approvedOn);
+              //   return approvedDate >= sixtyMinutesAgo;
+              // });
 
               for (const transaction of transactions) {
                 if (transaction.amount < 0) {
@@ -2241,12 +2241,12 @@ class NetworkInterceptor {
               let transactions = Array.isArray(json) ? json : json.data || [];
 
               // const sixtyMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
-              const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
-              transactions = transactions.filter(transaction => {
-                if (!transaction.approvedOn) return false;
-                const approvedDate = new Date(transaction.approvedOn);
-                return approvedDate >= sixtyMinutesAgo;
-              });
+              // const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
+              // transactions = transactions.filter(transaction => {
+              //   if (!transaction.approvedOn) return false;
+              //   const approvedDate = new Date(transaction.approvedOn);
+              //   return approvedDate >= sixtyMinutesAgo;
+              // });
 
               // Process transactions
               for (const transaction of transactions) {
