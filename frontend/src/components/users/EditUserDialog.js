@@ -7,8 +7,11 @@ import {
   Button,
   TextField,
   Box,
-  CircularProgress
+  CircularProgress,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useDispatch } from 'react-redux';
 import { updateUser } from '../../store/slices/userSlice';
 
@@ -17,9 +20,11 @@ const EditUserDialog = ({ open, onClose, user }) => {
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    contactNumber: user?.contactNumber || ''
+    contactNumber: user?.contactNumber || '',
+    password: ''
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -31,7 +36,18 @@ const EditUserDialog = ({ open, onClose, user }) => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      await dispatch(updateUser({ userId: user._id, userData: formData })).unwrap();
+      const updateData = {
+        name: formData.name,
+        email: formData.email,
+        contactNumber: formData.contactNumber
+      };
+      
+      // Only include password if it's provided
+      if (formData.password.trim()) {
+        updateData.password = formData.password;
+      }
+      
+      await dispatch(updateUser({ userId: user._id, userData: updateData })).unwrap();
       onClose();
     } catch (error) {
       console.error('Error updating user:', error);
@@ -65,6 +81,27 @@ const EditUserDialog = ({ open, onClose, user }) => {
             value={formData.contactNumber}
             onChange={handleChange}
             fullWidth
+          />
+          <TextField
+            name="password"
+            label="New Password (optional)"
+            type={showPassword ? 'text' : 'password'}
+            value={formData.password}
+            onChange={handleChange}
+            fullWidth
+            placeholder="Leave empty to keep current password"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
           />
         </Box>
       </DialogContent>

@@ -1,6 +1,7 @@
 const User = require('../models/user.model');
 const { successResponse, errorResponse } = require('../utils/response.util');
 const { STATUS_CODES } = require('../constants');
+const bcrypt = require('bcryptjs');
 
 /**
  * Get all users with pagination
@@ -33,25 +34,39 @@ const getUsers = async (req, res) => {
   }
 };
 
+const getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    
+    if (!user) {
+      return errorResponse(res, 'User not found', {}, STATUS_CODES.NOT_FOUND);
+    }
+
+    return successResponse(res, 'User details fetched successfully', { user }, STATUS_CODES.OK);
+  } catch (error) {
+    return errorResponse(res, error.message, {}, STATUS_CODES.SERVER_ERROR);
+  }
+};
+
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, contactNumber } = req.body;
-
-    // Input validation
-    if (!name || !email || !contactNumber) {
-      return res.status(400).json({
-        success: false,
-        message: 'Name, email and contact number are required'
-      });
-    }
+    const { name, email, contactNumber, password } = req.body;
 
     // Email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (email && !emailRegex.test(email)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid email format'
+      });
+    }
+
+    // Password validation
+    if (password && password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
       });
     }
 
@@ -65,7 +80,7 @@ const updateUser = async (req, res) => {
     }
 
     // If email is being changed, check if new email already exists
-    if (email !== existingUser.email) {
+    if (email && email !== existingUser.email) {
       const emailExists = await User.findOne({ email, _id: { $ne: id } });
       if (emailExists) {
         return res.status(400).json({
@@ -75,15 +90,24 @@ const updateUser = async (req, res) => {
       }
     }
 
+    // Prepare update data
+    const updateData = {
+      name, 
+      email, 
+      contactNumber,
+      updatedAt: new Date()
+    };
+
+    // Add password to update data if provided (hash it first)
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(password, salt);
+    }
+
     // Update user
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      { 
-        name, 
-        email, 
-        contactNumber,
-        updatedAt: new Date()
-      },
+      updateData,
       { 
         new: true,
         runValidators: true 
@@ -107,5 +131,6 @@ const updateUser = async (req, res) => {
 
 module.exports = {
   getUsers,
-  updateUser
+  updateUser,
+  getCurrentUser
 }; 

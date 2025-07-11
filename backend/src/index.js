@@ -29,18 +29,19 @@ const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const scrapingRoutes = require('./routes/scraping.routes');
 const transactionRoutes = require('./routes/transaction.routes');
+const conversationRoutes = require('./routes/conversation.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const { schedulerUtil } = require('./utils/scheduler.util');
+const webSocketManager = require('./utils/websocket.util');
 
 const app = express();
-// app.use(morgan('combined'));
+app.use(morgan('combined'));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
-  maxPoolSize: 20,
-  useNewUrlParser: true,
-  useUnifiedTopology: true
+  maxPoolSize: 20
 })
+
 .then(() => {
   console.log('Connected to MongoDB');
   // Start the schedulers after MongoDB connection is established
@@ -62,6 +63,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/scraping', scrapingRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/conversations', conversationRoutes);
 
 // Ping route
 app.get('/ping', (req, res) => {
@@ -76,13 +78,17 @@ app.get('*', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  res.status(500).json({ message: err.message || 'Something went wrong!' });
 });
 
 // Start server
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  
+  // Initialize WebSocket server
+  webSocketManager.initialize(server);
+  webSocketManager.startHeartbeat();
 });
 
 // Handle graceful shutdown
@@ -91,10 +97,9 @@ process.on('SIGTERM', () => {
   server.close(() => {
     console.log('HTTP server closed');
     schedulerUtil.stopJobs().then(() => {
-      mongoose.connection.close(false, () => {
-        console.log('MongoDB connection closed');
-        process.exit(0);
-      });
+      mongoose.connection.close();
+      console.log('MongoDB connection closed');
+      process.exit(0);
     });
   });
 }); 

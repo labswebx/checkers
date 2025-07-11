@@ -1,3 +1,15 @@
+### Android Pending
+- [ ] On the chat screen, the keyboard hides the text field to type the message
+- [ ] Improve the overall design
+- [ ] Read more option if message length in large
+- [ ] Chat & conversation search
+- [ ] Instead of auto-scroll, keep the chat at the bottom when we come to a chat
+- [ ] If multiple messages are unread, then on the ChatsScreen, it is showing the first mesasage, instead it should the last message
+- [ ] Show total pending conversation count in the bottombar as well
+- [ ] If I'm on the ChatScreen & chatting live with someone, it does not mark the messages as read
+- [ ] Text formatting - like bold, italics, colors etc etc
+
+### Backend / Frontend Pending
 - [ ] In the perPage component in the Pagination, backend gives BSONObjectTooLarge error if pagination is set to 50 or more, fix this.
 - [ ] Create a deploy.sh file so that whenever we deploy on server, we just have to run that file. It will install the packages, close running PORTS from NGINX, run mongod & run the server. Basically it will be the one file to run for deployment, no need to install packages & all
 - [ ] Setup automatic env detection on Frontend so that we don't have to change the URL everytime we deploy
@@ -7,8 +19,14 @@
 - [ ] Backend code is not properly modularised. All the logic is in routes or controllers.
 - [ ] In the network-interceptor.js file, for rejected & approved deposits & withdraws - The response has a lot of items & hence it takes time to process them all. FIrst response is in progress and then we get another response, and hence because of this the older response closes & the later transactions status is not updatyed
 
+### Android Completed
+- [x] Arrow button on right side of chat to scroll to bottom
+- [x] Unable to load previous messages
+- [x] A new conversation should appear on the all chats screen automatically (verify)
+- [x] Create the scheduler for sending the SMS
+- [x] Socket not working
 
-
+### Backend \ Frontend Completed
 - [x] Not able handle error messages properly. Check by adding duplicate email while registering a user
 - [x] Create a User listing page
 - [x] Refresh redirects to the home page

@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
   FRANCHISES: 'api/transactions/franchises',
   WITHDRAWS: '/api/transactions/withdraws',
   WITHDRAW_ANALYSIS_STATS: '/api/transactions/withdraw-analysis-stats',
+  CONVERSATIONS: '/api/conversations',
 };
 
 export const TRANSACTION_STATUS = {

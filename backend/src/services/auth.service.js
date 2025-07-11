@@ -6,11 +6,12 @@ class AuthService {
   /**
    * Generate JWT token
    * @param {string} userId
+   * @param {string} role
    * @returns {string} token
    */
-  static generateToken(userId) {
-    return jwt.sign({ userId }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRY || '24h'
+  static generateToken(userId, role) {
+    return jwt.sign({ userId, role }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRY || '30d'
     });
   }
 
@@ -57,13 +58,24 @@ class AuthService {
       throw new Error('Invalid credentials');
     }
 
-    // Check if user is admin
-    if (user.role !== USER_ROLES.ADMIN) {
-      throw new Error('Access denied. Only administrators can login.');
-    }
+    // Generate token with role
+    const token = this.generateToken(user._id, user.role);
 
-    // Generate token
-    const token = this.generateToken(user._id);
+    return { user, token };
+  }
+
+  /**
+   * Super login - Admin can login as any user
+   * @param {string} email
+   * @returns {Promise<Object>} User and token
+   */
+  static async superLogin(email) {
+    const user = await User.findOne({ email, isActive: true });
+
+    if (!user) {
+      throw new Error('User not found or inactive');
+    }
+    const token = this.generateToken(user._id, user.role);
 
     return { user, token };
   }
