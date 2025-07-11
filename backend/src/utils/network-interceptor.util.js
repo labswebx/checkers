@@ -2,6 +2,7 @@ const puppeteer = require("puppeteer");
 const logger = require("./logger.util");
 const sentryUtil = require("./sentry.util");
 const transactionService = require("../services/transaction.service");
+const notificationService = require("../services/notification.service");
 const fs = require("fs");
 const Transaction = require("../models/transaction.model");
 const Constant = require("../models/constant.model");
@@ -2901,6 +2902,38 @@ class NetworkInterceptor {
       }
       logger.error(`Error fetching transcript for order ${orderId}:`, error);
       return false;
+    }
+  }
+
+  /**
+   * Process transaction notifications based on time difference
+  */
+  async processTransactionNotification() {
+    logger.info('Sending Pending Transaction Messages')
+    try {
+      const pendingTransactions = await Transaction.find({
+        transactionStatus: TRANSACTION_STATUS.PENDING
+      });
+      
+      for (const [index, transaction] of pendingTransactions.entries()) {
+        const franchiseName = transaction.franchiseName ? transaction.franchiseName.split(' (')[0] : 'Unknown';
+        const currentTime = new Date();
+        const transactionTime = new Date(transaction.requestDate);
+        const timeDifferenceMs = currentTime - transactionTime;
+        const timeDifferenceMinutes = timeDifferenceMs / (1000 * 60);
+
+        await notificationService.sendTransactionNotification(
+          franchiseName,
+          timeDifferenceMinutes,
+          transaction
+        );
+      }
+    } catch (error) {
+      logger.error('Error processing transaction notification:', {
+        franchiseName,
+        orderId: transactionDetails?.orderId,
+        error: error.message
+      });
     }
   }
 

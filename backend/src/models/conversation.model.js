@@ -118,7 +118,6 @@ conversationSchema.statics.findConversationBetweenUsers = function(user1Id, user
       { participant1: user1Id, participant2: user2Id },
       { participant1: user2Id, participant2: user1Id }
     ],
-    conversationType: Constants.CONVERSATION_TYPES.USER_TO_USER,
     deleted: { $ne: true }
   });
 };

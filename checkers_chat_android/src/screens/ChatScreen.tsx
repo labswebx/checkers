@@ -1,14 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, BackHandler, TouchableWithoutFeedback, Keyboard, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
 import { colors, typography, spacing } from '../theme';
 import { RootState, AppDispatch } from '../store';
-import { fetchMessages, sendMessage, addMessage } from '../store/slices/chatSlice';
+import { fetchMessages, sendMessage, addMessage, loadMoreMessages } from '../store/slices/chatSlice';
 import { Message } from '../types/chat.types';
-import { Avatar } from '../components/common/Avatar';
 import { socketService } from '../services/socketService';
 
 interface ChatScreenProps {
@@ -24,39 +22,41 @@ interface ChatScreenProps {
 export const ChatScreen: React.FC<ChatScreenProps> = ({ route, navigation }) => {
   const { conversationId, participantName } = route.params;
   const dispatch = useDispatch<AppDispatch>();
-  const { messages, messagesLoading, currentConversation, error } = useSelector((state: RootState) => state.chat);
+  const { messages, messagesLoading, loadingMore, hasMoreMessages, currentPage, currentConversation, error } = useSelector((state: RootState) => state.chat);
   const { user, token } = useSelector((state: RootState) => state.auth);
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     dispatch(fetchMessages({ conversationId }));
     
-    // Connect to WebSocket if we have a token
     if (token) {
-      socketService.connect(token);
-      
-      // Listen for new messages
-      socketService.on('new_message', (data: any) => {
-        if (data.message) {
+      const chatHandler = (data: any) => {
+        if (data.message && data.message.conversationId === conversationId && data.message.senderId._id !== user?._id) {
           dispatch(addMessage(data.message));
+          setTimeout(() => {
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+          }, 100);
         }
-      });
+      };
       
-      // Join conversation room after connection
+      socketService.on('new_message', chatHandler);
+      
+      // Join conversation room
       const timer = setTimeout(() => {
         socketService.joinConversation(conversationId);
-      }, 1000);
+      }, 500);
       
       return () => {
         clearTimeout(timer);
         socketService.leaveConversation(conversationId);
-        socketService.off('new_message');
+        socketService.off('new_message', chatHandler);
       };
     }
-  }, [dispatch, conversationId, token]);
+  }, [dispatch, conversationId, token, user]);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -67,18 +67,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ route, navigation }) => 
     return () => backHandler.remove();
   }, [navigation]);
 
-
-
   const handleSendMessage = async () => {
     if (!messageText.trim() || sending) return;
-    
+
     setSending(true);
     try {
       await dispatch(sendMessage({ conversationId, content: messageText.trim() })).unwrap();
       setMessageText('');
-      // Scroll to bottom after sending message
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 100);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -92,7 +89,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ route, navigation }) => 
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     if (messageDate.toDateString() === today.toDateString()) {
       return 'Today';
     } else if (messageDate.toDateString() === yesterday.toDateString()) {
@@ -110,9 +107,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ route, navigation }) => 
     }
   }).current;
 
+  const onScroll = (event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const isAtBottom = contentOffset.y <= 200;
+    setShowScrollButton(!isAtBottom);
+  };
+
+  const scrollToBottom = () => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    setShowScrollButton(false);
+  };
+
+  const handleLoadMore = async () => {
+    if (!loadingMore && hasMoreMessages) {
+      dispatch(loadMoreMessages({ conversationId, page: currentPage + 1 }));
+    }
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwnMessage = item.senderId._id === user?._id;
-    
     return (
       <View style={[styles.messageContainer, isOwnMessage ? styles.ownMessage : styles.otherMessage]}>
         <View style={[styles.messageBubble, isOwnMessage ? styles.ownBubble : styles.otherBubble]}>
@@ -127,56 +140,83 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ route, navigation }) => 
     );
   };
 
+  const renderHeader = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading messages...</Text>
+      </View>
+    );
+  };
+
   return (
-    <View style={styles.container}>
-      {/* Sticky Date Header */}
-      {currentDate && (
-        <View style={styles.dateHeader}>
-          <Text style={styles.dateText}>{currentDate}</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+        <View style={{ flex: 1, flexDirection: 'column' }}>
+          {currentDate && (
+            <View style={styles.dateHeader}>
+              <Text style={styles.dateText}>{currentDate}</Text>
+            </View>
+          )}
+          <FlatList
+            ref={flatListRef}
+            inverted
+            renderItem={renderMessage}
+            keyExtractor={(item) => item._id}
+            style={styles.messagesList}
+            contentContainerStyle={styles.messagesContainer}
+            showsVerticalScrollIndicator={false}
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+              autoscrollToTopThreshold: 10
+            }}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
+            keyboardShouldPersistTaps="handled"
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.1}
+            ListFooterComponent={renderHeader}
+            data={[...messages].reverse()}
+          />
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.textInput}
+                value={messageText}
+                onChangeText={setMessageText}
+                placeholder="Type a message..."
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                maxLength={1000}
+              />
+              <TouchableOpacity 
+                style={[styles.sendButton, (!messageText.trim() || sending) && styles.sendButtonDisabled]}
+                onPress={handleSendMessage}
+                disabled={!messageText.trim() || sending}
+              >
+                <Ionicons name={sending ? "hourglass" : "send"} size={20} color={colors.surface} />
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+          
+          {showScrollButton && (
+            <TouchableOpacity 
+              style={styles.scrollToBottomButton}
+              onPress={scrollToBottom}
+            >
+              <Ionicons name="chevron-down" size={24} color={colors.surface} />
+            </TouchableOpacity>
+          )}
         </View>
-      )}
-      
-      <KeyboardAvoidingView 
-        style={styles.chatContainer} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 200 : 0}
-      >
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item._id}
-        style={styles.messagesList}
-        contentContainerStyle={styles.messagesContainer}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
-      />
-      
-      <SafeAreaView edges={['bottom']}>
-        <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.textInput}
-          value={messageText}
-          onChangeText={setMessageText}
-          placeholder="Type a message..."
-          placeholderTextColor={colors.textSecondary}
-          multiline
-          maxLength={1000}
-        />
-        <TouchableOpacity 
-          style={[styles.sendButton, (!messageText.trim() || sending) && styles.sendButtonDisabled]}
-          onPress={handleSendMessage}
-          disabled={!messageText.trim() || sending}
-        >
-          <Ionicons name={sending ? "hourglass" : "send"} size={20} color={colors.surface} />
-        </TouchableOpacity>
-        </View>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
-    </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -253,7 +293,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: spacing.md,
-    paddingBottom: spacing.lg,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -294,10 +333,37 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     color: colors.background,
     fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: '500',
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: 10,
     overflow: 'hidden',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
+  loadingText: {
+    marginLeft: spacing.sm,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+  },
+  scrollToBottomButton: {
+    position: 'absolute',
+    bottom: 80,
+    right: spacing.md,
+    width: 37,
+    height: 37,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });

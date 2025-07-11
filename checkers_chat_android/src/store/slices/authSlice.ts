@@ -26,8 +26,14 @@ export const checkAuthStatus = createAsyncThunk(
   'auth/checkStatus',
   async (_, { rejectWithValue }) => {
     try {
+      const storedToken = await authService.getStoredToken();
+      if (!storedToken) {
+        throw new Error('No token found');
+      }
+      
+      const token = JSON.parse(storedToken);
       const user = await authService.getCurrentUser();
-      return { user };
+      return { user, token };
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -109,6 +115,7 @@ const authSlice = createSlice({
       .addCase(checkAuthStatus.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload.user;
+        state.token = action.payload.token;
       })
       .addCase(checkAuthStatus.rejected, (state) => {
         state.isLoading = false;

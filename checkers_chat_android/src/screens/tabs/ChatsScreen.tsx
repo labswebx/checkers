@@ -34,6 +34,24 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onNavigateToChat }) =>
       : conversation.unreadCounts.participant2;
   };
 
+  const formatTimestamp = (dateString: string) => {
+    const messageDate = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (messageDate.toDateString() === today.toDateString()) {
+      // Today - show time
+      return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+      // Yesterday
+      return 'Yesterday';
+    } else {
+      // Older - show date
+      return messageDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+  };
+
   const renderConversationItem = ({ item }: { item: Conversation }) => {
     const otherParticipant = getOtherParticipant(item);
     const unreadCount = getUnreadCount(item);
@@ -60,7 +78,7 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onNavigateToChat }) =>
             </Text>
             {item.lastMessageAt && (
               <Text style={styles.timestamp}>
-                {new Date(item.lastMessageAt).toLocaleDateString()}
+                {formatTimestamp(item.lastMessageAt)}
               </Text>
             )}
           </View>
@@ -115,6 +133,7 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onNavigateToChat }) =>
         data={conversations}
         renderItem={renderConversationItem}
         keyExtractor={(item) => item._id}
+        extraData={conversations.map(c => JSON.stringify(c.unreadCounts)).join(',')}
         style={styles.conversationsList}
         showsVerticalScrollIndicator={false}
       />

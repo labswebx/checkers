@@ -36,13 +36,12 @@ class WebSocketManager {
 
   handleConnection(ws, req) {
     const userId = req.user._id;
-    
+
     // Add client to tracking
     if (!this.clients.has(userId)) {
       this.clients.set(userId, new Set());
     }
     this.clients.get(userId).add(ws);
-
     ws.userId = userId;
     ws.isAlive = true;
 
@@ -85,12 +84,14 @@ class WebSocketManager {
   }
 
   broadcastToConversation(conversationId, message, excludeUserId = null) {
+    let sentCount = 0;
     this.clients.forEach((connections, userId) => {
       if (userId !== excludeUserId) {
         connections.forEach(ws => {
           if (ws.readyState === WebSocket.OPEN && 
               (ws.conversationId === conversationId || !ws.conversationId)) {
             ws.send(JSON.stringify(message));
+            sentCount++;
           }
         });
       }

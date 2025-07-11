@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Conversation, Message } from '../../types/chat.types';
 import { chatService } from '../../services/chatService';
+import { MESSAGE_PAGINATION_LIMIT } from '../../../constants'
 
 interface ChatState {
   conversations: Conversation[];
@@ -8,6 +9,9 @@ interface ChatState {
   messages: Message[];
   loading: boolean;
   messagesLoading: boolean;
+  loadingMore: boolean;
+  hasMoreMessages: boolean;
+  currentPage: number;
   error: string | null;
 }
 
@@ -17,6 +21,9 @@ const initialState: ChatState = {
   messages: [],
   loading: false,
   messagesLoading: false,
+  loadingMore: false,
+  hasMoreMessages: true,
+  currentPage: 1,
   error: null,
 };
 
@@ -41,6 +48,13 @@ export const sendMessage = createAsyncThunk(
   }
 );
 
+export const loadMoreMessages = createAsyncThunk(
+  'chat/loadMoreMessages',
+  async ({ conversationId, page }: { conversationId: string; page: number }) => {
+    return await chatService.getConversationMessages(conversationId, page);
+  }
+);
+
 const chatSlice = createSlice({
   name: 'chat',
   initialState,
@@ -48,12 +62,25 @@ const chatSlice = createSlice({
     setCurrentConversation: (state, action: PayloadAction<Conversation>) => {
       state.currentConversation = action.payload;
       state.messages = [];
+      state.currentPage = 1;
+      state.hasMoreMessages = true;
     },
     clearError: (state) => {
       state.error = null;
     },
     addMessage: (state, action: PayloadAction<Message>) => {
       state.messages.push(action.payload);
+    },
+    incrementUnreadCount: (state, action: PayloadAction<{ conversationId: string; userId: string }>) => {
+      const { conversationId, userId } = action.payload;
+      const conversation = state.conversations.find(c => c._id === conversationId);
+      if (conversation) {
+        if (conversation.participant1._id === userId) {
+          conversation.unreadCounts.participant1 += 1;
+        } else {
+          conversation.unreadCounts.participant2 += 1;
+        }
+      }
     },
   },
   extraReducers: (builder) => {
@@ -76,6 +103,8 @@ const chatSlice = createSlice({
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.messagesLoading = false;
         state.messages = action.payload.messages;
+        state.currentPage = 1;
+        state.hasMoreMessages = action.payload.messages.length === 50; // Assuming limit is 50
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.messagesLoading = false;
@@ -89,9 +118,25 @@ const chatSlice = createSlice({
       })
       .addCase(sendMessage.rejected, (state, action) => {
         state.error = action.error.message || 'Failed to send message';
+      })
+      .addCase(loadMoreMessages.pending, (state) => {
+        state.loadingMore = true;
+      })
+      .addCase(loadMoreMessages.fulfilled, (state, action) => {
+        state.loadingMore = false;
+        const newMessages = action.payload.messages;
+
+        state.messages = [...newMessages, ...state.messages]
+        state.currentPage += 1;
+        state.hasMoreMessages = newMessages.length === MESSAGE_PAGINATION_LIMIT;
+      })
+      .addCase(loadMoreMessages.rejected, (state, action) => {
+        state.loadingMore = false;
+        state.error = action.error.message || 'Failed to load more messages';
       });
   },
 });
 
-export const { setCurrentConversation, clearError, addMessage } = chatSlice.actions;
+export const { setCurrentConversation, clearError, addMessage, incrementUnreadCount } = chatSlice.actions;
+export { loadMoreMessages };
 export default chatSlice.reducer;

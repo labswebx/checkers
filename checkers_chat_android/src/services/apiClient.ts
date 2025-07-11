@@ -1,8 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const BASE_URL = 'http://46.28.44.112:4000'
+
 const axiosInstance = axios.create({
-  baseURL: 'http://192.168.31.98:4000',
+  baseURL: BASE_URL,
 });
 
 axiosInstance.interceptors.request.use(async function (config) {
@@ -24,5 +26,5 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-export const webSocketBaseURL = 'localhost:4000'
+export const webSocketBaseURL = BASE_URL
 export default axiosInstance;

@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { ChatsScreen } from './tabs/ChatsScreen';
 import { ProfileScreen } from './tabs/ProfileScreen';
 import { ChatScreen } from './ChatScreen';
 import { Avatar } from '../components/common/Avatar';
 import { useToast } from '../components/common/ToastProvider';
-import { RootState } from '../store';
+import { RootState, AppDispatch } from '../store';
+import { incrementUnreadCount } from '../store/slices/chatSlice';
+import { socketService } from '../services/socketService';
 import { colors, typography, spacing } from '../theme';
 
 type TabType = 'chats' | 'profile';
@@ -19,8 +21,9 @@ export const HomeScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('chats');
   const [currentView, setCurrentView] = useState<ViewType>('tabs');
   const [chatParams, setChatParams] = useState<{ conversationId: string; participantName: string } | null>(null);
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { user, token } = useSelector((state: RootState) => state.auth);
   const { showToast } = useToast();
+  const dispatch = useDispatch<AppDispatch>();
 
   const getTimeOfDay = () => {
     const hour = new Date().getHours();

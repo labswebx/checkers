@@ -5,9 +5,7 @@ export const fetchConversations = createAsyncThunk(
   'conversations/fetchConversations',
   async ({ page = 1, limit = 20 }, { rejectWithValue }) => {
     try {
-      console.log('Fetching conversations with params:', { page, limit });
       const response = await api.get(`/api/conversations?page=${page}&limit=${limit}`);
-      console.log('Conversations API response:', response.data);
       return response.data.data;
     } catch (error) {
       console.error('Error fetching conversations:', error);

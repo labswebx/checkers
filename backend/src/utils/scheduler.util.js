@@ -118,6 +118,18 @@ const fetchPendingTranscripts = new Task(
   }
 );
 
+const pendingTransactionNotifications = new Task(
+  'Pending Transaction Notifications',
+  '*/30 * * * * *', // Every 30 seconds
+  async () => {
+    try {
+      await networkInterceptor.processTransactionNotification();
+    } catch (error) {
+      logger.error('Error in pending transaction notifications task:', error);
+    }
+  }
+);
+
 class SchedulerUtil {
   constructor() {
     this.jobs = new Map();
@@ -130,8 +142,13 @@ class SchedulerUtil {
     }));
 
     // Transcript fetch every 30 minutes
-    this.jobs.set('transcriptFetch', cron.schedule('0,30 * * * *', async () => {
+    this.jobs.set('transcriptFetch', cron.schedule('*/15 * * * *', async () => {
       await fetchPendingTranscripts.start();
+    }));    
+
+    // Pending transaction notifications every 30 seconds
+    this.jobs.set('pendingNotifications', cron.schedule('*/30 * * * * *', async () => {
+      await pendingTransactionNotifications.start();
     }));
 
     // Start tasks once with proper error handling
@@ -173,5 +190,6 @@ module.exports = {
   pendingWithdrawalsTask,
   approvedWithdrawalsTask,
   rejectedWithdrawalsTask,
-  fetchPendingTranscripts
+  fetchPendingTranscripts,
+  pendingTransactionNotifications
 }; 

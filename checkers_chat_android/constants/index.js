@@ -1,0 +1,3 @@
+export const PAGINATION_LIMIT = 50;
+export const CONVERSATION_PAGINATION_LIMIT = 20;
+export const MESSAGE_PAGINATION_LIMIT = 50;

@@ -55,12 +55,14 @@ export const ProfileScreen: React.FC = () => {
             onPress={handleViewDetails}
           />
           
-          <ProfileOption
-            icon="create-outline"
-            title="Edit Profile"
-            subtitle="Update your name"
-            onPress={handleEditProfile}
-          />
+          {isAdmin && (
+            <ProfileOption
+              icon="create-outline"
+              title="Edit Profile"
+              subtitle="Update your name"
+              onPress={handleEditProfile}
+            />
+          )}
           
           {isAdmin && (
             <ProfileOption

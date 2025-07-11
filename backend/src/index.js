@@ -39,10 +39,9 @@ app.use(morgan('combined'));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
-  maxPoolSize: 20,
-  useNewUrlParser: true,
-  useUnifiedTopology: true
+  maxPoolSize: 20
 })
+
 .then(() => {
   console.log('Connected to MongoDB');
   // Start the schedulers after MongoDB connection is established
