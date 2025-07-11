@@ -7,7 +7,7 @@
 - [ ] If multiple messages are unread, then on the ChatsScreen, it is showing the first mesasage, instead it should the last message
 - [ ] Show total pending conversation count in the bottombar as well
 - [ ] If I'm on the ChatScreen & chatting live with someone, it does not mark the messages as read
-- [ ] Text formatting - like bold, italics, colors etc etc
+- [ ] Text formatting - like bold, italics, colors etc etc. Along with this, give option to copy the details form text only
 
 ### Backend / Frontend Pending
 - [ ] In the perPage component in the Pagination, backend gives BSONObjectTooLarge error if pagination is set to 50 or more, fix this.
@@ -51,3 +51,4 @@
 - [x] In deposits analysis, add the transactions completed <= 2 min.
 - [x] On the pending withdraw page, the count is not correct in the timer slab. If any transaction takes more than 20 mins, it's not coming in the 20-30 min wala slab.
 - [x] Keep a track of the users. Who all visited the website, if not this, atleast how many unique users visited the website. And their duration and the page they visited as well.
+- [x] Search not working properly on the UI

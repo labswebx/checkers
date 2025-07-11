@@ -102,14 +102,14 @@ transactionSchema.index({ amount: 1 });
 transactionSchema.index(
   { 
     orderId: 'text', 
-    userName: 'text', 
-    utr: 'text', 
+    name: 'text',
+    utr: 'text',
     franchiseName: 'text' 
   },
   {
     weights: {
       orderId: 10,
-      userName: 5,
+      name: 5,
       utr: 5,
       franchiseName: 3
     },
