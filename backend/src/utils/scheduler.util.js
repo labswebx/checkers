@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const logger = require('./logger.util');
 const sessionUtil = require('./session.util');
 const networkInterceptor = require('./network-interceptor.util');
+const sentryUtil = require('./sentry.util')
 // const transactionService = require('../services/transaction.service');
 
 class Task {
@@ -36,6 +37,11 @@ const depositListTask = new Task(
       await networkInterceptor.monitorPendingDeposits();
     } catch (error) {
       logger.error('Error in deposit list monitoring task:', error);
+      sentryUtil.captureException(error, {
+        context: 'monitor_pending_deposits_scheduler',
+        method: 'monitorPendingDeposits',
+        transactionType: 'deposit'
+      });
       await networkInterceptor.cleanup();
     }
   }
