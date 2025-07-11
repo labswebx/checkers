@@ -43,7 +43,7 @@ router.get("/deposits", auth, async (req, res) => {
     };
 
     let CACHE_KEYS = {};
-    const BASE_CACHE_KEY = `DEPOSITS_${status.toUpperCase()}_${page}_${limit}_${timeSlab}_${franchise}`;
+    const BASE_CACHE_KEY = `DEPOSITS_${(status || TRANSACTION_STATUS.PENDING).toUpperCase()}_${page}_${limit}_${timeSlab || 'all'}_${franchise || 'all'}`;
     CACHE_KEYS[`${BASE_CACHE_KEY}_DATA`] = `${BASE_CACHE_KEY}_DATA`;
     CACHE_KEYS[
       `${BASE_CACHE_KEY}_TIME_SLABS_COUNT`
@@ -57,7 +57,8 @@ router.get("/deposits", auth, async (req, res) => {
 
     // Don't use caching in case of Pending Status because it gets updated every 10-15 seconds.
     // If status is Success or Rejected, then use the response from Cache
-    if (status !== TRANSACTION_STATUS.PENDING) {
+    // Also don't cache search results
+    if (status !== TRANSACTION_STATUS.PENDING && !search) {
       let allCached = true;
       let cacheResponse = {};
       for (const key in CACHE_KEYS) {
@@ -154,9 +155,13 @@ router.get("/deposits", auth, async (req, res) => {
       }
     }
 
-    // Use text search if search parameter is provided
+    // Use regex search if search parameter is provided
     if (search) {
-      matchStage.$text = { $search: search };
+      matchStage.$or = [
+        { orderId: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { utr: { $regex: search, $options: 'i' } }
+      ];
     }
 
     let timeSlabCounts = [];
@@ -243,7 +248,13 @@ router.get("/deposits", auth, async (req, res) => {
           ...(franchise && franchise !== "all"
             ? { franchiseName: franchise }
             : {}),
-          ...(search ? { $text: { $search: search } } : {}),
+          ...(search ? {
+            $or: [
+              { orderId: { $regex: search, $options: 'i' } },
+              { name: { $regex: search, $options: 'i' } },
+              { utr: { $regex: search, $options: 'i' } }
+            ]
+          } : {}),
         },
       },
       statusTimeDiffAddFields,
@@ -457,7 +468,7 @@ router.get("/deposits", auth, async (req, res) => {
     };
 
     // Update the data in Cache
-    if (status !== TRANSACTION_STATUS.PENDING) {
+    if (status !== TRANSACTION_STATUS.PENDING && !search) {
       depositsCache.set(
         CACHE_KEYS[`${BASE_CACHE_KEY}_DATA`],
         responseData.data
@@ -476,7 +487,6 @@ router.get("/deposits", auth, async (req, res) => {
       );
     }
 
-    const endTime = Date.now();
     return successResponse(res, "Deposits fetched successfully", responseData);
   } catch (error) {
     logger.error("Error in /deposits endpoint:", error);
@@ -615,7 +625,11 @@ router.get("/withdraws", auth, async (req, res) => {
 
     // Use text search if search parameter is provided
     if (search) {
-      matchStage.$text = { $search: search };
+      matchStage.$or = [
+        { orderId: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { utr: { $regex: search, $options: 'i' } }
+      ];
     }
 
     let timeSlabCounts = [];
@@ -666,7 +680,13 @@ router.get("/withdraws", auth, async (req, res) => {
           ...(franchise && franchise !== "all"
             ? { franchiseName: franchise }
             : {}),
-          ...(search ? { $text: { $search: search } } : {}),
+          ...(search ? {
+            $or: [
+              { orderId: { $regex: search, $options: 'i' } },
+              { name: { $regex: search, $options: 'i' } },
+              { utr: { $regex: search, $options: 'i' } }
+            ]
+          } : {}),
         },
       },
       statusTimeDiffAddFields,

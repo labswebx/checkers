@@ -44,7 +44,6 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 .then(() => {
   console.log('Connected to MongoDB');
-  // Start the schedulers after MongoDB connection is established
   schedulerUtil.startJobs();
 })
 .catch(err => console.error('MongoDB connection error:', err));
