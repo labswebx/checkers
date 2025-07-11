@@ -444,8 +444,8 @@ router.get("/deposits", auth, async (req, res) => {
                 approvedOn: 1,
                 status: "$transactionStatus",
                 franchise: "$franchiseName",
+                isImageAvailable: "$isImageAvailable",
                 createdAt: 1,
-                transcriptLink: 1,
                 agentId: 1,
               },
             },
@@ -877,7 +877,7 @@ router.get("/withdraws", auth, async (req, res) => {
                 status: "$transactionStatus",
                 franchise: "$franchiseName",
                 createdAt: 1,
-                transcriptLink: 1,
+                isImageAvailable: "$isImageAvailable",
                 agentId: 1,
                 ifcsCode: "$iban",
                 holderName: 1,
@@ -946,6 +946,41 @@ router.get("/withdraw-analysis-stats", auth, async (req, res) => {
       "Error fetching withdraw analysis statistics",
       error,
       STATUS_CODES.SERVER_ERROR
+    );
+  }
+});
+
+// Get transcript link by orderId
+router.get("/transcript/:orderId", auth, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    const transaction = await Transaction.findOne(
+      { orderId },
+      { transcriptLink: 1, orderId: 1 }
+    );
+    
+    if (!transaction) {
+      return errorResponse(
+        res,
+        "Transaction not found",
+        null,
+        STATUS_CODES.NOT_FOUND
+      );
+    }
+    
+    return successResponse(
+      res,
+      "Transcript link fetched successfully",
+      { transcriptLink: transaction.transcriptLink }
+    );
+  } catch (error) {
+    logger.error("Error in /transcript/:orderId endpoint:", error);
+    return errorResponse(
+      res,
+      "Error fetching transcript link",
+      error,
+      STATUS_CODES.INTERNAL_SERVER_ERROR
     );
   }
 });

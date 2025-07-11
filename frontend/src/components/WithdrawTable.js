@@ -19,7 +19,8 @@ import {
   DialogActions,
   keyframes,
   Button,
-  Stack
+  Stack,
+  Backdrop
 } from '@mui/material'
 import {
   Person,
@@ -34,6 +35,7 @@ import ImageOverlay from './ImageOverlay';
 import { formatInTimeZone } from 'date-fns-tz';
 import { TRANSACTION_STATUS } from '../constants';
 import { getElapsedTimeInIndianTimeZone } from '../utils/timezone.util';
+import api from '../services/api';
 
 const WithdrawTimer = ({ withdraw }) => {
   const [elapsedTime, setElapsedTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -108,6 +110,7 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
   const theme = useTheme();
   const [selectedImage, setSelectedImage] = useState(null);
   const [accountNumberDialog, setAccountNumberDialog] = useState({ open: false, paymentMethod: '', accountNumber: '', ifcsCode: '', holderName: '' });
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
 
   const statusColors = {
     Pending: {
@@ -135,12 +138,29 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
     }).format(amount);
   };
 
-  const handleTranscriptClick = (transcriptLink) => {
-    if (!transcriptLink) {
-      alert('No transcript available for this transaction');
+  const handleTranscriptClick = async (orderId, existingTranscriptLink) => {
+    if (existingTranscriptLink) {
+      setSelectedImage(existingTranscriptLink);
       return;
     }
-    setSelectedImage(transcriptLink);
+
+    setTranscriptLoading(true);
+    
+    try {
+      const response = await api.get(`/api/transactions/transcript/${orderId}`);
+      const transcriptLink = response.data.data.transcriptLink;
+      
+      if (transcriptLink) {
+        setSelectedImage(transcriptLink);
+      } else {
+        alert('No transcript available for this transaction');
+      }
+    } catch (error) {
+      console.error('Error fetching transcript:', error);
+      alert('Error fetching transcript. Please try again.');
+    } finally {
+      setTranscriptLoading(false);
+    }
   };
 
   const handleAccountNumberClick = (paymentMethod, accountNumber, ifcsCode, holderName) => {
@@ -318,11 +338,11 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
                       )}
                     </TableCell>
                     <TableCell>
-                      {withdraw.transcriptLink ? (
+                      {withdraw.isImageAvailable ? (
                         <Tooltip title="View Transcript" arrow>
                           <IconButton
                             size="small"
-                            onClick={() => handleTranscriptClick(withdraw.transcriptLink)}
+                            onClick={() => handleTranscriptClick(withdraw.orderId, withdraw.transcriptLink)}
                             sx={{
                               color: theme.palette.primary.main,
                               '&:hover': {
@@ -523,6 +543,13 @@ export default function WithdrawTable({ withdraws, loading, totalPages, totalRec
           onClose={() => setSelectedImage(null)}
         />
       )}
+      
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={transcriptLoading}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
     </>
   );
 } 

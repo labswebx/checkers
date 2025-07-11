@@ -32,7 +32,7 @@ const Pagination = ({ count, page, onChange, size = 'medium', perPage, onPerPage
             size="small"
             sx={{ minHeight: 32, fontSize: '0.85rem', padding: 0 }}
           >
-            {[10, 20, 30].map(option => (
+            {[10, 25, 50, 100].map(option => (
               <MenuItem key={option} value={option}>{option}</MenuItem>
             ))}
           </Select>

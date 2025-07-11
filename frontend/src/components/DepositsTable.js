@@ -13,7 +13,8 @@ import {
   Tooltip,
   useTheme,
   IconButton,
-  CircularProgress
+  CircularProgress,
+  Backdrop
 } from '@mui/material'
 import {
   Person,
@@ -28,6 +29,7 @@ import { getElapsedTimeInIndianTimeZone } from '../utils/timezone.util';
 import ImageOverlay from './ImageOverlay';
 import { formatInTimeZone } from 'date-fns-tz';
 import { TRANSACTION_STATUS } from '../constants';
+import api from '../services/api';
 
 const ElapsedTimer = ({ date }) => {
   const [elapsedTime, setElapsedTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -80,6 +82,7 @@ const ElapsedTimer = ({ date }) => {
 export default function DepositsTable({ deposits, loading, totalPages, totalRecords, filters, handleFilterChange, perPage, onPerPageChange }) {
   const theme = useTheme();
   const [selectedImage, setSelectedImage] = useState(null);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
 
   const statusColors = {
     Pending: {
@@ -127,12 +130,29 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
     window.open(whatsappUrl, '_blank');
   };
 
-  const handleTranscriptClick = (transcriptLink) => {
-    if (!transcriptLink) {
-      alert('No transcript available for this transaction');
+  const handleTranscriptClick = async (orderId, existingTranscriptLink) => {
+    if (existingTranscriptLink) {
+      setSelectedImage(existingTranscriptLink);
       return;
     }
-    setSelectedImage(transcriptLink);
+
+    setTranscriptLoading(true);
+    
+    try {
+      const response = await api.get(`/api/transactions/transcript/${orderId}`);
+      const transcriptLink = response.data.data.transcriptLink;
+      
+      if (transcriptLink) {
+        setSelectedImage(transcriptLink);
+      } else {
+        alert('No transcript available for this transaction');
+      }
+    } catch (error) {
+      console.error('Error fetching transcript:', error);
+      alert('Error fetching transcript. Please try again.');
+    } finally {
+      setTranscriptLoading(false);
+    }
   };
 
   return (
@@ -260,11 +280,11 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
                     </TableCell> : null
                     }
                     <TableCell>
-                      {deposit.transcriptLink ? (
+                      {deposit.isImageAvailable ? (
                         <Tooltip title="View Transcript" arrow>
                           <IconButton
                             size="small"
-                            onClick={() => handleTranscriptClick(deposit.transcriptLink)}
+                            onClick={() => handleTranscriptClick(deposit.orderId, deposit.transcriptLink)}
                             sx={{
                               color: theme.palette.primary.main,
                               '&:hover': {
@@ -335,6 +355,13 @@ export default function DepositsTable({ deposits, loading, totalPages, totalReco
           onClose={() => setSelectedImage(null)}
         />
       )}
+      
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={transcriptLoading}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
     </>
   );
 }
