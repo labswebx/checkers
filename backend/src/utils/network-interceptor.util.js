@@ -2796,38 +2796,15 @@ class NetworkInterceptor {
    */
   async getAuthToken() {
     try {
-      // Fetch the token from the constants collection
-      const tokenData = await Constant.findOne({ key: "SCRAPING_AUTH_TOKEN" });
-
-      // If no token exists, perform login to get one
+      const tokenData = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
       if (!tokenData) {
-        logger.warn("No auth token found in constants - performing login");
-        await this.ensureLogin();
-        // Try fetching the token again after login
-        const newTokenData = await Constant.findOne({
-          key: "SCRAPING_AUTH_TOKEN",
-        });
-        return newTokenData?.value || null;
+        logger.error('No auth token found in constants');
+        return null;
       }
-
-      // Check if token is expired (older than 5h40m)
-      const tokenAge = Date.now() - tokenData.lastUpdated.getTime();
-      const maxTokenAge = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in ms
-
-      if (tokenAge > maxTokenAge) {
-        logger.warn("Auth token expired - performing login to refresh");
-        await this.ensureLogin();
-        // Try fetching the refreshed token
-        const newTokenData = await Constant.findOne({
-          key: "SCRAPING_AUTH_TOKEN",
-        });
-        return newTokenData?.value || null;
-      }
-
-      // Return the valid token
+  
       return tokenData.value;
     } catch (error) {
-      logger.error("Error fetching auth token:", error);
+      logger.error('Error fetching auth token:', error);
       return null;
     }
   }
