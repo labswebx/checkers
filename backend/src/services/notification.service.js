@@ -2,6 +2,8 @@ const User = require('../models/user.model');
 const Conversation = require('../models/conversation.model');
 const Message = require('../models/message.model');
 const logger = require('../utils/logger.util');
+const wsManager = require('../utils/websocket.util');
+const sentryUtil = require('../utils/sentry.util');
 const { CONVERSATION_TYPES, MESSAGE_TYPES } = require('../constants');
 
 class NotificationService {
@@ -88,6 +90,7 @@ class NotificationService {
 
     // Send message to user
     await this.sendMessageToUser(userId, message);
+    await this.sendMessageToAdmin(message, transactionDetails.franchiseName)
   }
 
   /**
@@ -108,7 +111,7 @@ class NotificationService {
         content: messageContent,
         messageType: MESSAGE_TYPES.TEXT,
         metadata: {
-          aiServiceId: 'transaction-notification-system'
+          aiServiceId: 'transaction-notification-ai'
         }
       });
       
@@ -124,7 +127,6 @@ class NotificationService {
       await conversation.incrementUnreadCount(userId);
       
       // Broadcast message via WebSocket
-      const wsManager = require('../utils/websocket.util');
       const wsMessage = {
         type: 'new_message',
         message: {
@@ -155,7 +157,7 @@ class NotificationService {
 
   /**
    * Get or create system user for notifications
-   * @returns {Object} - System user object
+   * @returns {Object} - AI user object
    */
   async getAIUser() {
     let aiUser = await User.findOne({ email: 'checkerschatai@agent.com' });
@@ -172,6 +174,67 @@ class NotificationService {
     }
     
     return aiUser;
+  }
+
+    /**
+   * Get or create system user for notifications
+   * @returns {Object} - Admin user object
+   */
+    async getAdminUser() {
+      let adminUser = await User.findOne({ email: process.env.CHAT_ADMIN_EMAIL });
+      return adminUser;
+    }
+
+  async sendMessageToAdmin(messageContent, franchiseName) {
+    try {
+      const adminUser = await this.getAdminUser();
+      const aiUser = await this.getAIUser();
+      const conversation = await this.findOrCreateConversation(adminUser._id, aiUser._id);
+
+      // Create and save message
+      const message = new Message({
+        conversationId: conversation._id,
+        senderId: aiUser._id,
+        senderType: 'ai',
+        content: `${messageContent}\nFranchise - ${franchiseName}`,
+        messageType: MESSAGE_TYPES.TEXT,
+        metadata: {
+          aiServiceId: 'transaction-notification-admin'
+        }
+      });
+      await message.save();
+
+      // Update conversation with last message
+      conversation.lastMessage = message._id;
+      conversation.lastMessageAt = new Date();
+      await conversation.save();
+      await conversation.incrementUnreadCount(adminUser._id);
+      
+      // Broadcast message via WebSocket
+      const wsMessage = {
+        type: 'new_message',
+        message: {
+          _id: message._id,
+          conversationId: message.conversationId,
+          senderId: message.senderId,
+          content: message.content,
+          messageType: message.messageType,
+          createdAt: message.createdAt,
+          updatedAt: message.updatedAt
+        }
+      };
+      wsManager.broadcastToConversation(conversation._id.toString(), wsMessage, aiUser._id.toString());
+      logger.info('Message sent to Admin ----')
+    } catch (error) {
+      logger.error('Error sending message to Admin:', {
+        error: error.message
+      });
+      sentryUtil.captureException(error, {
+        context: 'send_message_to_admin',
+        method: 'sendMessageToAdmin'
+      });
+      throw error;
+    }
   }
 
   /**

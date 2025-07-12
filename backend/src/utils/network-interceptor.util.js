@@ -299,6 +299,11 @@ class NetworkInterceptor {
               // await this.cleanupPendingDeposits();
             }
           } catch (error) {
+            sentryUtil.captureException(error, {
+              context: 'monitor_pending_deposits_failed_4',
+              method: 'monitorPendingDeposits',
+              transactionType: 'deposit'
+            });
             // await this.cleanupPendingDeposits();
           }
         }
@@ -459,7 +464,8 @@ class NetworkInterceptor {
                       }
                     );
 
-                    await this.fetchTranscript(transaction.orderID);
+                    let fetchTranscriptResponse = await this.fetchTranscript(transaction.orderID);
+                    logger.info(`fetchTranscriptResponse - ${fetchTranscriptResponse}, orderId - ${transaction.orderID}`)
                   } catch (transactionError) {
                     logger.error("Error processing individual transaction:", {
                       orderId: transaction?.orderID,
@@ -494,11 +500,15 @@ class NetworkInterceptor {
           this.isMonitoring = false;
           this.pendingDepositsBrowser = null;
           this.pendingDepositsPage = null;
+
+          logger.error('pending_deposits_browser_disconnected')
         });
 
         this.pendingDepositsPage.on("close", () => {
           this.isMonitoring = false;
           this.pendingDepositsPage = null;
+
+          logger.error(`pending_deposits_browser_closed`)
         });
 
         // Only proceed with login if we're not already on the right page
@@ -2858,8 +2868,12 @@ class NetworkInterceptor {
             lastTranscriptUpdate: new Date()
           }
         );
+        logger.error(`Fetch Transcript Error, inside if block, orderId - ${orderId}}`)
         return true;
+      } else {
+        logger.error(`Fetch Transcript Error, inside else block, orderId - ${orderId}, response - ${JSON.stringify(response)}`)
       }
+      logger.error(`Fetch Transcript Error, outside if-else block, orderId - ${orderId}, response - ${JSON.stringify(response)}`)
       return false;
     } catch (error) {
       if (error.response && error.response.status === 401) {

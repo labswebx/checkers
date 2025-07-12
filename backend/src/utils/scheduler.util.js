@@ -34,6 +34,7 @@ const depositListTask = new Task(
   null, // Run every hour
   async () => {
     try {
+      logger.info(`ending Deposits Task Restarted at - ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata',})}`)
       await networkInterceptor.monitorPendingDeposits();
     } catch (error) {
       logger.error('Error in deposit list monitoring task:', error);
