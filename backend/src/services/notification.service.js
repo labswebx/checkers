@@ -224,7 +224,6 @@ class NotificationService {
         }
       };
       wsManager.broadcastToConversation(conversation._id.toString(), wsMessage, aiUser._id.toString());
-      logger.info('Message sent to Admin ----')
     } catch (error) {
       logger.error('Error sending message to Admin:', {
         error: error.message

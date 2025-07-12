@@ -2868,7 +2868,7 @@ class NetworkInterceptor {
             lastTranscriptUpdate: new Date()
           }
         );
-        logger.error(`Fetch Transcript Error, inside if block, orderId - ${orderId}}`)
+        logger.error(`Fetch Transcript Success, inside if block, orderId - ${orderId}}`)
         return true;
       } else {
         logger.error(`Fetch Transcript Error, inside else block, orderId - ${orderId}, response - ${JSON.stringify(response)}`)

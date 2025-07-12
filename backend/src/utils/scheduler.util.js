@@ -31,7 +31,7 @@ class Task {
 // Create task instances
 const depositListTask = new Task(
   'Pending Deposits Monitor',
-  null, // Run every hour
+  '*/15 * * * *', // Run every 15 minutes
   async () => {
     try {
       logger.info(`ending Deposits Task Restarted at - ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata',})}`)
