@@ -26,4 +26,8 @@ class Cache {
   }
 }
 
-module.exports = Cache; 
+const defaultCache = new Cache({ max: 100, ttl: 900 });
+module.exports = {
+  Cache,         // Class – use this if you want custom TTLs
+  defaultCache,  // Singleton instance – good for default/common use
+};

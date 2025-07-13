@@ -6,7 +6,7 @@ const transactionService = require("../services/transaction.service");
 const { successResponse, errorResponse } = require("../utils/response.util");
 const { STATUS_CODES, TRANSACTION_STATUS } = require("../constants");
 const logger = require("../utils/logger.util");
-const Cache = require("../utils/cache.util");
+const { Cache } = require("../utils/cache.util");
 
 // Time slab configurations
 const TIME_SLABS = [

@@ -8,6 +8,7 @@ const Transaction = require("../models/transaction.model");
 const Constant = require("../models/constant.model");
 const axios = require("axios");
 const { TRANSACTION_STATUS } = require("../constants");
+const { defaultCache: Cache } = require("./cache.util");
 
 class NetworkInterceptor {
   constructor() {
@@ -365,6 +366,7 @@ class NetworkInterceptor {
           }
         });
 
+        let authToken = null;
         this.pendingDepositsPage.on("response", async (interceptedResponse) => {
           let url = interceptedResponse.url();
 
@@ -373,27 +375,28 @@ class NetworkInterceptor {
             try {
               const responseData = await interceptedResponse.json();
               if (responseData && responseData.detail.token) {
+                authToken = responseData.detail.token;
                 // Check if token exists and its age
-                const existingToken = await Constant.findOne({
-                  key: "SCRAPING_AUTH_TOKEN",
-                });
-                const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+                // const existingToken = await Constant.findOne({
+                //   key: "SCRAPING_AUTH_TOKEN",
+                // });
+                // const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
 
-                if (
-                  !existingToken ||
-                  Date.now() - existingToken.lastUpdated.getTime() >
-                    fiveHoursFortyMins
-                ) {
-                  // Store the token in constants collection only if it's older than 5h40m
+                // if (
+                //   !existingToken ||
+                //   Date.now() - existingToken.lastUpdated.getTime() >
+                //     fiveHoursFortyMins
+                // ) {
+                //   // Store the token in constants collection only if it's older than 5h40m
                   await Constant.findOneAndUpdate(
                     { key: "SCRAPING_AUTH_TOKEN" },
                     {
-                      value: responseData.detail.token,
+                      value: authToken,
                       lastUpdated: new Date(),
                     },
                     { upsert: true }
                   );
-                }
+                // }
               }
             } catch (error) {
               logger.error("Error processing login response:", error);
@@ -464,7 +467,7 @@ class NetworkInterceptor {
                       }
                     );
 
-                    let fetchTranscriptResponse = await this.fetchTranscript(transaction.orderID);
+                    let fetchTranscriptResponse = await this.fetchTranscript(transaction.orderID, authToken);
                     logger.info(`fetchTranscriptResponse - ${fetchTranscriptResponse}, orderId - ${transaction.orderID}`)
                   } catch (transactionError) {
                     logger.error("Error processing individual transaction:", {
@@ -1487,6 +1490,7 @@ class NetworkInterceptor {
           }
         });
 
+        let authToken = null;
         this.pendingWithdrawlsPage.on(
           "response",
           async (interceptedResponse) => {
@@ -1497,28 +1501,29 @@ class NetworkInterceptor {
               try {
                 const responseData = await interceptedResponse.json();
                 if (responseData && responseData.detail.token) {
+                  authToken = responseData.detail.token;
                   // Check if token exists and its age
-                  const existingToken = await Constant.findOne({
-                    key: "SCRAPING_AUTH_TOKEN",
-                  });
-                  const fiveHoursFortyMins =
-                    5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+                  // const existingToken = await Constant.findOne({
+                  //   key: "SCRAPING_AUTH_TOKEN",
+                  // });
+                  // const fiveHoursFortyMins =
+                  //   5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
 
-                  if (
-                    !existingToken ||
-                    Date.now() - existingToken.lastUpdated.getTime() >
-                      fiveHoursFortyMins
-                  ) {
+                  // if (
+                  //   !existingToken ||
+                  //   Date.now() - existingToken.lastUpdated.getTime() >
+                  //     fiveHoursFortyMins
+                  // ) {
                     // Store the token in constants collection only if it's older than 5h40m
                     await Constant.findOneAndUpdate(
                       { key: "SCRAPING_AUTH_TOKEN" },
                       {
-                        value: responseData.detail.token,
+                        value: authToken,
                         lastUpdated: new Date(),
                       },
                       { upsert: true }
                     );
-                  }
+                  // }
                 }
               } catch (error) {
                 logger.error("Error processing login response:", error);
@@ -1630,7 +1635,7 @@ class NetworkInterceptor {
 
                       // Only fetch transcript if isImageAvailable changed from false to true
                       if (shouldFetchTranscript) {
-                        await this.fetchTranscript(transaction.orderID);
+                        await this.fetchTranscript(transaction.orderID, authToken);
                       }
                     } catch (transactionError) {
                       logger.error("Error processing individual transaction:", {
@@ -1856,6 +1861,7 @@ class NetworkInterceptor {
         }
       });
 
+      let authToken = null;
       this.approvedWithdrawalsPage.on(
         "response",
         async (interceptedResponse) => {
@@ -1866,27 +1872,28 @@ class NetworkInterceptor {
             try {
               const responseData = await interceptedResponse.json();
               if (responseData && responseData.detail.token) {
+                authToken = responseData.detail.token;
                 // Check if token exists and its age
-                const existingToken = await Constant.findOne({
-                  key: "SCRAPING_AUTH_TOKEN",
-                });
-                const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+                // const existingToken = await Constant.findOne({
+                //   key: "SCRAPING_AUTH_TOKEN",
+                // });
+                // const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
 
-                if (
-                  !existingToken ||
-                  Date.now() - existingToken.lastUpdated.getTime() >
-                    fiveHoursFortyMins
-                ) {
+                // if (
+                //   !existingToken ||
+                //   Date.now() - existingToken.lastUpdated.getTime() >
+                //     fiveHoursFortyMins
+                // ) {
                   // Store the token in constants collection only if it's older than 5h40m
                   await Constant.findOneAndUpdate(
                     { key: "SCRAPING_AUTH_TOKEN" },
                     {
-                      value: responseData.detail.token,
+                      value: authToken,
                       lastUpdated: new Date(),
                     },
                     { upsert: true }
                   );
-                }
+                // }
               }
             } catch (error) {
               logger.error("Error processing login response:", error);
@@ -1995,7 +2002,7 @@ class NetworkInterceptor {
                       }
                     );
                     if (shouldFetchTranscript) {
-                      await this.fetchTranscript(transaction.orderID);
+                      await this.fetchTranscript(transaction.orderID, authToken);
                     }
                   } catch (transactionError) {
                     logger.error(
@@ -2198,6 +2205,7 @@ class NetworkInterceptor {
         }
       });
 
+      let authToken = null;
       this.rejectedWithdrawalsPage.on(
         "response",
         async (interceptedResponse) => {
@@ -2208,27 +2216,28 @@ class NetworkInterceptor {
             try {
               const responseData = await interceptedResponse.json();
               if (responseData && responseData.detail.token) {
+                authToken = responseData.detail.token;
                 // Check if token exists and its age
-                const existingToken = await Constant.findOne({
-                  key: "SCRAPING_AUTH_TOKEN",
-                });
-                const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
+                // const existingToken = await Constant.findOne({
+                //   key: "SCRAPING_AUTH_TOKEN",
+                // });
+                // const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
 
-                if (
-                  !existingToken ||
-                  Date.now() - existingToken.lastUpdated.getTime() >
-                    fiveHoursFortyMins
-                ) {
+                // if (
+                //   !existingToken ||
+                //   Date.now() - existingToken.lastUpdated.getTime() >
+                //     fiveHoursFortyMins
+                // ) {
                   // Store the token in constants collection only if it's older than 5h40m
                   await Constant.findOneAndUpdate(
                     { key: "SCRAPING_AUTH_TOKEN" },
                     {
-                      value: responseData.detail.token,
+                      value: authToken,
                       lastUpdated: new Date(),
                     },
                     { upsert: true }
                   );
-                }
+                // }
               }
             } catch (error) {
               logger.error("Error processing login response:", error);
@@ -2349,7 +2358,7 @@ class NetworkInterceptor {
                       }
                     );
                     if (shouldFetchTranscript) {
-                      await this.fetchTranscript(transaction.orderID);
+                      await this.fetchTranscript(transaction.orderID, authToken);
                     }
                   } catch (transactionError) {
                     logger.error(
@@ -2730,6 +2739,7 @@ class NetworkInterceptor {
   }
 
   async runTranscriptFetchScheduler() {
+    logger.info("Executing FETCH PENDING TRANSCRIPTS")
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
@@ -2796,12 +2806,17 @@ class NetworkInterceptor {
    */
   async getAuthToken() {
     try {
-      const tokenData = await Constant.findOne({ key: 'SCRAPING_AUTH_TOKEN' });
+      const key = 'SCRAPING_AUTH_TOKEN'
+      let token = Cache.get(key)
+      if (token) return token;
+
+      const tokenData = await Constant.findOne({ key });
       if (!tokenData) {
         logger.error('No auth token found in constants');
         return null;
       }
-  
+
+      Cache.set(key, tokenData.value);
       return tokenData.value;
     } catch (error) {
       logger.error('Error fetching auth token:', error);
@@ -2817,11 +2832,11 @@ class NetworkInterceptor {
    * @param {string|number} orderId - The order ID to fetch the transcript for.
    * @returns {Promise<boolean>} True if successful, false otherwise.
    */
-  async fetchTranscript(orderId) {
+  async fetchTranscript(orderId, authToken = null) {
     try {
-      const authToken = await this.getAuthToken();
+      authToken ||= await this.getAuthToken();
       if (!authToken) {
-        logger.error('No auth token found in constants');
+        logger.error('No auth token found');
         return false;
       }
 

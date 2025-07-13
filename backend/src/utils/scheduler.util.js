@@ -29,12 +29,11 @@ class Task {
 }
 
 // Create task instances
-const depositListTask = new Task(
+const pendingDepositsTask = new Task(
   'Pending Deposits Monitor',
-  '*/15 * * * *', // Run every 15 minutes
+  '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
-      logger.info(`ending Deposits Task Restarted at - ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata',})}`)
       await networkInterceptor.monitorPendingDeposits();
     } catch (error) {
       logger.error('Error in deposit list monitoring task:', error);
@@ -48,9 +47,9 @@ const depositListTask = new Task(
   }
 );
 
-const recentDepositsTask = new Task(
+const approvedDepositsTask = new Task(
   'Approved Deposits Monitor',
-  null, // Run every hour
+  '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
       await networkInterceptor.monitorRecentDeposits();
@@ -63,7 +62,7 @@ const recentDepositsTask = new Task(
 
 const rejectedDepositsTask = new Task(
   'Rejected Deposits Monitor',
-  null, // Run every hour
+  '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
       await networkInterceptor.monitorRejectedDeposits();
@@ -76,7 +75,7 @@ const rejectedDepositsTask = new Task(
 
 const pendingWithdrawalsTask = new Task(
   'Pending Withdraws Monitor',
-  null, // Run every hour
+  '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
       await networkInterceptor.monitorPendingWithdrawals();
@@ -89,7 +88,7 @@ const pendingWithdrawalsTask = new Task(
 
 const approvedWithdrawalsTask = new Task(
   'Approved Withdraws Monitor',
-  null, // Run every hour
+  '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
       await networkInterceptor.monitorApprovedWithdrawals();
@@ -102,7 +101,7 @@ const approvedWithdrawalsTask = new Task(
 
 const rejectedWithdrawalsTask = new Task(
   'Rejected Withdraws Monitor',
-  null, // Run every hour
+  '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
       await networkInterceptor.monitorRejectedWithdrawals();
@@ -115,7 +114,7 @@ const rejectedWithdrawalsTask = new Task(
 
 const fetchPendingTranscripts = new Task(
   'Fetch Pending Transcripts',
-  '0 * * * *',
+  '*/15 * * * *', // Runs every 15 minutes
   async () => {
     try {
       await networkInterceptor.runTranscriptFetchScheduler();
@@ -148,7 +147,7 @@ class SchedulerUtil {
       await sessionUtil.cleanupExpiredSessions();
     }));
 
-    // Transcript fetch every 30 minutes
+    // Transcript fetch every 15 minutes
     this.jobs.set('transcriptFetch', cron.schedule('*/15 * * * *', async () => {
       await fetchPendingTranscripts.start();
     }));    
@@ -160,13 +159,12 @@ class SchedulerUtil {
 
     // Start tasks once with proper error handling
     try {
-      await depositListTask.start();
-      await recentDepositsTask.start();
+      await pendingDepositsTask.start();
+      await approvedDepositsTask.start();
       await rejectedDepositsTask.start();
       await pendingWithdrawalsTask.start();
       await approvedWithdrawalsTask.start();
       await rejectedWithdrawalsTask.start();
-      await fetchPendingTranscripts.start();
     } catch (error) {
       logger.error('Error starting scheduled jobs:', error);
       throw error;
@@ -191,8 +189,8 @@ class SchedulerUtil {
 // Export both the scheduler util instance and the tasks
 module.exports = {
   schedulerUtil: new SchedulerUtil(),
-  depositListTask,
-  recentDepositsTask,
+  pendingDepositsTask,
+  approvedDepositsTask,
   rejectedDepositsTask,
   pendingWithdrawalsTask,
   approvedWithdrawalsTask,
