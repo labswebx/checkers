@@ -10,14 +10,12 @@
 - [ ] Text formatting - like bold, italics, colors etc etc. Along with this, give option to copy the details form text only
 
 ### Backend / Frontend Pending
-- [ ] In the perPage component in the Pagination, backend gives BSONObjectTooLarge error if pagination is set to 50 or more, fix this.
 - [ ] Create a deploy.sh file so that whenever we deploy on server, we just have to run that file. It will install the packages, close running PORTS from NGINX, run mongod & run the server. Basically it will be the one file to run for deployment, no need to install packages & all
 - [ ] Setup automatic env detection on Frontend so that we don't have to change the URL everytime we deploy
 - [ ] Show proper error message in case of Login & register. Try register with duplicate email or try login with agent email.
 
 - [ ] Remove auth from scraping APIs
 - [ ] Backend code is not properly modularised. All the logic is in routes or controllers.
-- [ ] In the network-interceptor.js file, for rejected & approved deposits & withdraws - The response has a lot of items & hence it takes time to process them all. FIrst response is in progress and then we get another response, and hence because of this the older response closes & the later transactions status is not updatyed
 
 ### Android Completed
 - [x] Arrow button on right side of chat to scroll to bottom
@@ -52,3 +50,5 @@
 - [x] On the pending withdraw page, the count is not correct in the timer slab. If any transaction takes more than 20 mins, it's not coming in the 20-30 min wala slab.
 - [x] Keep a track of the users. Who all visited the website, if not this, atleast how many unique users visited the website. And their duration and the page they visited as well.
 - [x] Search not working properly on the UI
+- [x] In the perPage component in the Pagination, backend gives BSONObjectTooLarge error if pagination is set to 50 or more, fix this.
+- [x] In the network-interceptor.js file, for rejected & approved deposits & withdraws - The response has a lot of items & hence it takes time to process them all. FIrst response is in progress and then we get another response, and hence because of this the older response closes & the later transactions status is not updatyed

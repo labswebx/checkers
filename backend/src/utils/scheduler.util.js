@@ -17,20 +17,25 @@ class Task {
     try {
       // Run the task immediately once
       await this.handler();
+      // Schedule the cron job
+      this.job = cron.schedule(this.cronExpression, this.handler);
+      this.job.start();
     } catch (error) {
       logger.error(`Error in task ${this.name.toUpperCase()}:`, error);
     }
   }
 
   stop() {
-    // No need to stop since we're not using cron anymore
+    if (this.job) {
+      this.job.stop();
+    }
     logger.info(`Task ${this.name} stopped`);
   }
 }
 
 // Create task instances
 const pendingDepositsTask = new Task(
-  'Pending Deposits Monitor',
+  'pendingDepositsTask',
   '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
@@ -48,7 +53,7 @@ const pendingDepositsTask = new Task(
 );
 
 const approvedDepositsTask = new Task(
-  'Approved Deposits Monitor',
+  'approvedDepositsTask',
   '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
@@ -61,7 +66,7 @@ const approvedDepositsTask = new Task(
 );
 
 const rejectedDepositsTask = new Task(
-  'Rejected Deposits Monitor',
+  'rejectedDepositsTask',
   '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
@@ -74,7 +79,7 @@ const rejectedDepositsTask = new Task(
 );
 
 const pendingWithdrawalsTask = new Task(
-  'Pending Withdraws Monitor',
+  'pendingWithdrawalsTask',
   '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
@@ -87,7 +92,7 @@ const pendingWithdrawalsTask = new Task(
 );
 
 const approvedWithdrawalsTask = new Task(
-  'Approved Withdraws Monitor',
+  'approvedWithdrawalsTask',
   '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
@@ -100,7 +105,7 @@ const approvedWithdrawalsTask = new Task(
 );
 
 const rejectedWithdrawalsTask = new Task(
-  'Rejected Withdraws Monitor',
+  'rejectedWithdrawalsTask',
   '0 */5 * * *', // Run every 5 hours
   async () => {
     try {

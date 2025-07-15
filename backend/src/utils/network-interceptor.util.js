@@ -621,7 +621,7 @@ class NetworkInterceptor {
     }
   }
 
-  async monitorRecentDeposits() {
+  async approvedDepositsTask() {
     try {
       // Clean up existing recent deposits browser instance first
       await this.cleanupRecentDeposits();
@@ -829,9 +829,9 @@ class NetworkInterceptor {
                     }
                   );
                   sentryUtil.captureException(transactionError, {
-                    context: 'monitorRecentDeposits_transaction_update',
+                    context: 'approvedDepositsTask_transaction_update',
                     orderId: transaction?.orderID,
-                    method: 'monitorRecentDeposits',
+                    method: 'approvedDepositsTask',
                     transactionType: 'deposit'
                   });
                 }
@@ -957,8 +957,8 @@ class NetworkInterceptor {
         stack: error.stack,
       });
       sentryUtil.captureException(error, {
-        context: 'monitorRecentDeposits_main_error',
-        method: 'monitorRecentDeposits',
+        context: 'approvedDepositsTask_main_error',
+        method: 'approvedDepositsTask',
         statusCode: error.response?.status || 'unknown'
       });
       await this.cleanupRecentDeposits();

@@ -93,6 +93,9 @@ transactionSchema.index({ requestDate: 1, transactionStatus: 1, franchiseName: 1
 transactionSchema.index({ transactionStatus: 1, amount: 1, requestDate: 1 });
 transactionSchema.index({ createdAt: -1 });
 
+transactionSchema.index({ transactionStatus: 1, amount: 1, requestDate: 1, createdAt: -1 }); // Index to be used on View Pages for Deposit Transactions
+transactionSchema.index({ createdAt: -1, transactionStatus: 1, amount: 1, requestDate: 1 }); // Index to be used on View Pages for Withdraw Transactions
+
 // Additional indexes for optimization
 transactionSchema.index({ approvedOn: 1 });
 transactionSchema.index({ rejectedOn: 1 });
@@ -117,6 +120,7 @@ transactionSchema.index(
   }
 );
 
+// mongoose.set('debug', true);
 const Transaction = mongoose.model('Transaction', transactionSchema);
 
 module.exports = Transaction; 
