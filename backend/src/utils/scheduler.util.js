@@ -57,7 +57,7 @@ const approvedDepositsTask = new Task(
   '0 */5 * * *', // Run every 5 hours
   async () => {
     try {
-      await networkInterceptor.monitorRecentDeposits();
+      await networkInterceptor.monitorApprovedDeposits();
     } catch (error) {
       logger.error('Error in recent deposits monitoring task:', error);
       await networkInterceptor.cleanup();
