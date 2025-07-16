@@ -69,25 +69,14 @@ class NetworkInterceptor {
     return null;
   }
 
-  async initialize() {
-    try {
-      const executablePath = await this.findChromePath();
-      if (!executablePath) {
-        throw new Error("No valid Chrome installation found");
-      }
-
-      // Close existing browser if it exists
-      if (this.browser) {
-        try {
-          await this.browser.close();
-        } catch (error) {}
-        this.browser = null;
-        // this.page = null;
-      }
-
-      this.browser = await puppeteer.launch({
+  /**
+     * Helper method to launch a new browser with standard configurations.
+     * @returns {Promise<puppeteer.Browser>} A Puppeteer Browser instance.
+     */
+    async _launchBrowser() {
+      return await puppeteer.launch({
         headless: "new",
-        executablePath,
+        executablePath: this.executablePath,
         product: "chrome",
         args: [
           "--no-sandbox",
@@ -108,6 +97,40 @@ class NetworkInterceptor {
         defaultViewport: { width: 1920, height: 1080 },
         ignoreHTTPSErrors: true,
       });
+    }
+
+  /**
+   * Helper method to set up a new page with common settings.
+   * @param {puppeteer.Browser} browser - The browser instance.
+   * @returns {Promise<puppeteer.Page>} A Puppeteer Page instance.
+   */
+  async _setupPage(browser) {
+    const page = await browser.newPage();
+    page.setDefaultNavigationTimeout(180000); // 3 minutes
+    page.setDefaultTimeout(180000);
+    await page.setUserAgent(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    );
+    return page;
+  }
+
+  async initialize() {
+    try {
+      const executablePath = await this.findChromePath();
+      if (!executablePath) {
+        throw new Error("No valid Chrome installation found");
+      }
+
+      // Close existing browser if it exists
+      if (this.browser) {
+        try {
+          await this.browser.close();
+        } catch (error) {}
+        this.browser = null;
+        // this.page = null;
+      }
+
+      this.browser = await this._launchBrowser();
 
       // Handle browser disconnection
       this.browser.on("disconnected", () => {
@@ -261,29 +284,7 @@ class NetworkInterceptor {
       await this.cleanupPendingDeposits();
 
       const executablePath = await this.findChromePath();
-      this.pendingDepositsBrowser = await puppeteer.launch({
-        headless: "new",
-        executablePath,
-        product: "chrome",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--window-size=1920,1080",
-          "--disable-web-security",
-          "--disable-features=IsolateOrigins,site-per-process",
-          "--ignore-certificate-errors",
-          "--ignore-certificate-errors-spki-list",
-          "--disable-blink-features=AutomationControlled",
-          "--disable-infobars",
-          "--disable-notifications",
-          "--disable-popup-blocking",
-          "--disable-extensions",
-          "--disable-gpu",
-        ],
-        defaultViewport: { width: 1920, height: 1080 },
-        ignoreHTTPSErrors: true,
-      });
+      this.pendingDepositsBrowser = await this._launchBrowser();
 
       this.pendingDepositsPage = await this.pendingDepositsBrowser.newPage();
 
@@ -315,29 +316,7 @@ class NetworkInterceptor {
 
         // Set a longer default timeout
         if (!this.pendingDepositsBrowser) {
-          this.pendingDepositsBrowser = await puppeteer.launch({
-            headless: "new",
-            executablePath,
-            product: "chrome",
-            args: [
-              "--no-sandbox",
-              "--disable-setuid-sandbox",
-              "--disable-dev-shm-usage",
-              "--window-size=1920,1080",
-              "--disable-web-security",
-              "--disable-features=IsolateOrigins,site-per-process",
-              "--ignore-certificate-errors",
-              "--ignore-certificate-errors-spki-list",
-              "--disable-blink-features=AutomationControlled",
-              "--disable-infobars",
-              "--disable-notifications",
-              "--disable-popup-blocking",
-              "--disable-extensions",
-              "--disable-gpu",
-            ],
-            defaultViewport: { width: 1920, height: 1080 },
-            ignoreHTTPSErrors: true,
-          });
+          this.pendingDepositsBrowser = await this._launchBrowser();
         }
         if (!this.pendingDepositsPage) {
           this.pendingDepositsPage =
@@ -627,57 +606,13 @@ class NetworkInterceptor {
       await this.cleanupRecentDeposits();
 
       const executablePath = await this.findChromePath();
-      this.recentDepositsBrowser = await puppeteer.launch({
-        headless: "new",
-        executablePath,
-        product: "chrome",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--window-size=1920,1080",
-          "--disable-web-security",
-          "--disable-features=IsolateOrigins,site-per-process",
-          "--ignore-certificate-errors",
-          "--ignore-certificate-errors-spki-list",
-          "--disable-blink-features=AutomationControlled",
-          "--disable-infobars",
-          "--disable-notifications",
-          "--disable-popup-blocking",
-          "--disable-extensions",
-          "--disable-gpu",
-        ],
-        defaultViewport: { width: 1920, height: 1080 },
-        ignoreHTTPSErrors: true,
-      });
+      this.recentDepositsBrowser = await this._launchBrowser();
 
       this.recentDepositsPage = await this.recentDepositsBrowser.newPage();
 
       // Set a longer default timeout
       if (!this.recentDepositsBrowser) {
-        this.recentDepositsBrowser = await puppeteer.launch({
-          headless: "new",
-          executablePath,
-          product: "chrome",
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--window-size=1920,1080",
-            "--disable-web-security",
-            "--disable-features=IsolateOrigins,site-per-process",
-            "--ignore-certificate-errors",
-            "--ignore-certificate-errors-spki-list",
-            "--disable-blink-features=AutomationControlled",
-            "--disable-infobars",
-            "--disable-notifications",
-            "--disable-popup-blocking",
-            "--disable-extensions",
-            "--disable-gpu",
-          ],
-          defaultViewport: { width: 1920, height: 1080 },
-          ignoreHTTPSErrors: true,
-        });
+        this.recentDepositsBrowser = await this._launchBrowser();
       }
       if (!this.recentDepositsPage) {
         this.recentDepositsPage = await this.recentDepositsBrowser.newPage();
@@ -972,29 +907,7 @@ class NetworkInterceptor {
       await this.cleanupRejectedDeposits();
 
       const executablePath = await this.findChromePath();
-      this.rejectedDepositsBrowser = await puppeteer.launch({
-        headless: "new",
-        executablePath,
-        product: "chrome",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--window-size=1920,1080",
-          "--disable-web-security",
-          "--disable-features=IsolateOrigins,site-per-process",
-          "--ignore-certificate-errors",
-          "--ignore-certificate-errors-spki-list",
-          "--disable-blink-features=AutomationControlled",
-          "--disable-infobars",
-          "--disable-notifications",
-          "--disable-popup-blocking",
-          "--disable-extensions",
-          "--disable-gpu",
-        ],
-        defaultViewport: { width: 1920, height: 1080 },
-        ignoreHTTPSErrors: true,
-      });
+      this.rejectedDepositsBrowser = await this._launchBrowser();
 
       this.rejectedDepositsPage = await this.rejectedDepositsBrowser.newPage();
       await this.rejectedDepositsPage.setRequestInterception(true);
@@ -1389,29 +1302,7 @@ class NetworkInterceptor {
       await this.cleanupPendingWithdrawals();
 
       const executablePath = await this.findChromePath();
-      this.pendingWithdrawlsBrowser = await puppeteer.launch({
-        headless: "new",
-        executablePath,
-        product: "chrome",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--window-size=1920,1080",
-          "--disable-web-security",
-          "--disable-features=IsolateOrigins,site-per-process",
-          "--ignore-certificate-errors",
-          "--ignore-certificate-errors-spki-list",
-          "--disable-blink-features=AutomationControlled",
-          "--disable-infobars",
-          "--disable-notifications",
-          "--disable-popup-blocking",
-          "--disable-extensions",
-          "--disable-gpu",
-        ],
-        defaultViewport: { width: 1920, height: 1080 },
-        ignoreHTTPSErrors: true,
-      });
+      this.pendingWithdrawlsBrowser = await this._launchBrowser();
 
       this.pendingWithdrawlsPage =
         await this.pendingWithdrawlsBrowser.newPage();
@@ -1439,29 +1330,7 @@ class NetworkInterceptor {
 
         // Set a longer default timeout
         if (!this.pendingWithdrawlsBrowser) {
-          this.pendingWithdrawlsBrowser = await puppeteer.launch({
-            headless: "new",
-            executablePath,
-            product: "chrome",
-            args: [
-              "--no-sandbox",
-              "--disable-setuid-sandbox",
-              "--disable-dev-shm-usage",
-              "--window-size=1920,1080",
-              "--disable-web-security",
-              "--disable-features=IsolateOrigins,site-per-process",
-              "--ignore-certificate-errors",
-              "--ignore-certificate-errors-spki-list",
-              "--disable-blink-features=AutomationControlled",
-              "--disable-infobars",
-              "--disable-notifications",
-              "--disable-popup-blocking",
-              "--disable-extensions",
-              "--disable-gpu",
-            ],
-            defaultViewport: { width: 1920, height: 1080 },
-            ignoreHTTPSErrors: true,
-          });
+          this.pendingWithdrawlsBrowser = await this._launchBrowser();
         }
         if (!this.pendingWithdrawlsPage) {
           this.pendingWithdrawlsPage =
@@ -1781,58 +1650,14 @@ class NetworkInterceptor {
       await this.cleanupApprovedWithdrawals();
 
       const executablePath = await this.findChromePath();
-      this.approvedWithdrawalsBrowser = await puppeteer.launch({
-        headless: "new",
-        executablePath,
-        product: "chrome",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--window-size=1920,1080",
-          "--disable-web-security",
-          "--disable-features=IsolateOrigins,site-per-process",
-          "--ignore-certificate-errors",
-          "--ignore-certificate-errors-spki-list",
-          "--disable-blink-features=AutomationControlled",
-          "--disable-infobars",
-          "--disable-notifications",
-          "--disable-popup-blocking",
-          "--disable-extensions",
-          "--disable-gpu",
-        ],
-        defaultViewport: { width: 1920, height: 1080 },
-        ignoreHTTPSErrors: true,
-      });
+      this.approvedWithdrawalsBrowser = await this._launchBrowser();
 
       this.approvedWithdrawalsPage =
         await this.approvedWithdrawalsBrowser.newPage();
 
       // Set a longer default timeout
       if (!this.approvedWithdrawalsBrowser) {
-        this.approvedWithdrawalsBrowser = await puppeteer.launch({
-          headless: "new",
-          executablePath,
-          product: "chrome",
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--window-size=1920,1080",
-            "--disable-web-security",
-            "--disable-features=IsolateOrigins,site-per-process",
-            "--ignore-certificate-errors",
-            "--ignore-certificate-errors-spki-list",
-            "--disable-blink-features=AutomationControlled",
-            "--disable-infobars",
-            "--disable-notifications",
-            "--disable-popup-blocking",
-            "--disable-extensions",
-            "--disable-gpu",
-          ],
-          defaultViewport: { width: 1920, height: 1080 },
-          ignoreHTTPSErrors: true,
-        });
+        this.approvedWithdrawalsBrowser = await this._launchBrowser();
       }
       if (!this.approvedWithdrawalsPage) {
         this.approvedWithdrawalsPage =
@@ -2164,29 +1989,7 @@ class NetworkInterceptor {
       await this.cleanupRejectedWithdrawals();
 
       const executablePath = await this.findChromePath();
-      this.rejectedWithdrawalsBrowser = await puppeteer.launch({
-        headless: "new",
-        executablePath,
-        product: "chrome",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--window-size=1920,1080",
-          "--disable-web-security",
-          "--disable-features=IsolateOrigins,site-per-process",
-          "--ignore-certificate-errors",
-          "--ignore-certificate-errors-spki-list",
-          "--disable-blink-features=AutomationControlled",
-          "--disable-infobars",
-          "--disable-notifications",
-          "--disable-popup-blocking",
-          "--disable-extensions",
-          "--disable-gpu",
-        ],
-        defaultViewport: { width: 1920, height: 1080 },
-        ignoreHTTPSErrors: true,
-      });
+      this.rejectedWithdrawalsBrowser = await this._launchBrowser();
 
       this.rejectedWithdrawalsPage =
         await this.rejectedWithdrawalsBrowser.newPage();
