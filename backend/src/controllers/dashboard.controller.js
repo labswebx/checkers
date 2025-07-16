@@ -34,40 +34,42 @@ const getDashboardStats = async (req, res) => {
 
     // Get transaction statistics for last 24 hours
     const totalTransactions = await Transaction.countDocuments({
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
     });
     const pendingTransactions = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.PENDING,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $gte: 0 },
     });
     const approvedTransactions = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.SUCCESS,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
+      amount: { $gte: 0 },
     });
     const rejectedTransactions = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.REJECTED,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
+      amount: { $gte: 0 },
     });
 
     // Get withdrawal statistics for last 24 hours
     const totalWithdraws = await Transaction.countDocuments({
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $lt: 0 },
     });
     const pendingWithdraws = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.PENDING,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $lt: 0 },
     });
     const approvedWithdraws = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.SUCCESS,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $lt: 0 },
     });
     const rejectedWithdraws = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.REJECTED,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $lt: 0 },
     });
 
@@ -75,7 +77,7 @@ const getDashboardStats = async (req, res) => {
     const totalAmountStats = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: todayStart, $lte: endOfToday },
+          requestDate: { $gte: todayStart, $lte: endOfToday },
           amount: { $gte: 0 },
         },
       },
@@ -91,7 +93,7 @@ const getDashboardStats = async (req, res) => {
     const withdrawAmountStats = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: todayStart, $lte: endOfToday },
+          requestDate: { $gte: todayStart, $lte: endOfToday },
           amount: { $lt: 0 },
         },
       },
@@ -107,7 +109,7 @@ const getDashboardStats = async (req, res) => {
     const hourlyTrends = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: todayStart, $lte: endOfToday },
+          requestDate: { $gte: todayStart, $lte: endOfToday },
         },
       },
       {
@@ -132,7 +134,7 @@ const getDashboardStats = async (req, res) => {
       {
         $match: {
           transactionStatus: TRANSACTION_STATUS.SUCCESS,
-          createdAt: { $gte: todayStart, $lte: endOfToday },
+          requestDate: { $gte: todayStart, $lte: endOfToday },
         },
       },
       {
