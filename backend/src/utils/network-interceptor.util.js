@@ -35,22 +35,6 @@ class NetworkInterceptor {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async retryWithBackoff(operation, maxRetries = 3, initialDelay = 1000) {
-    let retries = 0;
-    while (retries < maxRetries) {
-      try {
-        return await operation();
-      } catch (error) {
-        retries++;
-        if (retries === maxRetries) {
-          throw error;
-        }
-        const delay = initialDelay * Math.pow(2, retries - 1);
-        await this.sleep(delay);
-      }
-    }
-  }
-
   async findChromePath() {
     const possiblePaths = [
       process.env.PUPPETEER_EXECUTABLE_PATH,
@@ -153,8 +137,8 @@ class NetworkInterceptor {
   }
 
   /**
-     * Handles the response from the login API to store the auth token.
-     * @param {puppeteer.Response} interceptedResponse - The Puppeteer intercepted response.
+   * Handles the response from the login API to store the auth token.
+   * @param {puppeteer.Response} interceptedResponse - The Puppeteerintercepted response.
      */
     async _handleLoginResponse(interceptedResponse, includeFiveFortyMinutesCheck = false) {
       if (interceptedResponse.url().includes("/accounts/login")) {
@@ -225,134 +209,6 @@ class NetworkInterceptor {
     }
   }
 
-  isDepositApprovalResponse(url) {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-
-      // Match deposit approval endpoints
-      const isMatch = pathname.includes("/admin/deposit/deposit-approval");
-
-      logger.debug("URL pattern check:", {
-        url,
-        pathname,
-        isMatch,
-      });
-
-      return isMatch;
-    } catch (error) {
-      logger.error("Error checking URL pattern:", {
-        url,
-        error: error.message,
-      });
-      return false;
-    }
-  }
-
-  async processDepositResponse(responseData) {
-    try {
-      if (!responseData) {
-        return;
-      }
-
-      // Extract transactions from response
-      let transactions = [];
-      if (Array.isArray(responseData)) {
-        transactions = responseData;
-      } else if (responseData.data) {
-        transactions = Array.isArray(responseData.data)
-          ? responseData.data
-          : responseData.data.rows || [];
-      } else if (responseData.rows) {
-        transactions = responseData.rows;
-      }
-
-      if (!transactions.length) {
-        return;
-      }
-
-      // Process each transaction
-      for (const transaction of transactions) {
-        try {
-          // Map and store transaction
-          const mappedData = await transactionService.mapTransactionData(
-            transaction,
-            "deposit",
-            process.env.ADMIN_USER_ID
-          );
-
-          const processResult = await transactionService.processTransactions(
-            [mappedData],
-            "deposit"
-          );
-        } catch (error) {
-          logger.error("Error processing transaction:", {
-            transaction: JSON.stringify(transaction).substring(0, 500),
-            error: error.message,
-            stack: error.stack,
-          });
-        }
-      }
-    } catch (error) {
-      logger.error("Error in deposit response processing:", {
-        error: error.message,
-        stack: error.stack,
-      });
-      throw error;
-    }
-  }
-
-  async navigateWithRetry(url, maxRetries = 3, page = null) {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        if (attempt > 1) {
-          await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
-        }
-
-        // Use the provided page or default to this.pendingDepositsPage if available
-        const targetPage = page || this.pendingDepositsPage;
-        if (!targetPage) {
-          throw new Error(
-            "No Puppeteer page instance available for navigation"
-          );
-        }
-
-        const response = await targetPage.goto(url, {
-          waitUntil: "networkidle2",
-          timeout: 90000,
-        });
-
-        if (response && response.ok()) {
-          return response;
-        }
-      } catch (error) {
-        logger.error(`Navigation attempt ${attempt} failed:`, {
-          url,
-          error: error.message,
-        });
-
-        if (attempt === maxRetries) {
-          throw error;
-        }
-      }
-    }
-    throw new Error(
-      `Failed to navigate to ${url} after ${maxRetries} attempts`
-    );
-  }
-
-  async ensureLogin() {
-    try {
-      await this.navigateWithRetry(`${process.env.SCRAPING_WEBSITE_URL}/login`);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    } catch (error) {
-      logger.error("Login failed:", {
-        error: error.message,
-        stack: error.stack,
-      });
-      throw error;
-    }
-  }
 
   async monitorPendingDeposits() {
     try {
