@@ -45,6 +45,7 @@ const transactionSchema = new mongoose.Schema({
   },
   approvedBy: String,
   franchiseName: String,
+  truncatedFranchiseName: String,
   remarks: String,
   bonusIncluded: {
     type: Number,
@@ -95,6 +96,8 @@ transactionSchema.index({ createdAt: -1 });
 
 transactionSchema.index({ transactionStatus: 1, amount: 1, requestDate: 1, createdAt: -1 }); // Index to be used on View Pages for Deposit Transactions
 transactionSchema.index({ createdAt: -1, transactionStatus: 1, amount: 1, requestDate: 1 }); // Index to be used on View Pages for Withdraw Transactions
+transactionSchema.index({ truncatedFranchiseName: 1 });
+transactionSchema.index({ requestDate: 1, transactionStatus: 1, createdAt: -1 })
 
 // Additional indexes for optimization
 transactionSchema.index({ approvedOn: 1 });

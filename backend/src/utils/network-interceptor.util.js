@@ -445,6 +445,7 @@ class NetworkInterceptor {
                       firstDeposit: transaction.firstDeposit,
                       approvedBy: transaction.approvedBy,
                       franchiseName: transaction.franchiseName,
+                      truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                       remarks: transaction.remarks,
                       bonusIncluded: transaction.bonusIncluded,
                       bonusExcluded: transaction.bonusExcluded,
@@ -798,6 +799,7 @@ class NetworkInterceptor {
                     firstDeposit: transaction.firstDeposit,
                     approvedBy: transaction.approvedBy,
                     franchiseName: transaction.franchiseName,
+                    truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                     remarks: transaction.remarks,
                     bonusIncluded: transaction.bonusIncluded,
                     bonusExcluded: transaction.bonusExcluded,
@@ -1107,6 +1109,7 @@ class NetworkInterceptor {
                     firstDeposit: transaction.firstDeposit,
                     approvedBy: transaction.approvedBy,
                     franchiseName: transaction.franchiseName,
+                    truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                     remarks: transaction.remarks,
                     bonusIncluded: transaction.bonusIncluded,
                     bonusExcluded: transaction.bonusExcluded,
@@ -1568,6 +1571,7 @@ class NetworkInterceptor {
                         firstDeposit: transaction.firstDeposit,
                         approvedBy: transaction.approvedBy,
                         franchiseName: transaction.franchiseName,
+                        truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                         remarks: transaction.remarks,
                         bonusIncluded: transaction.bonusIncluded,
                         bonusExcluded: transaction.bonusExcluded,
@@ -1943,6 +1947,7 @@ class NetworkInterceptor {
                       firstDeposit: transaction.firstDeposit,
                       approvedBy: transaction.approvedBy,
                       franchiseName: transaction.franchiseName,
+                      truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                       remarks: transaction.remarks,
                       bonusIncluded: transaction.bonusIncluded,
                       bonusExcluded: transaction.bonusExcluded,
@@ -2294,6 +2299,7 @@ class NetworkInterceptor {
                       firstDeposit: transaction.firstDeposit,
                       approvedBy: transaction.approvedBy,
                       franchiseName: transaction.franchiseName,
+                      truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                       remarks: transaction.remarks,
                       bonusIncluded: transaction.bonusIncluded,
                       bonusExcluded: transaction.bonusExcluded,
@@ -2916,7 +2922,7 @@ class NetworkInterceptor {
       });
       
       for (const [index, transaction] of pendingTransactions.entries()) {
-        const franchiseName = transaction.franchiseName ? transaction.franchiseName.split(' (')[0] : 'Unknown';
+        const franchiseName = transaction.truncatedFranchiseName ? transaction.truncatedFranchiseName : 'Unknown';
         const currentTime = new Date();
         const transactionTime = new Date(transaction.requestDate);
         const timeDifferenceMs = currentTime - transactionTime;

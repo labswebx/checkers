@@ -90,7 +90,7 @@ class NotificationService {
 
     // Send message to user
     await this.sendMessageToUser(userId, message);
-    await this.sendMessageToAdmin(message, transactionDetails.franchiseName)
+    await this.sendMessageToAdmin(message, transactionDetails.truncatedFranchiseName)
   }
 
   /**
