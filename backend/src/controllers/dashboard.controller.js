@@ -14,12 +14,13 @@ const {
  */
 const getDashboardStats = async (req, res) => {
   try {
-    // Calculate today's starting point (midnight)
+    // setting the time as 18:30 because the server is doing calculations in UTC
     const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    todayStart.setDate(todayStart.getDate() - 1);
+    todayStart.setHours(18, 30, 30, 0);
 
     const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    endOfToday.setHours(18, 30, 30, 0);
 
     // Get user statistics
     const totalUsers = await User.countDocuments({ isActive: true });
