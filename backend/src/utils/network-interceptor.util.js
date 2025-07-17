@@ -114,6 +114,82 @@ class NetworkInterceptor {
     return page;
   }
 
+  /**
+     * Encapsulates the entire login process for a given page.
+     * @param {puppeteer.Page} page - The Puppeteer page instance.
+     */
+  async _performLogin(page) {
+    await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
+      waitUntil: "networkidle2",
+      timeout: 90000,
+    });
+
+    await page.waitForSelector('input[type="text"]', {
+      visible: true,
+      timeout: 30000,
+    });
+    await page.waitForSelector('input[type="password"]', {
+      visible: true,
+      timeout: 30000,
+    });
+
+    await page.type('input[type="text"]', process.env.SCRAPING_USERNAME);
+    await page.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
+
+    const loginButton = await page.$('button[type="submit"]');
+    if (!loginButton) {
+      throw new Error("Login button not found");
+    }
+
+    await Promise.all([
+      page.waitForNavigation({
+        waitUntil: "networkidle2",
+        timeout: 90000,
+      }),
+      loginButton.click(),
+    ]);
+
+    await this.sleep(1500); // Wait a bit after login
+  }
+
+  /**
+     * Handles the response from the login API to store the auth token.
+     * @param {puppeteer.Response} interceptedResponse - The Puppeteer intercepted response.
+     */
+    async _handleLoginResponse(interceptedResponse, includeFiveFortyMinutesCheck = false) {
+      if (interceptedResponse.url().includes("/accounts/login")) {
+        try {
+          const responseData = await interceptedResponse.json();
+          if (responseData && responseData.detail && responseData.detail.token) {
+            // You can keep the token age check here if it's still desired.
+            // For simplicity, removing the 5h40m check as it might complicate initial token storage.
+            let existingToken = null;
+            let fiveHoursFortyMins = 0;
+            if(includeFiveFortyMinutesCheck) {
+             existingToken = await Constant.findOne({
+                              key: "SCRAPING_AUTH_TOKEN",
+                            });
+              fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds  
+            }
+            if(!includeFiveFortyMinutesCheck || !existingToken || Date.now() - existingToken.lastUpdated.getTime() > fiveHoursFortyMins) {
+            await Constant.findOneAndUpdate(
+              { key: "SCRAPING_AUTH_TOKEN" },
+              { value: responseData.detail.token, lastUpdated: new Date() },
+              { upsert: true }
+            );
+            logger.info("Auth token updated from login response.");
+          }
+          }
+        } catch (error) {
+          logger.error("Error processing login response:", error);
+          sentryUtil.captureException(error, {
+            context: '_handleLoginResponse_failed',
+            method: '_handleLoginResponse',
+          });
+        }
+      }
+    }
+
   async initialize() {
     try {
       const executablePath = await this.findChromePath();
@@ -350,42 +426,7 @@ class NetworkInterceptor {
           let url = interceptedResponse.url();
 
           // Handle login response
-          if (url.includes("/accounts/login")) {
-            try {
-              const responseData = await interceptedResponse.json();
-              if (responseData && responseData.detail.token) {
-                authToken = responseData.detail.token;
-                // Check if token exists and its age
-                // const existingToken = await Constant.findOne({
-                //   key: "SCRAPING_AUTH_TOKEN",
-                // });
-                // const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
-
-                // if (
-                //   !existingToken ||
-                //   Date.now() - existingToken.lastUpdated.getTime() >
-                //     fiveHoursFortyMins
-                // ) {
-                //   // Store the token in constants collection only if it's older than 5h40m
-                  await Constant.findOneAndUpdate(
-                    { key: "SCRAPING_AUTH_TOKEN" },
-                    {
-                      value: authToken,
-                      lastUpdated: new Date(),
-                    },
-                    { upsert: true }
-                  );
-                // }
-              }
-            } catch (error) {
-              logger.error("Error processing login response:", error);
-              sentryUtil.captureException(error, {
-                context: 'monitor_pending_deposits_login_failed',
-                method: 'monitorPendingDeposits',
-                transactionType: 'deposit'
-              });
-            }
-          }
+          await this._handleLoginResponse(interceptedResponse, false);
 
           // Handle deposit list API
           if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -500,51 +541,7 @@ class NetworkInterceptor {
             .includes("/admin/deposit/deposit-approval")
         ) {
           // First handle login
-          await this.pendingDepositsPage.goto(
-            `${process.env.SCRAPING_WEBSITE_URL}/login`,
-            {
-              waitUntil: "networkidle2",
-              timeout: 90000,
-            }
-          );
-
-          // Wait for selectors with increased timeouts
-          await this.pendingDepositsPage.waitForSelector('input[type="text"]', {
-            visible: true,
-            timeout: 30000,
-          });
-          await this.pendingDepositsPage.waitForSelector(
-            'input[type="password"]',
-            { visible: true, timeout: 30000 }
-          );
-
-          await this.pendingDepositsPage.type(
-            'input[type="text"]',
-            process.env.SCRAPING_USERNAME
-          );
-          await this.pendingDepositsPage.type(
-            'input[type="password"]',
-            process.env.SCRAPING_PASSWORD
-          );
-
-          const loginButton = await this.pendingDepositsPage.$(
-            'button[type="submit"]'
-          );
-          if (!loginButton) {
-            throw new Error("Login button not found");
-          }
-
-          // Wait for navigation after login
-          await Promise.all([
-            this.pendingDepositsPage.waitForNavigation({
-              waitUntil: "networkidle2",
-              timeout: 90000,
-            }),
-            loginButton.click(),
-          ]);
-
-          // Wait a bit after login before next navigation
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await this._performLogin(this.pendingDepositsPage);
 
           // Then navigate to deposit approval page
           await this.pendingDepositsPage.goto(
@@ -644,36 +641,7 @@ class NetworkInterceptor {
         let url = interceptedResponse.url();
 
         // Handle login response
-        if (url.includes("/accounts/login")) {
-          try {
-            const responseData = await interceptedResponse.json();
-            if (responseData && responseData.detail.token) {
-              // Check if token exists and its age
-              const existingToken = await Constant.findOne({
-                key: "SCRAPING_AUTH_TOKEN",
-              });
-              const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
-
-              if (
-                !existingToken ||
-                Date.now() - existingToken.lastUpdated.getTime() >
-                  fiveHoursFortyMins
-              ) {
-                // Store the token in constants collection only if it's older than 5h40m
-                await Constant.findOneAndUpdate(
-                  { key: "SCRAPING_AUTH_TOKEN" },
-                  {
-                    value: responseData.detail.token,
-                    lastUpdated: new Date(),
-                  },
-                  { upsert: true }
-                );
-              }
-            }
-          } catch (error) {
-            logger.error("Error processing login response:", error);
-          }
-        }
+        await this._handleLoginResponse(interceptedResponse, true);
 
         // Handle deposit list API
         if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -798,50 +766,7 @@ class NetworkInterceptor {
         !this.recentDepositsPage.url().includes("/admin/deposit/recent-deposit")
       ) {
         // First handle login
-        await this.recentDepositsPage.goto(
-          `${process.env.SCRAPING_WEBSITE_URL}/login`,
-          {
-            waitUntil: "networkidle2",
-            timeout: 90000,
-          }
-        );
-
-        // Wait for selectors with increased timeouts
-        await this.recentDepositsPage.waitForSelector('input[type="text"]', {
-          visible: true,
-          timeout: 30000,
-        });
-        await this.recentDepositsPage.waitForSelector(
-          'input[type="password"]',
-          { visible: true, timeout: 30000 }
-        );
-
-        await this.recentDepositsPage.type(
-          'input[type="text"]',
-          process.env.SCRAPING_USERNAME
-        );
-        await this.recentDepositsPage.type(
-          'input[type="password"]',
-          process.env.SCRAPING_PASSWORD
-        );
-
-        const loginButton = await this.recentDepositsPage.$(
-          'button[type="submit"]'
-        );
-        if (!loginButton) {
-          throw new Error("Login button not found");
-        }
-
-        // Wait for navigation after login
-        await Promise.all([
-          this.recentDepositsPage.waitForNavigation({
-            waitUntil: "networkidle2",
-            timeout: 90000,
-          }),
-          loginButton.click(),
-        ]);
-
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await this._performLogin(this.recentDepositsPage);
         await this.recentDepositsPage.goto(
           `${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-deposit`,
           {
@@ -929,36 +854,7 @@ class NetworkInterceptor {
         let url = interceptedResponse.url();
 
         // Handle login response
-        if (url.includes("/accounts/login")) {
-          try {
-            const responseData = await interceptedResponse.json();
-            if (responseData && responseData.detail.token) {
-              // Check if token exists and its age
-              const existingToken = await Constant.findOne({
-                key: "SCRAPING_AUTH_TOKEN",
-              });
-              const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
-
-              if (
-                !existingToken ||
-                Date.now() - existingToken.lastUpdated.getTime() >
-                  fiveHoursFortyMins
-              ) {
-                // Store the token in constants collection only if it's older than 5h40m
-                await Constant.findOneAndUpdate(
-                  { key: "SCRAPING_AUTH_TOKEN" },
-                  {
-                    value: responseData.detail.token,
-                    lastUpdated: new Date(),
-                  },
-                  { upsert: true }
-                );
-              }
-            }
-          } catch (error) {
-            logger.error("Error processing login response:", error);
-          }
-        }
+        await this._handleLoginResponse(interceptedResponse, true);
 
         // Handle deposit list API
         if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -1087,50 +983,7 @@ class NetworkInterceptor {
           .includes("/admin/deposit/recent-deposit")
       ) {
         // First handle login
-        await this.rejectedDepositsPage.goto(
-          `${process.env.SCRAPING_WEBSITE_URL}/login`,
-          {
-            waitUntil: "networkidle2",
-            timeout: 90000,
-          }
-        );
-
-        // Wait for selectors with increased timeouts
-        await this.rejectedDepositsPage.waitForSelector('input[type="text"]', {
-          visible: true,
-          timeout: 30000,
-        });
-        await this.rejectedDepositsPage.waitForSelector(
-          'input[type="password"]',
-          { visible: true, timeout: 30000 }
-        );
-
-        await this.rejectedDepositsPage.type(
-          'input[type="text"]',
-          process.env.SCRAPING_USERNAME
-        );
-        await this.rejectedDepositsPage.type(
-          'input[type="password"]',
-          process.env.SCRAPING_PASSWORD
-        );
-
-        const loginButton = await this.rejectedDepositsPage.$(
-          'button[type="submit"]'
-        );
-        if (!loginButton) {
-          throw new Error("Login button not found");
-        }
-
-        // Wait for navigation after login
-        await Promise.all([
-          this.rejectedDepositsPage.waitForNavigation({
-            waitUntil: "networkidle2",
-            timeout: 90000,
-          }),
-          loginButton.click(),
-        ]);
-
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await this._performLogin(this.rejectedDepositsPage);
 
         await this.rejectedDepositsPage.goto(
           `${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-deposit`,
@@ -1366,38 +1219,7 @@ class NetworkInterceptor {
             let url = interceptedResponse.url();
 
             // Handle login response
-            if (url.includes("/accounts/login")) {
-              try {
-                const responseData = await interceptedResponse.json();
-                if (responseData && responseData.detail.token) {
-                  authToken = responseData.detail.token;
-                  // Check if token exists and its age
-                  // const existingToken = await Constant.findOne({
-                  //   key: "SCRAPING_AUTH_TOKEN",
-                  // });
-                  // const fiveHoursFortyMins =
-                  //   5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
-
-                  // if (
-                  //   !existingToken ||
-                  //   Date.now() - existingToken.lastUpdated.getTime() >
-                  //     fiveHoursFortyMins
-                  // ) {
-                    // Store the token in constants collection only if it's older than 5h40m
-                    await Constant.findOneAndUpdate(
-                      { key: "SCRAPING_AUTH_TOKEN" },
-                      {
-                        value: authToken,
-                        lastUpdated: new Date(),
-                      },
-                      { upsert: true }
-                    );
-                  // }
-                }
-              } catch (error) {
-                logger.error("Error processing login response:", error);
-              }
-            }
+            await this._handleLoginResponse(interceptedResponse, false);
 
             // Handle deposit list API
             if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -1555,51 +1377,7 @@ class NetworkInterceptor {
             .includes("/admin/deposit/withdraw-approval")
         ) {
           // First handle login
-          await this.pendingWithdrawlsPage.goto(
-            `${process.env.SCRAPING_WEBSITE_URL}/login`,
-            {
-              waitUntil: "networkidle2",
-              timeout: 90000,
-            }
-          );
-
-          // Wait for selectors with increased timeouts
-          await this.pendingWithdrawlsPage.waitForSelector(
-            'input[type="text"]',
-            { visible: true, timeout: 30000 }
-          );
-          await this.pendingWithdrawlsPage.waitForSelector(
-            'input[type="password"]',
-            { visible: true, timeout: 30000 }
-          );
-
-          await this.pendingWithdrawlsPage.type(
-            'input[type="text"]',
-            process.env.SCRAPING_USERNAME
-          );
-          await this.pendingWithdrawlsPage.type(
-            'input[type="password"]',
-            process.env.SCRAPING_PASSWORD
-          );
-
-          const loginButton = await this.pendingWithdrawlsPage.$(
-            'button[type="submit"]'
-          );
-          if (!loginButton) {
-            throw new Error("Login button not found");
-          }
-
-          // Wait for navigation after login
-          await Promise.all([
-            this.pendingWithdrawlsPage.waitForNavigation({
-              waitUntil: "networkidle2",
-              timeout: 90000,
-            }),
-            loginButton.click(),
-          ]);
-
-          // Wait a bit after login before next navigation
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await this._performLogin(this.pendingWithdrawlsPage);
 
           // Then navigate to deposit approval page
           await this.pendingWithdrawlsPage.goto(
@@ -1693,37 +1471,7 @@ class NetworkInterceptor {
           let url = interceptedResponse.url();
 
           // Handle login response
-          if (url.includes("/accounts/login")) {
-            try {
-              const responseData = await interceptedResponse.json();
-              if (responseData && responseData.detail.token) {
-                authToken = responseData.detail.token;
-                // Check if token exists and its age
-                // const existingToken = await Constant.findOne({
-                //   key: "SCRAPING_AUTH_TOKEN",
-                // });
-                // const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
-
-                // if (
-                //   !existingToken ||
-                //   Date.now() - existingToken.lastUpdated.getTime() >
-                //     fiveHoursFortyMins
-                // ) {
-                  // Store the token in constants collection only if it's older than 5h40m
-                  await Constant.findOneAndUpdate(
-                    { key: "SCRAPING_AUTH_TOKEN" },
-                    {
-                      value: authToken,
-                      lastUpdated: new Date(),
-                    },
-                    { upsert: true }
-                  );
-                // }
-              }
-            } catch (error) {
-              logger.error("Error processing login response:", error);
-            }
-          }
+          await this._handleLoginResponse(interceptedResponse, false);
 
           // Handle withdrawal list API
           if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -1880,50 +1628,8 @@ class NetworkInterceptor {
           .includes("/admin/deposit/recent-withdrawal")
       ) {
         // First handle login
-        await this.approvedWithdrawalsPage.goto(
-          `${process.env.SCRAPING_WEBSITE_URL}/login`,
-          {
-            waitUntil: "networkidle2",
-            timeout: 90000,
-          }
-        );
+        await this._performLogin(this.approvedWithdrawalsPage);
 
-        // Wait for selectors with increased timeouts
-        await this.approvedWithdrawalsPage.waitForSelector(
-          'input[type="text"]',
-          { visible: true, timeout: 30000 }
-        );
-        await this.approvedWithdrawalsPage.waitForSelector(
-          'input[type="password"]',
-          { visible: true, timeout: 30000 }
-        );
-
-        await this.approvedWithdrawalsPage.type(
-          'input[type="text"]',
-          process.env.SCRAPING_USERNAME
-        );
-        await this.approvedWithdrawalsPage.type(
-          'input[type="password"]',
-          process.env.SCRAPING_PASSWORD
-        );
-
-        const loginButton = await this.approvedWithdrawalsPage.$(
-          'button[type="submit"]'
-        );
-        if (!loginButton) {
-          throw new Error("Login button not found");
-        }
-
-        // Wait for navigation after login
-        await Promise.all([
-          this.approvedWithdrawalsPage.waitForNavigation({
-            waitUntil: "networkidle2",
-            timeout: 90000,
-          }),
-          loginButton.click(),
-        ]);
-
-        await new Promise((resolve) => setTimeout(resolve, 1500));
         await this.approvedWithdrawalsPage.goto(
           `${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-withdrawal`,
           {
@@ -2015,37 +1721,7 @@ class NetworkInterceptor {
           let url = interceptedResponse.url();
 
           // Handle login response
-          if (url.includes("/accounts/login")) {
-            try {
-              const responseData = await interceptedResponse.json();
-              if (responseData && responseData.detail.token) {
-                authToken = responseData.detail.token;
-                // Check if token exists and its age
-                // const existingToken = await Constant.findOne({
-                //   key: "SCRAPING_AUTH_TOKEN",
-                // });
-                // const fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds
-
-                // if (
-                //   !existingToken ||
-                //   Date.now() - existingToken.lastUpdated.getTime() >
-                //     fiveHoursFortyMins
-                // ) {
-                  // Store the token in constants collection only if it's older than 5h40m
-                  await Constant.findOneAndUpdate(
-                    { key: "SCRAPING_AUTH_TOKEN" },
-                    {
-                      value: authToken,
-                      lastUpdated: new Date(),
-                    },
-                    { upsert: true }
-                  );
-                // }
-              }
-            } catch (error) {
-              logger.error("Error processing login response:", error);
-            }
-          }
+          await this._handleLoginResponse(interceptedResponse, false);
 
           // Handle withdrawal list API
           if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -2215,50 +1891,7 @@ class NetworkInterceptor {
           .includes("/admin/deposit/recent-withdrawal")
       ) {
         // First handle login
-        await this.rejectedWithdrawalsPage.goto(
-          `${process.env.SCRAPING_WEBSITE_URL}/login`,
-          {
-            waitUntil: "networkidle2",
-            timeout: 90000,
-          }
-        );
-
-        // Wait for selectors with increased timeouts
-        await this.rejectedWithdrawalsPage.waitForSelector(
-          'input[type="text"]',
-          { visible: true, timeout: 30000 }
-        );
-        await this.rejectedWithdrawalsPage.waitForSelector(
-          'input[type="password"]',
-          { visible: true, timeout: 30000 }
-        );
-
-        await this.rejectedWithdrawalsPage.type(
-          'input[type="text"]',
-          process.env.SCRAPING_USERNAME
-        );
-        await this.rejectedWithdrawalsPage.type(
-          'input[type="password"]',
-          process.env.SCRAPING_PASSWORD
-        );
-
-        const loginButton = await this.rejectedWithdrawalsPage.$(
-          'button[type="submit"]'
-        );
-        if (!loginButton) {
-          throw new Error("Login button not found");
-        }
-
-        // Wait for navigation after login
-        await Promise.all([
-          this.rejectedWithdrawalsPage.waitForNavigation({
-            waitUntil: "networkidle2",
-            timeout: 90000,
-          }),
-          loginButton.click(),
-        ]);
-
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await this._performLogin(this.rejectedWithdrawalsPage);
 
         await this.rejectedWithdrawalsPage.goto(
           `${process.env.SCRAPING_WEBSITE_URL}/admin/deposit/recent-withdrawal`,
@@ -2803,27 +2436,7 @@ class NetworkInterceptor {
         }
       });
 
-      await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
-        waitUntil: "networkidle2",
-        timeout: 90000,
-      });
-
-      await page.waitForSelector('input[type="text"]', { visible: true, timeout: 30000 });
-      await page.waitForSelector('input[type="password"]', { visible: true, timeout: 30000 });
-
-      await page.type('input[type="text"]', process.env.SCRAPING_USERNAME);
-      await page.type('input[type="password"]', process.env.SCRAPING_PASSWORD);
-
-      const loginButton = await page.$('button[type="submit"]');
-      if (!loginButton) {
-        throw new Error("Login button not found");
-      }
-
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: "networkidle2", timeout: 90000 }),
-        loginButton.click(),
-      ]);
-
+      await this._performLogin(page);
       await new Promise((resolve) => setTimeout(resolve, 2000));
     } finally {
       if (browser) {
