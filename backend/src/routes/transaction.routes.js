@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { auth } = require("../middleware/auth.middleware");
 const Transaction = require("../models/transaction.model");
+const User = require("../models/user.model");
 const transactionService = require("../services/transaction.service");
 const transactionController = require("../controllers/transaction.controller");
 const { successResponse, errorResponse } = require("../utils/response.util");
@@ -23,7 +24,6 @@ router.get("/status-update-stats",auth, transactionController.getStatusUpdateSta
 
 // Get all franchises
 router.get("/franchises", auth, transactionController.getFranchises);
-
 
 // Get withdraw analysis time statistics (custom time slabs)
 router.get("/withdraw-analysis-stats", auth, transactionController.getWithdrawAnalysisStats);
