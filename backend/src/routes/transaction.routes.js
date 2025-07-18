@@ -26,6 +26,7 @@ const WITHDRAW_TIME_SLABS = [
 ];
 
 const depositsCache = new Cache({ max: 100, ttl: 300 }); // Caching for 5 mins
+const withdrawsCache = new Cache({ max: 100, ttl: 300 }); // Caching for 5 mins
 
 // Get deposits with filters and pagination
 router.get("/deposits", auth, async (req, res) => {
@@ -474,9 +475,55 @@ router.get("/withdraws", auth, async (req, res) => {
       page = 1,
       limit = 10,
     } = req.query;
+
+    // Base match stage for withdraws (amount < 0)
     const matchStage = {
       amount: { $lt: 0 },
     };
+
+    let CACHE_KEYS = {};
+    const BASE_CACHE_KEY = `WITHDRAWS_${(status || TRANSACTION_STATUS.PENDING).toUpperCase()}_${page}_${limit}_${timeSlab || 'all'}_${franchise || 'all'}`;
+    CACHE_KEYS[`${BASE_CACHE_KEY}_DATA`] = `${BASE_CACHE_KEY}_DATA`;
+    CACHE_KEYS[
+      `${BASE_CACHE_KEY}_TIME_SLABS_COUNT`
+    ] = `${BASE_CACHE_KEY}_TIME_SLABS_COUNT`;
+    CACHE_KEYS[
+      `${BASE_CACHE_KEY}_TOTAL_PAGES`
+    ] = `${BASE_CACHE_KEY}_TOTAL_PAGES`;
+    CACHE_KEYS[
+      `${BASE_CACHE_KEY}_TOTAL_RECORDS`
+    ] = `${BASE_CACHE_KEY}_TOTAL_RECORDS`;
+
+    // Don't use caching in case of Pending Status because it gets updated every 10-15 seconds.
+    // If status is Success or Rejected, then use the response from Cache
+    // Also don't cache search results
+    if (status !== TRANSACTION_STATUS.PENDING && !search) {
+      let allCached = true;
+      let cacheResponse = {};
+      for (const key in CACHE_KEYS) {
+        const cached = withdrawsCache.get(key); // Assuming a separate cache for withdraws
+        if (cached) {
+          cacheResponse[key] = cached;
+        } else {
+          allCached = false;
+          break;
+        }
+      }
+      if (allCached) {
+        // All required cache keys are present
+        return successResponse(res, "Withdraws fetched successfully (cache)", {
+          data: cacheResponse[CACHE_KEYS[`${BASE_CACHE_KEY}_DATA`]],
+          timeSlabCounts:
+            cacheResponse[CACHE_KEYS[`${BASE_CACHE_KEY}_TIME_SLABS_COUNT`]],
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages:
+            cacheResponse[CACHE_KEYS[`${BASE_CACHE_KEY}_TOTAL_PAGES`]],
+          totalRecords:
+            cacheResponse[CACHE_KEYS[`${BASE_CACHE_KEY}_TOTAL_RECORDS`]],
+        });
+      }
+    }
 
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -487,6 +534,32 @@ router.get("/withdraws", auth, async (req, res) => {
       matchStage.franchiseName = franchise;
     }
 
+    // Define a reusable expression for time difference calculation
+    // This handles Pending, Success (approved), Rejected (approved), and ongoing cases
+    const timeDifferenceExpression = {
+      $switch: {
+        branches: [
+          {
+            // If transaction is SUCCESS or REJECTED and approvedOn exists
+            case: {
+              $and: [
+                {
+                  $in: [
+                    "$transactionStatus",
+                    [TRANSACTION_STATUS.SUCCESS, TRANSACTION_STATUS.REJECTED],
+                  ],
+                },
+                { $ne: ["$approvedOn", null] },
+              ],
+            },
+            then: { $subtract: ["$approvedOn", "$requestDate"] },
+          },
+        ],
+        // Default: If PENDING or approvedOn doesn't exist for Success/Rejected
+        default: { $subtract: ["$$NOW", "$requestDate"] },
+      },
+    };
+
     if (timeSlab && timeSlab !== "all") {
       const range = WITHDRAW_TIME_SLABS.find((slab) => slab.label === timeSlab);
       if (range) {
@@ -494,24 +567,7 @@ router.get("/withdraws", auth, async (req, res) => {
           $let: {
             vars: {
               timeDiffMinutes: {
-                $divide: [
-                  {
-                    $cond: {
-                      if: {
-                        $eq: ["$transactionStatus", TRANSACTION_STATUS.PENDING],
-                      },
-                      then: { $subtract: [new Date(), "$requestDate"] },
-                      else: {
-                        $cond: {
-                          if: { $ne: ["$approvedOn", null] },
-                          then: { $subtract: ["$approvedOn", "$requestDate"] },
-                          else: { $subtract: [new Date(), "$requestDate"] },
-                        },
-                      },
-                    },
-                  },
-                  60 * 1000, // ms to minutes
-                ],
+                $divide: [timeDifferenceExpression, 60 * 1000],
               },
             },
             in: range.max
@@ -527,7 +583,6 @@ router.get("/withdraws", auth, async (req, res) => {
       }
     }
 
-    // Use text search if search parameter is provided
     if (search) {
       matchStage.$or = [
         { orderId: { $regex: search, $options: 'i' } },
@@ -537,63 +592,40 @@ router.get("/withdraws", auth, async (req, res) => {
     }
 
     let timeSlabCounts = [];
-    // Optimization: Use a reusable $addFields stage for time difference and minutes
-    const statusTimeDiffAddFields = {
+
+    // Consolidated reusable $addFields stage for time difference and minutes
+    const reusableTimeCalculationStage = {
       $addFields: {
-        currentTime: "$$NOW",
-        timeDifference: {
-          $cond: {
-            if: { $eq: ["$transactionStatus", TRANSACTION_STATUS.PENDING] },
-            then: { $subtract: ["$$NOW", "$requestDate"] },
-            else: {
-              $cond: {
-                if: { $ne: ["$approvedOn", null] },
-                then: { $subtract: ["$approvedOn", "$requestDate"] },
-                else: { $subtract: ["$$NOW", "$requestDate"] },
-              },
-            },
-          },
-        },
-        minutes: {
-          $divide: [
-            {
-              $cond: {
-                if: { $eq: ["$transactionStatus", TRANSACTION_STATUS.PENDING] },
-                then: { $subtract: ["$$NOW", "$requestDate"] },
-                else: {
-                  $cond: {
-                    if: { $ne: ["$approvedOn", null] },
-                    then: { $subtract: ["$approvedOn", "$requestDate"] },
-                    else: { $subtract: ["$$NOW", "$requestDate"] },
-                  },
-                },
-              },
-            },
-            1000 * 60,
-          ],
-        },
+        timeDifference: timeDifferenceExpression, //minutes has been calculated later
       },
     };
 
     const timeSlabPipeline = [
       {
         $match: {
-          amount: { $lt: 0 },
+          amount: { $lt: 0 }, // For withdraws
           requestDate: { $gte: twentyFourHoursAgo },
           transactionStatus: status,
           ...(franchise && franchise !== "all"
             ? { franchiseName: franchise }
             : {}),
-          ...(search ? {
-            $or: [
-              { orderId: { $regex: search, $options: 'i' } },
-              { name: { $regex: search, $options: 'i' } },
-              { utr: { $regex: search, $options: 'i' } }
-            ]
-          } : {}),
+          ...(search
+            ? {
+                $or: [
+                  { orderId: { $regex: search, $options: "i" } },
+                  { name: { $regex: search, $options: "i" } },
+                  { utr: { $regex: search, $options: "i" } },
+                ],
+              }
+            : {}),
         },
       },
-      statusTimeDiffAddFields,
+      reusableTimeCalculationStage, // Use the reusable stage
+      {
+        $addFields: {
+          minutes: { $divide: ["$timeDifference", 60000] }, // Calculate minutes from timeDifference
+        },
+      },
       {
         $addFields: {
           timeSlab: {
@@ -601,28 +633,19 @@ router.get("/withdraws", auth, async (req, res) => {
               branches: [
                 {
                   case: {
-                    $and: [
-                      { $gte: ["$minutes", 20] },
-                      { $lt: ["$minutes", 30] },
-                    ],
+                    $and: [{ $gte: ["$minutes", 20] }, { $lt: ["$minutes", 30] }],
                   },
                   then: "20-30",
                 },
                 {
                   case: {
-                    $and: [
-                      { $gte: ["$minutes", 30] },
-                      { $lt: ["$minutes", 45] },
-                    ],
+                    $and: [{ $gte: ["$minutes", 30] }, { $lt: ["$minutes", 45] }],
                   },
                   then: "30-45",
                 },
                 {
                   case: {
-                    $and: [
-                      { $gte: ["$minutes", 45] },
-                      { $lt: ["$minutes", 60] },
-                    ],
+                    $and: [{ $gte: ["$minutes", 45] }, { $lt: ["$minutes", 60] }],
                   },
                   then: "45-60",
                 },
@@ -642,19 +665,6 @@ router.get("/withdraws", auth, async (req, res) => {
         },
       },
       {
-        $addFields: {
-          debug: {
-            timeDifference: "$timeDifference",
-            minutes: "$minutes",
-            status: "$transactionStatus",
-            requestDate: "$requestDate",
-            approvedOn: "$approvedOn",
-            rejectedOn: "$rejectedOn",
-            timeSlab: "$timeSlab",
-          },
-        },
-      },
-      {
         $group: {
           _id: "$timeSlab",
           count: { $sum: 1 },
@@ -662,9 +672,11 @@ router.get("/withdraws", auth, async (req, res) => {
             $push: {
               minutes: "$minutes",
               status: "$transactionStatus",
-              debug: "$debug",
+              requestDate: "$requestDate",
+              approvedOn: "$approvedOn",
+              rejectedOn: "$rejectedOn",
             },
-          },
+          }, // Keep samples for debug, remove later
         },
       },
       {
@@ -682,21 +694,20 @@ router.get("/withdraws", auth, async (req, res) => {
       },
     ];
 
-    timeSlabCounts = await Transaction.aggregate(timeSlabPipeline);
-
-    // Remove samples before sending response
-    timeSlabCounts = timeSlabCounts.map(({ samples, ...rest }) => rest);
-
-    // Ensure all time slabs are present with zero counts if missing
-    const allTimeSlabs = [
+    const allWithdrawTimeSlabs =[
       { label: "20-30", count: 0 },
       { label: "30-45", count: 0 },
       { label: "45-60", count: 0 },
       { label: "60-above", count: 0 },
     ];
 
+    timeSlabCounts = await Transaction.aggregate(timeSlabPipeline);
+
+    // Remove samples before sending response
+    timeSlabCounts = timeSlabCounts.map(({ samples, ...rest }) => rest);
+
     // Merge existing counts with default slabs
-    timeSlabCounts = allTimeSlabs.map((defaultSlab) => {
+    timeSlabCounts = allWithdrawTimeSlabs.map((defaultSlab) => {
       const existingSlab = timeSlabCounts.find(
         (ts) => ts.label === defaultSlab.label
       );
@@ -724,27 +735,8 @@ router.get("/withdraws", auth, async (req, res) => {
             {
               $lookup: {
                 from: "users",
-                let: {
-                  franchiseName: {
-                    $arrayElemAt: [{ $split: ["$franchiseName", " ("] }, 0],
-                  },
-                },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: { $eq: ["$name", "$$franchiseName"] },
-                    },
-                  },
-                  {
-                    $project: {
-                      name: 1,
-                      email: 1,
-                      contactNumber: 1,
-                      role: 1,
-                      franchise: 1,
-                    },
-                  },
-                ],
+                localField: "truncatedFranchiseName", 
+                foreignField: "name",
                 as: "agentDetails",
               },
             },
@@ -800,14 +792,36 @@ router.get("/withdraws", auth, async (req, res) => {
     const totalRecords = metadata[0]?.total || 0;
     const totalPages = Math.ceil(totalRecords / parseInt(limit));
 
-    return successResponse(res, "Withdraws fetched successfully", {
+    const responseData = {
       data,
       timeSlabCounts,
       page: parseInt(page),
       limit: parseInt(limit),
       totalPages,
       totalRecords,
-    });
+    };
+
+    // Update the data in Cache
+    if (status !== TRANSACTION_STATUS.PENDING && !search) {
+      withdrawsCache.set(
+        CACHE_KEYS[`${BASE_CACHE_KEY}_DATA`],
+        responseData.data
+      );
+      withdrawsCache.set(
+        CACHE_KEYS[`${BASE_CACHE_KEY}_TIME_SLABS_COUNT`],
+        responseData.timeSlabCounts
+      );
+      withdrawsCache.set(
+        CACHE_KEYS[`${BASE_CACHE_KEY}_TOTAL_PAGES`],
+        responseData.totalPages
+      );
+      withdrawsCache.set(
+        CACHE_KEYS[`${BASE_CACHE_KEY}_TOTAL_RECORDS`],
+        responseData.totalRecords
+      );
+    }
+
+    return successResponse(res, "Withdraws fetched successfully", responseData);
   } catch (error) {
     logger.error("Error in /withdraws endpoint:", error);
     return errorResponse(
