@@ -28,6 +28,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ route, navigation }) => 
   const [sending, setSending] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -64,7 +65,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ route, navigation }) => 
       return true;
     });
 
-    return () => backHandler.remove();
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      backHandler.remove();
+      show.remove();
+      hide.remove();
+    };
   }, [navigation]);
 
   const handleSendMessage = async () => {
@@ -153,8 +165,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ route, navigation }) => 
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+      behavior='height'
+      keyboardVerticalOffset={1.1 * (keyboardHeight / 5)}
     >
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <View style={{ flex: 1, flexDirection: 'column' }}>

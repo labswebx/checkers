@@ -321,6 +321,7 @@ class NetworkInterceptor {
                       firstDeposit: transaction.firstDeposit,
                       approvedBy: transaction.approvedBy,
                       franchiseName: transaction.franchiseName,
+                      truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                       remarks: transaction.remarks,
                       bonusIncluded: transaction.bonusIncluded,
                       bonusExcluded: transaction.bonusExcluded,
@@ -343,8 +344,7 @@ class NetworkInterceptor {
                       }
                     );
 
-                    let fetchTranscriptResponse = await this.fetchTranscript(transaction.orderID, authToken);
-                    logger.info(`fetchTranscriptResponse - ${fetchTranscriptResponse}, orderId - ${transaction.orderID}`)
+                    await this.fetchTranscript(transaction.orderID, authToken);
                   } catch (transactionError) {
                     logger.error("Error processing individual transaction:", {
                       orderId: transaction?.orderID,
@@ -453,7 +453,7 @@ class NetworkInterceptor {
     }
   }
 
-  async monitorRecentDeposits() {
+  async monitorApprovedDeposits() {
     try {
       // Clean up existing recent deposits browser instance first
       await this.cleanupRecentDeposits();
@@ -558,6 +558,7 @@ class NetworkInterceptor {
                     firstDeposit: transaction.firstDeposit,
                     approvedBy: transaction.approvedBy,
                     franchiseName: transaction.franchiseName,
+                    truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                     remarks: transaction.remarks,
                     bonusIncluded: transaction.bonusIncluded,
                     bonusExcluded: transaction.bonusExcluded,
@@ -773,6 +774,7 @@ class NetworkInterceptor {
                     firstDeposit: transaction.firstDeposit,
                     approvedBy: transaction.approvedBy,
                     franchiseName: transaction.franchiseName,
+                    truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                     remarks: transaction.remarks,
                     bonusIncluded: transaction.bonusIncluded,
                     bonusExcluded: transaction.bonusExcluded,
@@ -1116,6 +1118,7 @@ class NetworkInterceptor {
                         firstDeposit: transaction.firstDeposit,
                         approvedBy: transaction.approvedBy,
                         franchiseName: transaction.franchiseName,
+                        truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                         remarks: transaction.remarks,
                         bonusIncluded: transaction.bonusIncluded,
                         bonusExcluded: transaction.bonusExcluded,
@@ -1373,6 +1376,7 @@ class NetworkInterceptor {
                       firstDeposit: transaction.firstDeposit,
                       approvedBy: transaction.approvedBy,
                       franchiseName: transaction.franchiseName,
+                      truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                       remarks: transaction.remarks,
                       bonusIncluded: transaction.bonusIncluded,
                       bonusExcluded: transaction.bonusExcluded,
@@ -1630,6 +1634,7 @@ class NetworkInterceptor {
                       firstDeposit: transaction.firstDeposit,
                       approvedBy: transaction.approvedBy,
                       franchiseName: transaction.franchiseName,
+                      truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
                       remarks: transaction.remarks,
                       bonusIncluded: transaction.bonusIncluded,
                       bonusExcluded: transaction.bonusExcluded,
@@ -2031,7 +2036,6 @@ class NetworkInterceptor {
   }
 
   async runTranscriptFetchScheduler() {
-    logger.info("Executing FETCH PENDING TRANSCRIPTS")
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
@@ -2152,12 +2156,8 @@ class NetworkInterceptor {
             lastTranscriptUpdate: new Date()
           }
         );
-        logger.error(`Fetch Transcript Success, inside if block, orderId - ${orderId}}`)
         return true;
-      } else {
-        logger.error(`Fetch Transcript Error, inside else block, orderId - ${orderId}, response - ${JSON.stringify(response)}`)
       }
-      logger.error(`Fetch Transcript Error, outside if-else block, orderId - ${orderId}, response - ${JSON.stringify(response)}`)
       return false;
     } catch (error) {
       if (error.response && error.response.status === 401) {
@@ -2214,7 +2214,7 @@ class NetworkInterceptor {
       });
       
       for (const [index, transaction] of pendingTransactions.entries()) {
-        const franchiseName = transaction.franchiseName ? transaction.franchiseName.split(' (')[0] : 'Unknown';
+        const franchiseName = transaction.truncatedFranchiseName ? transaction.truncatedFranchiseName : 'Unknown';
         const currentTime = new Date();
         const transactionTime = new Date(transaction.requestDate);
         const timeDifferenceMs = currentTime - transactionTime;

@@ -169,76 +169,23 @@ router.get("/deposits", auth, async (req, res) => {
     const statusTimeDiffAddFields = {
       $addFields: {
         currentTime: "$$NOW",
-        timeDifference: {
-          $switch: {
-            branches: [
-              {
-                case: {
-                  $and: [
-                    { $eq: ["$transactionStatus", TRANSACTION_STATUS.SUCCESS] },
-                    { $ne: ["$approvedOn", null] },
-                  ],
-                },
-                then: { $subtract: ["$approvedOn", "$requestDate"] },
-              },
-              {
-                case: {
-                  $and: [
-                    {
-                      $eq: ["$transactionStatus", TRANSACTION_STATUS.REJECTED],
-                    },
-                    { $ne: ["$approvedOn", null] },
-                  ],
-                },
-                then: { $subtract: ["$approvedOn", "$requestDate"] },
-              },
-            ],
-            default: { $subtract: ["$$NOW", "$requestDate"] },
-          },
-        },
-        minutes: {
-          $divide: [
+        baseDifference: {
+          $cond: [
             {
-              $switch: {
-                branches: [
-                  {
-                    case: {
-                      $and: [
-                        {
-                          $eq: [
-                            "$transactionStatus",
-                            TRANSACTION_STATUS.SUCCESS,
-                          ],
-                        },
-                        { $ne: ["$approvedOn", null] },
-                      ],
-                    },
-                    then: { $subtract: ["$approvedOn", "$requestDate"] },
-                  },
-                  {
-                    case: {
-                      $and: [
-                        {
-                          $eq: [
-                            "$transactionStatus",
-                            TRANSACTION_STATUS.REJECTED,
-                          ],
-                        },
-                        { $ne: ["$approvedOn", null] },
-                      ],
-                    },
-                    then: { $subtract: ["$approvedOn", "$requestDate"] },
-                  },
-                ],
-                default: { $subtract: ["$$NOW", "$requestDate"] },
-              },
+              $and: [
+                {
+                  $in: ["$transactionStatus", [TRANSACTION_STATUS.SUCCESS, TRANSACTION_STATUS.REJECTED]],
+                },
+                { $ne: ["$approvedOn", null] },
+              ],
             },
-            1000 * 60,
+            { $subtract: ["$approvedOn", "$requestDate"] },
+            { $subtract: ["$$NOW", "$requestDate"] },
           ],
         },
       },
     };
-
+    
     const timeSlabPipeline = [
       {
         $match: {
@@ -248,16 +195,23 @@ router.get("/deposits", auth, async (req, res) => {
           ...(franchise && franchise !== "all"
             ? { franchiseName: franchise }
             : {}),
-          ...(search ? {
-            $or: [
-              { orderId: { $regex: search, $options: 'i' } },
-              { name: { $regex: search, $options: 'i' } },
-              { utr: { $regex: search, $options: 'i' } }
-            ]
-          } : {}),
+          ...(search
+            ? {
+                $or: [
+                  { orderId: { $regex: search, $options: "i" } },
+                  { name: { $regex: search, $options: "i" } },
+                  { utr: { $regex: search, $options: "i" } },
+                ],
+              }
+            : {}),
         },
       },
       statusTimeDiffAddFields,
+      {
+        $addFields: {
+          minutes: { $divide: ["$baseDifference", 60000] },
+        },
+      },
       {
         $addFields: {
           timeSlab: {
@@ -277,19 +231,13 @@ router.get("/deposits", auth, async (req, res) => {
                 },
                 {
                   case: {
-                    $and: [
-                      { $gte: ["$minutes", 8] },
-                      { $lt: ["$minutes", 12] },
-                    ],
+                    $and: [{ $gte: ["$minutes", 8] }, { $lt: ["$minutes", 12] }],
                   },
                   then: "8-12",
                 },
                 {
                   case: {
-                    $and: [
-                      { $gte: ["$minutes", 12] },
-                      { $lt: ["$minutes", 20] },
-                    ],
+                    $and: [{ $gte: ["$minutes", 12] }, { $lt: ["$minutes", 20] }],
                   },
                   then: "12-20",
                 },
@@ -309,19 +257,6 @@ router.get("/deposits", auth, async (req, res) => {
         },
       },
       {
-        $addFields: {
-          debug: {
-            timeDifference: "$timeDifference",
-            minutes: "$minutes",
-            status: "$transactionStatus",
-            requestDate: "$requestDate",
-            approvedOn: "$approvedOn",
-            rejectedOn: "$rejectedOn",
-            timeSlab: "$timeSlab",
-          },
-        },
-      },
-      {
         $group: {
           _id: "$timeSlab",
           count: { $sum: 1 },
@@ -329,7 +264,9 @@ router.get("/deposits", auth, async (req, res) => {
             $push: {
               minutes: "$minutes",
               status: "$transactionStatus",
-              debug: "$debug",
+              requestDate: "$requestDate",
+              approvedOn: "$approvedOn",
+              rejectedOn: "$rejectedOn",
             },
           },
         },
@@ -347,7 +284,7 @@ router.get("/deposits", auth, async (req, res) => {
           label: 1,
         },
       },
-    ];
+    ];    
 
     timeSlabCounts = await Transaction.aggregate(timeSlabPipeline);
 
@@ -372,94 +309,61 @@ router.get("/deposits", auth, async (req, res) => {
     });
 
     // Main aggregation pipeline for deposits
+    const total = await Transaction.countDocuments(matchStage);
     const pipeline = [
       { $match: matchStage },
       { $sort: { createdAt: -1 } },
+      { $skip: (parseInt(page) - 1) * parseInt(limit) },
+      { $limit: parseInt(limit) },
       {
-        $facet: {
-          metadata: [
-            { $count: "total" },
-            {
-              $addFields: {
-                page: parseInt(page),
-                limit: parseInt(limit),
+        $lookup: {
+          from: "users",
+          localField: "truncatedFranchiseName",
+          foreignField: "name",
+          as: "agentDetails",
+        },
+      },
+      {
+        $addFields: {
+          agentId: {
+            $cond: {
+              if: { $gt: [{ $size: "$agentDetails" }, 0] },
+              then: { $arrayElemAt: ["$agentDetails", 0] },
+              else: {
+                name: "",
+                email: "",
+                contactNumber: "",
+                role: "",
+                franchise: "",
               },
             },
-          ],
-          data: [
-            { $skip: (parseInt(page) - 1) * parseInt(limit) },
-            { $limit: parseInt(limit) },
-            {
-              $lookup: {
-                from: "users",
-                let: {
-                  franchiseName: {
-                    $arrayElemAt: [{ $split: ["$franchiseName", " ("] }, 0],
-                  },
-                },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: { $eq: ["$name", "$$franchiseName"] },
-                    },
-                  },
-                  {
-                    $project: {
-                      name: 1,
-                      email: 1,
-                      contactNumber: 1,
-                      role: 1,
-                      franchise: 1,
-                    },
-                  },
-                ],
-                as: "agentDetails",
-              },
-            },
-            {
-              $addFields: {
-                agentId: {
-                  $cond: {
-                    if: { $gt: [{ $size: "$agentDetails" }, 0] },
-                    then: { $arrayElemAt: ["$agentDetails", 0] },
-                    else: {
-                      name: "",
-                      email: "",
-                      contactNumber: "",
-                      role: "",
-                      franchise: "",
-                    },
-                  },
-                },
-              },
-            },
-            {
-              $project: {
-                _id: 1,
-                orderId: 1,
-                customerName: "$name",
-                amount: 1,
-                utr: 1,
-                requestDate: 1,
-                approvedOn: 1,
-                status: "$transactionStatus",
-                franchise: "$franchiseName",
-                isImageAvailable: "$isImageAvailable",
-                createdAt: 1,
-                agentId: 1,
-              },
-            },
-          ],
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          orderId: 1,
+          customerName: "$name",
+          amount: 1,
+          utr: 1,
+          requestDate: 1,
+          approvedOn: 1,
+          status: "$transactionStatus",
+          franchise: "$franchiseName",
+          isImageAvailable: "$isImageAvailable",
+          createdAt: 1,
+          agentId: 1,
         },
       },
     ];
+    
+    const result = await Transaction.aggregate(pipeline);
 
-    const [result] = await Transaction.aggregate(pipeline);
-    const { metadata, data } = result;
-    const totalRecords = metadata[0]?.total || 0;
+    const totalRecords = total || 0;
     const totalPages = Math.ceil(totalRecords / parseInt(limit));
     const responseData = {
-      data,
+      data: result,
       timeSlabCounts,
       page: parseInt(page),
       limit: parseInt(limit),

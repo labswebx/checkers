@@ -102,14 +102,14 @@ export const HomeScreen: React.FC = () => {
                   {/* <Text style={styles.userName}>{ || 'User'}</Text> */}
                 </View>
               </View>
-              <View style={styles.headerActions}>
+              {/* <View style={styles.headerActions}>
                 <TouchableOpacity style={styles.headerButton} onPress={handleSearch}>
                   <Ionicons name="search" size={20} color={colors.background} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.headerButton} onPress={handleNotifications}>
                   <Ionicons name="notifications-outline" size={20} color={colors.background} />
                 </TouchableOpacity>
-              </View>
+              </View> */}
             </>
           )}
         </View>

@@ -23,7 +23,7 @@ if (process.env.SENTRY_DSN) {
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const morgan = require('morgan');
+// const morgan = require('morgan');
 const path = require('path');
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
@@ -35,7 +35,7 @@ const { schedulerUtil } = require('./utils/scheduler.util');
 const webSocketManager = require('./utils/websocket.util');
 
 const app = express();
-app.use(morgan('combined'));
+// app.use(morgan('combined'));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, {

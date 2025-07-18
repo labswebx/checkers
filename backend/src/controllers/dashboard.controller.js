@@ -14,12 +14,13 @@ const {
  */
 const getDashboardStats = async (req, res) => {
   try {
-    // Calculate today's starting point (midnight)
+    // setting the time as 18:30 because the server is doing calculations in UTC
     const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    todayStart.setDate(todayStart.getDate() - 1);
+    todayStart.setHours(18, 30, 30, 0);
 
     const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    endOfToday.setHours(18, 30, 30, 0);
 
     // Get user statistics
     const totalUsers = await User.countDocuments({ isActive: true });
@@ -34,40 +35,42 @@ const getDashboardStats = async (req, res) => {
 
     // Get transaction statistics for last 24 hours
     const totalTransactions = await Transaction.countDocuments({
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
     });
     const pendingTransactions = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.PENDING,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $gte: 0 },
     });
     const approvedTransactions = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.SUCCESS,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
+      amount: { $gte: 0 },
     });
     const rejectedTransactions = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.REJECTED,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
+      amount: { $gte: 0 },
     });
 
     // Get withdrawal statistics for last 24 hours
     const totalWithdraws = await Transaction.countDocuments({
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $lt: 0 },
     });
     const pendingWithdraws = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.PENDING,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $lt: 0 },
     });
     const approvedWithdraws = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.SUCCESS,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $lt: 0 },
     });
     const rejectedWithdraws = await Transaction.countDocuments({
       transactionStatus: TRANSACTION_STATUS.REJECTED,
-      createdAt: { $gte: todayStart, $lte: endOfToday },
+      requestDate: { $gte: todayStart, $lte: endOfToday },
       amount: { $lt: 0 },
     });
 
@@ -75,7 +78,7 @@ const getDashboardStats = async (req, res) => {
     const totalAmountStats = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: todayStart, $lte: endOfToday },
+          requestDate: { $gte: todayStart, $lte: endOfToday },
           amount: { $gte: 0 },
         },
       },
@@ -91,7 +94,7 @@ const getDashboardStats = async (req, res) => {
     const withdrawAmountStats = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: todayStart, $lte: endOfToday },
+          requestDate: { $gte: todayStart, $lte: endOfToday },
           amount: { $lt: 0 },
         },
       },
@@ -107,7 +110,7 @@ const getDashboardStats = async (req, res) => {
     const hourlyTrends = await Transaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: todayStart, $lte: endOfToday },
+          requestDate: { $gte: todayStart, $lte: endOfToday },
         },
       },
       {
@@ -132,7 +135,7 @@ const getDashboardStats = async (req, res) => {
       {
         $match: {
           transactionStatus: TRANSACTION_STATUS.SUCCESS,
-          createdAt: { $gte: todayStart, $lte: endOfToday },
+          requestDate: { $gte: todayStart, $lte: endOfToday },
         },
       },
       {
