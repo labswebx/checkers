@@ -44,7 +44,11 @@ router.get("/deposits", auth, async (req, res) => {
     };
 
     let CACHE_KEYS = {};
-    const BASE_CACHE_KEY = `DEPOSITS_${(status || TRANSACTION_STATUS.PENDING).toUpperCase()}_${page}_${limit}_${timeSlab || 'all'}_${franchise || 'all'}`;
+    const BASE_CACHE_KEY = `DEPOSITS_${(
+      status || TRANSACTION_STATUS.PENDING
+    ).toUpperCase()}_${page}_${limit}_${timeSlab || "all"}_${
+      franchise || "all"
+    }`;
     CACHE_KEYS[`${BASE_CACHE_KEY}_DATA`] = `${BASE_CACHE_KEY}_DATA`;
     CACHE_KEYS[
       `${BASE_CACHE_KEY}_TIME_SLABS_COUNT`
@@ -159,9 +163,9 @@ router.get("/deposits", auth, async (req, res) => {
     // Use regex search if search parameter is provided
     if (search) {
       matchStage.$or = [
-        { orderId: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } },
-        { utr: { $regex: search, $options: 'i' } }
+        { orderId: { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } },
+        { utr: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -175,7 +179,10 @@ router.get("/deposits", auth, async (req, res) => {
             {
               $and: [
                 {
-                  $in: ["$transactionStatus", [TRANSACTION_STATUS.SUCCESS, TRANSACTION_STATUS.REJECTED]],
+                  $in: [
+                    "$transactionStatus",
+                    [TRANSACTION_STATUS.SUCCESS, TRANSACTION_STATUS.REJECTED],
+                  ],
                 },
                 { $ne: ["$approvedOn", null] },
               ],
@@ -186,7 +193,7 @@ router.get("/deposits", auth, async (req, res) => {
         },
       },
     };
-    
+
     const timeSlabPipeline = [
       {
         $match: {
@@ -232,13 +239,19 @@ router.get("/deposits", auth, async (req, res) => {
                 },
                 {
                   case: {
-                    $and: [{ $gte: ["$minutes", 8] }, { $lt: ["$minutes", 12] }],
+                    $and: [
+                      { $gte: ["$minutes", 8] },
+                      { $lt: ["$minutes", 12] },
+                    ],
                   },
                   then: "8-12",
                 },
                 {
                   case: {
-                    $and: [{ $gte: ["$minutes", 12] }, { $lt: ["$minutes", 20] }],
+                    $and: [
+                      { $gte: ["$minutes", 12] },
+                      { $lt: ["$minutes", 20] },
+                    ],
                   },
                   then: "12-20",
                 },
@@ -285,7 +298,7 @@ router.get("/deposits", auth, async (req, res) => {
           label: 1,
         },
       },
-    ];    
+    ];
 
     timeSlabCounts = await Transaction.aggregate(timeSlabPipeline);
 
@@ -358,7 +371,7 @@ router.get("/deposits", auth, async (req, res) => {
         },
       },
     ];
-    
+
     const result = await Transaction.aggregate(pipeline);
 
     const totalRecords = total || 0;
@@ -482,7 +495,11 @@ router.get("/withdraws", auth, async (req, res) => {
     };
 
     let CACHE_KEYS = {};
-    const BASE_CACHE_KEY = `WITHDRAWS_${(status || TRANSACTION_STATUS.PENDING).toUpperCase()}_${page}_${limit}_${timeSlab || 'all'}_${franchise || 'all'}`;
+    const BASE_CACHE_KEY = `WITHDRAWS_${(
+      status || TRANSACTION_STATUS.PENDING
+    ).toUpperCase()}_${page}_${limit}_${timeSlab || "all"}_${
+      franchise || "all"
+    }`;
     CACHE_KEYS[`${BASE_CACHE_KEY}_DATA`] = `${BASE_CACHE_KEY}_DATA`;
     CACHE_KEYS[
       `${BASE_CACHE_KEY}_TIME_SLABS_COUNT`
@@ -585,12 +602,13 @@ router.get("/withdraws", auth, async (req, res) => {
 
     if (search) {
       matchStage.$or = [
-        { orderId: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } },
-        { utr: { $regex: search, $options: 'i' } }
+        { orderId: { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } },
+        { utr: { $regex: search, $options: "i" } },
       ];
     }
 
+    const total = await Transaction.countDocuments(matchStage);
     let timeSlabCounts = [];
 
     // Consolidated reusable $addFields stage for time difference and minutes
@@ -633,19 +651,28 @@ router.get("/withdraws", auth, async (req, res) => {
               branches: [
                 {
                   case: {
-                    $and: [{ $gte: ["$minutes", 20] }, { $lt: ["$minutes", 30] }],
+                    $and: [
+                      { $gte: ["$minutes", 20] },
+                      { $lt: ["$minutes", 30] },
+                    ],
                   },
                   then: "20-30",
                 },
                 {
                   case: {
-                    $and: [{ $gte: ["$minutes", 30] }, { $lt: ["$minutes", 45] }],
+                    $and: [
+                      { $gte: ["$minutes", 30] },
+                      { $lt: ["$minutes", 45] },
+                    ],
                   },
                   then: "30-45",
                 },
                 {
                   case: {
-                    $and: [{ $gte: ["$minutes", 45] }, { $lt: ["$minutes", 60] }],
+                    $and: [
+                      { $gte: ["$minutes", 45] },
+                      { $lt: ["$minutes", 60] },
+                    ],
                   },
                   then: "45-60",
                 },
@@ -694,7 +721,7 @@ router.get("/withdraws", auth, async (req, res) => {
       },
     ];
 
-    const allWithdrawTimeSlabs =[
+    const allWithdrawTimeSlabs = [
       { label: "20-30", count: 0 },
       { label: "30-45", count: 0 },
       { label: "45-60", count: 0 },
@@ -713,83 +740,66 @@ router.get("/withdraws", auth, async (req, res) => {
       );
       return existingSlab || defaultSlab;
     });
-
     // Main aggregation pipeline for withdraws
     const pipeline = [
       { $match: matchStage },
       { $sort: { createdAt: -1 } },
+      { $skip: (parseInt(page) - 1) * parseInt(limit) },
+      { $limit: parseInt(limit) },
       {
-        $facet: {
-          metadata: [
-            { $count: "total" },
-            {
-              $addFields: {
-                page: parseInt(page),
-                limit: parseInt(limit),
+        $lookup: {
+          from: "users",
+          localField: "truncatedFranchiseName",
+          foreignField: "name",
+          as: "agentDetails",
+        },
+      },
+      {
+        $addFields: {
+          agentId: {
+            $cond: {
+              if: { $gt: [{ $size: "$agentDetails" }, 0] },
+              then: { $arrayElemAt: ["$agentDetails", 0] },
+              else: {
+                name: "",
+                email: "",
+                contactNumber: "",
+                role: "",
+                franchise: "",
               },
             },
-          ],
-          data: [
-            { $skip: (parseInt(page) - 1) * parseInt(limit) },
-            { $limit: parseInt(limit) },
-            {
-              $lookup: {
-                from: "users",
-                localField: "truncatedFranchiseName", 
-                foreignField: "name",
-                as: "agentDetails",
-              },
-            },
-            {
-              $addFields: {
-                agentId: {
-                  $cond: {
-                    if: { $gt: [{ $size: "$agentDetails" }, 0] },
-                    then: { $arrayElemAt: ["$agentDetails", 0] },
-                    else: {
-                      name: "",
-                      email: "",
-                      contactNumber: "",
-                      role: "",
-                      franchise: "",
-                    },
-                  },
-                },
-              },
-            },
-            {
-              $project: {
-                _id: 1,
-                orderId: 1,
-                customerName: "$name",
-                amount: 1,
-                utr: 1,
-                requestDate: 1,
-                approvedOn: 1,
-                accountNumber: 1,
-                bonusIncluded: 1,
-                bonusExcluded: 1,
-                auditStatus: 1,
-                status: "$transactionStatus",
-                franchise: "$franchiseName",
-                createdAt: 1,
-                isImageAvailable: "$isImageAvailable",
-                agentId: 1,
-                ifcsCode: "$iban",
-                holderName: 1,
-                paymentMethod: 1,
-                checkingDeptApprovedOn: 1,
-                bonusApprovedOn: 1,
-              },
-            },
-          ],
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          orderId: 1,
+          customerName: "$name",
+          amount: 1,
+          utr: 1,
+          requestDate: 1,
+          approvedOn: 1,
+          accountNumber: 1,
+          bonusIncluded: 1,
+          bonusExcluded: 1,
+          auditStatus: 1,
+          status: "$transactionStatus",
+          franchise: "$franchiseName",
+          createdAt: 1,
+          isImageAvailable: "$isImageAvailable",
+          agentId: 1,
+          ifcsCode: "$iban",
+          holderName: 1,
+          paymentMethod: 1,
+          checkingDeptApprovedOn: 1,
+          bonusApprovedOn: 1,
         },
       },
     ];
 
-    const [result] = await Transaction.aggregate(pipeline);
-    const { metadata, data } = result;
-    const totalRecords = metadata[0]?.total || 0;
+    const data = await Transaction.aggregate(pipeline);
+    const totalRecords = total||0;
     const totalPages = Math.ceil(totalRecords / parseInt(limit));
 
     const responseData = {
@@ -872,12 +882,12 @@ router.get("/withdraw-analysis-stats", auth, async (req, res) => {
 router.get("/transcript/:orderId", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
-    
+
     const transaction = await Transaction.findOne(
       { orderId },
       { transcriptLink: 1, orderId: 1 }
     );
-    
+
     if (!transaction) {
       return errorResponse(
         res,
@@ -886,12 +896,10 @@ router.get("/transcript/:orderId", auth, async (req, res) => {
         STATUS_CODES.NOT_FOUND
       );
     }
-    
-    return successResponse(
-      res,
-      "Transcript link fetched successfully",
-      { transcriptLink: transaction.transcriptLink }
-    );
+
+    return successResponse(res, "Transcript link fetched successfully", {
+      transcriptLink: transaction.transcriptLink,
+    });
   } catch (error) {
     logger.error("Error in /transcript/:orderId endpoint:", error);
     return errorResponse(
