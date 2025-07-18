@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { auth } = require("../middleware/auth.middleware");
 const Transaction = require("../models/transaction.model");
+const User = require("../models/user.model");
 const transactionService = require("../services/transaction.service");
 const { successResponse, errorResponse } = require("../utils/response.util");
 const { STATUS_CODES, TRANSACTION_STATUS } = require("../constants");
@@ -92,7 +93,7 @@ router.get("/deposits", auth, async (req, res) => {
     matchStage.transactionStatus = status || TRANSACTION_STATUS.PENDING;
 
     if (franchise && franchise !== "all") {
-      matchStage.franchiseName = franchise;
+      matchStage.truncatedFranchiseName = franchise;
     }
 
     if (timeSlab && timeSlab !== "all") {
@@ -435,22 +436,14 @@ router.get("/status-update-stats", auth, async (req, res) => {
 // Get all franchises
 router.get("/franchises", auth, async (req, res) => {
   try {
-    // Get unique franchises from transactions
-    const franchises = await Transaction.distinct("franchiseName");
-
-    // Clean and sort franchises
-    const cleanedFranchises = franchises
-      .filter((f) => f) // Remove null/empty values
-      .map((f) => ({
-        name: f.split(" (")[0], // Remove anything in parentheses
-        fullName: f,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const franchiseUsers = await User.find({
+      franchise: { $exists: true, $ne: null, $ne: '' }
+    }).select('name email contactNumber role franchise').lean();
 
     return successResponse(
       res,
       "Franchises fetched successfully",
-      cleanedFranchises
+      franchiseUsers
     );
   } catch (error) {
     logger.error("Error in /franchises endpoint:", error);
@@ -484,7 +477,7 @@ router.get("/withdraws", auth, async (req, res) => {
     matchStage.transactionStatus = status || TRANSACTION_STATUS.PENDING;
 
     if (franchise && franchise !== "all") {
-      matchStage.franchiseName = franchise;
+      matchStage.truncatedFranchiseName = franchise;
     }
 
     if (timeSlab && timeSlab !== "all") {
