@@ -185,7 +185,7 @@ const Deposits = () => {
                 >
                   <MenuItem value="all">All Franchises</MenuItem>
                   {franchises.map((franchise) => (
-                    <MenuItem key={franchise.fullName} value={franchise.fullName}>
+                    <MenuItem key={franchise.name} value={franchise.name}>
                       {franchise.name}
                   </MenuItem>
                 ))}
