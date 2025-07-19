@@ -1239,24 +1239,8 @@ class NetworkInterceptor {
             try {
               const json = await interceptedResponse.json();
               let transactions = Array.isArray(json) ? json : json.data || [];
-
-              // const sixtyMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
-              // const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
-              // transactions = transactions.filter(transaction => {
-              //   if (!transaction.approvedOn) return false;
-              //   const approvedDate = new Date(transaction.approvedOn);
-              //   return approvedDate >= sixtyMinutesAgo;
-              // });
-
-              // Process transactions
-              // logger.info(`Rejected Transactions length - ${transactions.length}`)
-              // const last20OrderIds = transactions.slice(-120).map(t => ({"orderId": t.orderID, "status": t.transactionStatus}));
-              // logger.info(`Last 100 orderIds: ${JSON.stringify(last20OrderIds)}`);
               for (const transaction of transactions) {
                 if (transaction.amount < 0) {
-                  // if (transaction.orderID === '3611531' || transaction.orderID === 3611531)
-                  //   logger.info(`Inside Rejected Transactions loop orderID - ${transaction.orderID}`)
-
                   try {
                     await transactionService.findOrCreateAgent(
                       transaction.franchiseName.split(" (")[0]
