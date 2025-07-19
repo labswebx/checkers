@@ -6,8 +6,7 @@ const {
   convertToUAETime,
   convertFromUAETime,
 } = require("../config/timezone.config");
-const { successResponse, errorResponse } = require("../utils/response.util");
-const { STATUS_CODES, TRANSACTION_STATUS } = require("../constants");
+const { TRANSACTION_STATUS } = require("../constants");
 const { Cache } = require("../utils/cache.util");
 
 class TransactionService {

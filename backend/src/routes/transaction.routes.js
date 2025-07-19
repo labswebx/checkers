@@ -1,17 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { auth } = require("../middleware/auth.middleware");
-const Transaction = require("../models/transaction.model");
-const User = require("../models/user.model");
-const transactionService = require("../services/transaction.service");
 const transactionController = require("../controllers/transaction.controller");
-const { successResponse, errorResponse } = require("../utils/response.util");
-const { STATUS_CODES, TRANSACTION_STATUS } = require("../constants");
-const logger = require("../utils/logger.util");
-const { Cache } = require("../utils/cache.util");
-
-const depositsCache = new Cache({ max: 100, ttl: 300 }); // Caching for 5 mins
-const withdrawsCache = new Cache({ max: 100, ttl: 300 }); // Caching for 5 mins
 
 // Get deposits with filters and pagination
 router.get("/deposits", auth, transactionController.getDeposits);

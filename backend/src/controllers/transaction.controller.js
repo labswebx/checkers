@@ -25,7 +25,7 @@ exports.getDeposits = async (req, res) => {
     // 1. Basic param validation
     const pagination = validatePaginationParams(req.query.page, req.query.limit);
     if (pagination.error) {
-      return errorResponse(res, pagination.error, null, pagination.status);
+      return errorResponse(res, pagination.error, {}, pagination.status);
     }
 
     const { search, status, timeSlab, franchise } = req.query;
@@ -63,7 +63,7 @@ exports.getWithdraws = async (req, res) => {
     // 1. Basic param validation
     const pagination = validatePaginationParams(req.query.page, req.query.limit);
     if (pagination.error) {
-      return errorResponse(res, pagination.error, null, pagination.status);
+      return errorResponse(res, pagination.error, {}, pagination.status);
     }
 
     const { search, status, timeSlab, franchise } = req.query;
@@ -140,7 +140,7 @@ exports.getFranchises = async (req, res) => {
     return errorResponse(
       res,
       "Error fetching franchises",
-      null,
+      {},
       error.statusCode || STATUS_CODES.SERVER_ERROR
     );
   }
@@ -161,10 +161,10 @@ exports.getWithdrawAnalysisStats = async (req, res) => {
 
     // Basic validation
     if (!status || !timeFrame) {
-        return errorResponse(res, "Status and timeFrame are required.", null, STATUS_CODES.BAD_REQUEST);
+        return errorResponse(res, "Status and timeFrame are required.", {}, STATUS_CODES.BAD_REQUEST);
     }
     if (timeFrame === "custom" && (!startDate || !endDate)) {
-        return errorResponse(res, "startDate and endDate are required for custom timeFrame.", null, STATUS_CODES.BAD_REQUEST);
+        return errorResponse(res, "startDate and endDate are required for custom timeFrame.", {}, STATUS_CODES.BAD_REQUEST);
     }
 
     const filters = {
@@ -186,7 +186,7 @@ exports.getWithdrawAnalysisStats = async (req, res) => {
     return errorResponse(
       res,
       "Error fetching withdraw analysis statistics",
-      null,
+      {},
       error.statusCode || STATUS_CODES.SERVER_ERROR
     );
   }
@@ -201,7 +201,7 @@ exports.getTranscriptLink = async (req, res) => {
 
     // Basic validation for orderId
     if (!orderId) {
-        return errorResponse(res, "orderId is required.", null, STATUS_CODES.BAD_REQUEST);
+        return errorResponse(res, "orderId is required.", {}, STATUS_CODES.BAD_REQUEST);
     }
 
     const transactionData = await transactionService.getTranscriptLink(orderId);
@@ -210,7 +210,7 @@ exports.getTranscriptLink = async (req, res) => {
       return errorResponse(
         res,
         "Transaction not found",
-        null,
+        {},
         STATUS_CODES.NOT_FOUND
       );
     }
@@ -221,7 +221,7 @@ exports.getTranscriptLink = async (req, res) => {
     return errorResponse(
       res,
       "Error fetching transcript link",
-      null,
+      {},
       error.statusCode || STATUS_CODES.SERVER_ERROR
     );
   }
