@@ -1713,7 +1713,7 @@ class NetworkInterceptor {
       });
 
       for (const [index, transaction] of pendingTransactions.entries()) {
-        const franchiseName = transaction.truncatedFranchiseName ? transaction.truncatedFranchiseName : 'Unknown';
+        const franchiseName = transaction.franchiseName ? transaction.franchiseName : 'Unknown';
         const currentTime = new Date();
         const transactionTime = new Date(transaction.requestDate);
         const timeDifferenceMs = currentTime - transactionTime;
