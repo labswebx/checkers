@@ -9,6 +9,7 @@ const Constant = require("../models/constant.model");
 const axios = require("axios");
 const { TRANSACTION_STATUS } = require("../constants");
 const { defaultCache: Cache } = require("./cache.util");
+const transactionUtil = require("./transaction.util");
 
 class NetworkInterceptor {
   constructor() {
@@ -54,34 +55,34 @@ class NetworkInterceptor {
   }
 
   /**
-     * Helper method to launch a new browser with standard configurations.
-     * @returns {Promise<puppeteer.Browser>} A Puppeteer Browser instance.
-     */
-    async _launchBrowser() {
-      return await puppeteer.launch({
-        headless: "new",
-        executablePath: this.executablePath,
-        product: "chrome",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--window-size=1920,1080",
-          "--disable-web-security",
-          "--disable-features=IsolateOrigins,site-per-process",
-          "--ignore-certificate-errors",
-          "--ignore-certificate-errors-spki-list",
-          "--disable-blink-features=AutomationControlled",
-          "--disable-infobars",
-          "--disable-notifications",
-          "--disable-popup-blocking",
-          "--disable-extensions",
-          "--disable-gpu",
-        ],
-        defaultViewport: { width: 1920, height: 1080 },
-        ignoreHTTPSErrors: true,
-      });
-    }
+   * Helper method to launch a new browser with standard configurations.
+   * @returns {Promise<puppeteer.Browser>} A Puppeteer Browser instance.
+   */
+  async _launchBrowser() {
+    return await puppeteer.launch({
+      headless: "new",
+      executablePath: this.executablePath,
+      product: "chrome",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--window-size=1920,1080",
+        "--disable-web-security",
+        "--disable-features=IsolateOrigins,site-per-process",
+        "--ignore-certificate-errors",
+        "--ignore-certificate-errors-spki-list",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-infobars",
+        "--disable-notifications",
+        "--disable-popup-blocking",
+        "--disable-extensions",
+        "--disable-gpu",
+      ],
+      defaultViewport: { width: 1920, height: 1080 },
+      ignoreHTTPSErrors: true,
+    });
+  }
 
   /**
    * Helper method to set up a new page with common settings.
@@ -99,9 +100,9 @@ class NetworkInterceptor {
   }
 
   /**
-     * Encapsulates the entire login process for a given page.
-     * @param {puppeteer.Page} page - The Puppeteer page instance.
-     */
+   * Encapsulates the entire login process for a given page.
+   * @param {puppeteer.Page} page - The Puppeteer page instance.
+   */
   async _performLogin(page) {
     await page.goto(`${process.env.SCRAPING_WEBSITE_URL}/login`, {
       waitUntil: "networkidle2",
@@ -139,40 +140,30 @@ class NetworkInterceptor {
   /**
    * Handles the response from the login API to store the auth token.
    * @param {puppeteer.Response} interceptedResponse - The Puppeteerintercepted response.
-     */
-    async _handleLoginResponse(interceptedResponse, includeFiveFortyMinutesCheck = false) {
-      if (interceptedResponse.url().includes("/accounts/login")) {
-        try {
-          const responseData = await interceptedResponse.json();
-          if (responseData && responseData.detail && responseData.detail.token) {
-            // You can keep the token age check here if it's still desired.
-            // For simplicity, removing the 5h40m check as it might complicate initial token storage.
-            let existingToken = null;
-            let fiveHoursFortyMins = 0;
-            if(includeFiveFortyMinutesCheck) {
-             existingToken = await Constant.findOne({
-                              key: "SCRAPING_AUTH_TOKEN",
-                            });
-              fiveHoursFortyMins = 5 * 60 * 60 * 1000 + 40 * 60 * 1000; // 5h40m in milliseconds  
-            }
-            if(!includeFiveFortyMinutesCheck || !existingToken || Date.now() - existingToken.lastUpdated.getTime() > fiveHoursFortyMins) {
-            await Constant.findOneAndUpdate(
-              { key: "SCRAPING_AUTH_TOKEN" },
-              { value: responseData.detail.token, lastUpdated: new Date() },
-              { upsert: true }
-            );
-            logger.info("Auth token updated from login response.");
-          }
-          }
-        } catch (error) {
-          logger.error("Error processing login response:", error);
-          sentryUtil.captureException(error, {
-            context: '_handleLoginResponse_failed',
-            method: '_handleLoginResponse',
-          });
+   */
+  async _handleLoginResponse(
+    interceptedResponse,
+  ) {
+    if (interceptedResponse.url().includes("/accounts/login")) {
+      try {
+        const responseData = await interceptedResponse.json();
+        if (responseData && responseData.detail && responseData.detail.token) {
+          await Constant.findOneAndUpdate(
+            { key: "SCRAPING_AUTH_TOKEN" },
+            { value: responseData.detail.token, lastUpdated: new Date() },
+            { upsert: true }
+          );
+          logger.info("Auth token updated from login response.");
         }
+      } catch (error) {
+        logger.error("Error processing login response:", error);
+        sentryUtil.captureException(error, {
+          context: "_handleLoginResponse_failed",
+          method: "_handleLoginResponse",
+        });
       }
     }
+  }
 
   async initialize() {
     try {
@@ -209,7 +200,6 @@ class NetworkInterceptor {
     }
   }
 
-
   async monitorPendingDeposits() {
     try {
       // Clean up existing pending deposits browser instance first
@@ -234,9 +224,9 @@ class NetworkInterceptor {
             }
           } catch (error) {
             sentryUtil.captureException(error, {
-              context: 'monitor_pending_deposits_failed_4',
-              method: 'monitorPendingDeposits',
-              transactionType: 'deposit'
+              context: "monitor_pending_deposits_failed_4",
+              method: "monitorPendingDeposits",
+              transactionType: "deposit",
             });
             // await this.cleanupPendingDeposits();
           }
@@ -282,7 +272,7 @@ class NetworkInterceptor {
           let url = interceptedResponse.url();
 
           // Handle login response
-          await this._handleLoginResponse(interceptedResponse, false);
+          await this._handleLoginResponse(interceptedResponse);
 
           // Handle deposit list API
           if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -295,66 +285,29 @@ class NetworkInterceptor {
               for (const transaction of transactions) {
                 if (transaction.amount >= 0) {
                   try {
-                    await transactionService.findOrCreateAgent(
-                      transaction.franchiseName.split(" (")[0]
+                    
+                    await transactionUtil.processAndSaveTransaction(
+                      transaction,
+                      true
                     );
 
-                    // Create the transaction data object
-                    const transactionData = {
-                      orderId: transaction.orderID,
-                      userId: transaction.userID,
-                      userName: transaction.userName,
-                      name: transaction.name,
-                      statusId: transaction.StatusID,
-                      transactionStatus: transaction.transactionStatus,
-                      amount: transaction.amount,
-                      requestDate: transaction.requestDate, // Convert UTC to IST
-                      paymentMethod: transaction.paymentMethod,
-                      holderName: transaction.holderName,
-                      bankName: transaction.bankName,
-                      accountNumber: transaction.number,
-                      iban: transaction.iBAN,
-                      cardNo: transaction.cardNo,
-                      utr: transaction.uTR,
-                      approvedOn: transaction.approvedOn,
-                      rejectedOn: transaction.rejectedOn,
-                      firstDeposit: transaction.firstDeposit,
-                      approvedBy: transaction.approvedBy,
-                      franchiseName: transaction.franchiseName,
-                      truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
-                      remarks: transaction.remarks,
-                      bonusIncluded: transaction.bonusIncluded,
-                      bonusExcluded: transaction.bonusExcluded,
-                      bonusThreshold: transaction.bonusThreshold,
-                      lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                      auditStatusId: transaction.auditStatusID,
-                      auditStatus: transaction.auditStatus,
-                      authorizedUserRemarks: transaction.authorizedUserRemarks,
-                      isImageAvailable: transaction.isImageAvailable,
-                    };
-
-                    // Use findOneAndUpdate with upsert option to create or update
-                    await Transaction.findOneAndUpdate(
-                      { orderId: transaction.orderID }, // find criteria
-                      transactionData, // update data
-                      {
-                        upsert: true, // create if doesn't exist
-                        new: true, // return updated doc
-                        runValidators: true, // run schema validators
-                      }
+                    let fetchTranscriptResponse = await this.fetchTranscript(
+                      transaction.orderID,
+                      authToken
                     );
-
-                    await this.fetchTranscript(transaction.orderID, authToken);
+                    logger.info(
+                      `fetchTranscriptResponse - ${fetchTranscriptResponse}, orderId - ${transaction.orderID}`
+                    );
                   } catch (transactionError) {
                     logger.error("Error processing individual transaction:", {
                       orderId: transaction?.orderID,
                       error: transactionError.message,
                     });
                     sentryUtil.captureException(transactionError, {
-                      context: 'monitorPendingDeposits_transaction_update',
+                      context: "monitorPendingDeposits_transaction_update",
                       orderId: transaction?.orderID,
-                      method: 'monitorPendingDeposits',
-                      transactionType: 'deposit'
+                      method: "monitorPendingDeposits",
+                      transactionType: "deposit",
                     });
                   }
                 }
@@ -365,10 +318,10 @@ class NetworkInterceptor {
                 error: err.message,
               });
               sentryUtil.captureException(err, {
-                context: 'monitorPendingDeposits_api_response',
+                context: "monitorPendingDeposits_api_response",
                 url: url,
-                method: 'monitorPendingDeposits',
-                statusCode: err.response?.status || 'unknown'
+                method: "monitorPendingDeposits",
+                statusCode: err.response?.status || "unknown",
               });
             }
           }
@@ -380,14 +333,14 @@ class NetworkInterceptor {
           this.pendingDepositsBrowser = null;
           this.pendingDepositsPage = null;
 
-          logger.error('pending_deposits_browser_disconnected')
+          logger.error("pending_deposits_browser_disconnected");
         });
 
         this.pendingDepositsPage.on("close", () => {
           this.isMonitoring = false;
           this.pendingDepositsPage = null;
 
-          logger.error(`pending_deposits_browser_closed`)
+          logger.error(`pending_deposits_browser_closed`);
         });
 
         // Only proceed with login if we're not already on the right page
@@ -417,9 +370,9 @@ class NetworkInterceptor {
             await new Promise((resolve) => setTimeout(resolve, 5000));
           } catch (error) {
             sentryUtil.captureException(error, {
-              context: 'monitor_pending_deposits_waiting_for_table_failed',
-              method: 'monitorPendingDeposits',
-              transactionType: 'deposit'
+              context: "monitor_pending_deposits_waiting_for_table_failed",
+              method: "monitorPendingDeposits",
+              transactionType: "deposit",
             });
           }
         }
@@ -444,9 +397,9 @@ class NetworkInterceptor {
         stack: error.stack,
       });
       sentryUtil.captureException(error, {
-        context: 'monitor_pending_deposits_failed_2',
-        method: 'monitorPendingDeposits',
-        transactionType: 'deposit'
+        context: "monitor_pending_deposits_failed_2",
+        method: "monitorPendingDeposits",
+        transactionType: "deposit",
       });
       // await this.cleanupPendingDeposits();
       throw error;
@@ -497,7 +450,7 @@ class NetworkInterceptor {
         let url = interceptedResponse.url();
 
         // Handle login response
-        await this._handleLoginResponse(interceptedResponse, true);
+        await this._handleLoginResponse(interceptedResponse);
 
         // Handle deposit list API
         if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -532,53 +485,7 @@ class NetworkInterceptor {
                     continue;
                   }
 
-                  await transactionService.findOrCreateAgent(
-                    transaction.franchiseName.split(" (")[0]
-                  );
-
-                  // Create the transaction data object
-                  const transactionData = {
-                    orderId: transaction.orderID,
-                    userId: transaction.userID,
-                    userName: transaction.userName,
-                    name: transaction.name,
-                    statusId: transaction.StatusID,
-                    transactionStatus: transaction.transactionStatus,
-                    amount: transaction.amount,
-                    requestDate: transaction.requestDate, // Convert UTC to IST
-                    paymentMethod: transaction.paymentMethod,
-                    holderName: transaction.holderName,
-                    bankName: transaction.bankName,
-                    accountNumber: transaction.number,
-                    iban: transaction.iBAN,
-                    cardNo: transaction.cardNo,
-                    utr: transaction.uTR,
-                    approvedOn: transaction.approvedOn,
-                    rejectedOn: transaction.rejectedOn,
-                    firstDeposit: transaction.firstDeposit,
-                    approvedBy: transaction.approvedBy,
-                    franchiseName: transaction.franchiseName,
-                    truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
-                    remarks: transaction.remarks,
-                    bonusIncluded: transaction.bonusIncluded,
-                    bonusExcluded: transaction.bonusExcluded,
-                    bonusThreshold: transaction.bonusThreshold,
-                    lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                    auditStatusId: transaction.auditStatusID,
-                    auditStatus: transaction.auditStatus,
-                    authorizedUserRemarks: transaction.authorizedUserRemarks,
-                    isImageAvailable: transaction.isImageAvailable,
-                  };
-
-                  await Transaction.findOneAndUpdate(
-                    { orderId: transaction.orderID },
-                    transactionData,
-                    {
-                      upsert: true,
-                      new: true,
-                      runValidators: true,
-                    }
-                  );
+                  await transactionUtil.processAndSaveTransaction(transaction, true)
                 } catch (transactionError) {
                   logger.error(
                     "[ApprovedDeposits] Error -------------------------------- processing individual transaction",
@@ -589,10 +496,10 @@ class NetworkInterceptor {
                     }
                   );
                   sentryUtil.captureException(transactionError, {
-                    context: 'monitorRecentDeposits_transaction_update',
+                    context: "monitorRecentDeposits_transaction_update",
                     orderId: transaction?.orderID,
-                    method: 'monitorRecentDeposits',
-                    transactionType: 'deposit'
+                    method: "monitorRecentDeposits",
+                    transactionType: "deposit",
                   });
                 }
               }
@@ -674,9 +581,9 @@ class NetworkInterceptor {
         stack: error.stack,
       });
       sentryUtil.captureException(error, {
-        context: 'monitorRecentDeposits_main_error',
-        method: 'monitorRecentDeposits',
-        statusCode: error.response?.status || 'unknown'
+        context: "monitorRecentDeposits_main_error",
+        method: "monitorRecentDeposits",
+        statusCode: error.response?.status || "unknown",
       });
       await this.cleanupRecentDeposits();
       throw error;
@@ -711,7 +618,7 @@ class NetworkInterceptor {
         let url = interceptedResponse.url();
 
         // Handle login response
-        await this._handleLoginResponse(interceptedResponse, true);
+        await this._handleLoginResponse(interceptedResponse);
 
         // Handle deposit list API
         if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -748,53 +655,8 @@ class NetworkInterceptor {
                   ) {
                     continue;
                   }
-                  await transactionService.findOrCreateAgent(
-                    transaction.franchiseName.split(" (")[0]
-                  );
-
-                  // Create the transaction data object
-                  const transactionData = {
-                    orderId: transaction.orderID,
-                    userId: transaction.userID,
-                    userName: transaction.userName,
-                    name: transaction.name,
-                    statusId: transaction.StatusID,
-                    transactionStatus: transaction.transactionStatus,
-                    amount: transaction.amount,
-                    requestDate: transaction.requestDate, // Convert UTC to IST
-                    paymentMethod: transaction.paymentMethod,
-                    holderName: transaction.holderName,
-                    bankName: transaction.bankName,
-                    accountNumber: transaction.number,
-                    iban: transaction.iBAN,
-                    cardNo: transaction.cardNo,
-                    utr: transaction.uTR,
-                    approvedOn: transaction.approvedOn,
-                    rejectedOn: transaction.rejectedOn,
-                    firstDeposit: transaction.firstDeposit,
-                    approvedBy: transaction.approvedBy,
-                    franchiseName: transaction.franchiseName,
-                    truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
-                    remarks: transaction.remarks,
-                    bonusIncluded: transaction.bonusIncluded,
-                    bonusExcluded: transaction.bonusExcluded,
-                    bonusThreshold: transaction.bonusThreshold,
-                    lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                    auditStatusId: transaction.auditStatusID,
-                    auditStatus: transaction.auditStatus,
-                    authorizedUserRemarks: transaction.authorizedUserRemarks,
-                    isImageAvailable: transaction.isImageAvailable,
-                  };
-
-                  await Transaction.findOneAndUpdate(
-                    { orderId: transaction.orderID },
-                    transactionData,
-                    {
-                      upsert: true,
-                      new: true,
-                      runValidators: true,
-                    }
-                  );
+                  
+                  transactionUtil.processAndSaveTransaction(transaction, true)
                 } catch (transactionError) {
                   logger.error(
                     "[RejectedDeposits] Error -------------------------------- processing individual transaction",
@@ -805,10 +667,10 @@ class NetworkInterceptor {
                     }
                   );
                   sentryUtil.captureException(transactionError, {
-                    context: 'monitorRejectedDeposits_transaction_update',
+                    context: "monitorRejectedDeposits_transaction_update",
                     orderId: transaction?.orderID,
-                    method: 'monitorRejectedDeposits',
-                    transactionType: 'deposit'
+                    method: "monitorRejectedDeposits",
+                    transactionType: "deposit",
                   });
                 }
               }
@@ -854,7 +716,7 @@ class NetworkInterceptor {
         // Wait for the page to load and then click the rejected filter
         try {
           await this.rejectedDepositsPage.waitForSelector(
-            'mat-select.mat-mdc-select',
+            "mat-select.mat-mdc-select",
             {
               timeout: 10000,
               visible: true,
@@ -862,9 +724,7 @@ class NetworkInterceptor {
           );
 
           // Click the status filter dropdown
-          await this.rejectedDepositsPage.click(
-            'mat-select.mat-mdc-select'
-          );
+          await this.rejectedDepositsPage.click("mat-select.mat-mdc-select");
 
           // Wait for the options panel to be visible
           await this.rejectedDepositsPage.waitForSelector("mat-option", {
@@ -873,7 +733,7 @@ class NetworkInterceptor {
           });
 
           // Find and click the "Reject" option
-          const options = await this.rejectedDepositsPage.$$('mat-option');
+          const options = await this.rejectedDepositsPage.$$("mat-option");
 
           let rejectedSelected = false;
           for (const option of options) {
@@ -905,25 +765,22 @@ class NetworkInterceptor {
             stack: error.stack,
           });
           sentryUtil.captureException(error, {
-            context: 'monitor_rejected_deposits_filter_change_failed',
-            method: 'monitorPendingDeposits',
-            statusCode: error.response?.status || 'unknown'
+            context: "monitor_rejected_deposits_filter_change_failed",
+            method: "monitorPendingDeposits",
+            statusCode: error.response?.status || "unknown",
           });
 
           // Try alternative approach - find mat-select directly
           try {
-            const matSelects = await this.rejectedDepositsPage.$$('mat-select');
+            const matSelects = await this.rejectedDepositsPage.$$("mat-select");
             if (matSelects.length > 0) {
               const matSelect = matSelects[0];
 
               await matSelect.click();
-              await this.rejectedDepositsPage.waitForSelector(
-                "mat-option",
-                { timeout: 5000 }
-              );
-              const options = await this.rejectedDepositsPage.$$(
-                "mat-option"
-              );
+              await this.rejectedDepositsPage.waitForSelector("mat-option", {
+                timeout: 5000,
+              });
+              const options = await this.rejectedDepositsPage.$$("mat-option");
 
               let rejectedSelected = false;
               for (const option of options) {
@@ -939,7 +796,8 @@ class NetworkInterceptor {
 
               if (rejectedSelected) {
                 await new Promise((resolve) => setTimeout(resolve, 1000));
-                const submitButtonSelector = 'button[mat-raised-button][type="submit"]';
+                const submitButtonSelector =
+                  'button[mat-raised-button][type="submit"]';
                 await this.rejectedDepositsPage.waitForSelector(
                   submitButtonSelector,
                   { visible: true, timeout: 5000 }
@@ -998,9 +856,9 @@ class NetworkInterceptor {
         stack: error.stack,
       });
       sentryUtil.captureException(error, {
-        context: 'monitorRejectedDeposits_main_error',
-        method: 'monitorRejectedDeposits',
-        statusCode: error.response?.status || 'unknown'
+        context: "monitorRejectedDeposits_main_error",
+        method: "monitorRejectedDeposits",
+        statusCode: error.response?.status || "unknown",
       });
       await this.cleanupRejectedDeposits();
       throw error;
@@ -1077,7 +935,7 @@ class NetworkInterceptor {
             let url = interceptedResponse.url();
 
             // Handle login response
-            await this._handleLoginResponse(interceptedResponse, false);
+            await this._handleLoginResponse(interceptedResponse);
 
             // Handle deposit list API
             if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -1092,100 +950,14 @@ class NetworkInterceptor {
                 for (const transaction of transactions) {
                   if (transaction.amount < 0) {
                     try {
-                      await transactionService.findOrCreateAgent(
-                        transaction.franchiseName.split(" (")[0]
-                      );
-
-                      // Create the transaction data object
-                      const transactionData = {
-                        orderId: transaction.orderID,
-                        userId: transaction.userID,
-                        userName: transaction.userName,
-                        name: transaction.name,
-                        statusId: transaction.StatusID,
-                        transactionStatus: transaction.transactionStatus,
-                        amount: transaction.amount,
-                        requestDate: transaction.requestDate, // Convert UTC to IST
-                        paymentMethod: transaction.paymentMethod,
-                        holderName: transaction.holderName,
-                        bankName: transaction.bankName,
-                        accountNumber: transaction.number,
-                        iban: transaction.iBAN,
-                        cardNo: transaction.cardNo,
-                        utr: transaction.uTR,
-                        approvedOn: transaction.approvedOn,
-                        rejectedOn: transaction.rejectedOn,
-                        firstDeposit: transaction.firstDeposit,
-                        approvedBy: transaction.approvedBy,
-                        franchiseName: transaction.franchiseName,
-                        truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
-                        remarks: transaction.remarks,
-                        bonusIncluded: transaction.bonusIncluded,
-                        bonusExcluded: transaction.bonusExcluded,
-                        bonusThreshold: transaction.bonusThreshold,
-                        lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                        auditStatusId: transaction.auditStatusID,
-                        auditStatus: transaction.auditStatus,
-                        authorizedUserRemarks:
-                          transaction.authorizedUserRemarks,
-                        isImageAvailable: transaction.isImageAvailable,
-                      };
-
-                      // Use findOneAndUpdate with upsert option to create or update
-                      const existingTransaction = await Transaction.findOne({
-                        orderId: transaction.orderID,
-                      });
-                      let checkingDeptApprovedOn = null;
-                      let bonusApprovedOn = null;
-
-                      if (
-                        existingTransaction &&
-                        existingTransaction.auditStatus ===
-                          TRANSACTION_STATUS.PENDING &&
-                        (transaction.auditStatus ===
-                          TRANSACTION_STATUS.SUCCESS ||
-                          transaction.auditStatus ===
-                            TRANSACTION_STATUS.REJECTED)
-                      ) {
-                        checkingDeptApprovedOn = transaction.approvedOn;
-                        transactionData.checkingDeptApprovedOn =
-                          checkingDeptApprovedOn;
-                        if (existingTransaction.bonusApprovedOn === null)
-                          transactionData.bonusApprovedOn =
-                            checkingDeptApprovedOn;
-                      }
-
-                      // Check if bonusIncluded or bonusExcluded is changing from 0 to non-zero
-                      if (
-                        existingTransaction &&
-                        ((existingTransaction.bonusIncluded === 0 &&
-                          transaction.bonusIncluded !== 0) ||
-                          (existingTransaction.bonusExcluded === 0 &&
-                            transaction.bonusExcluded !== 0))
-                      ) {
-                        bonusApprovedOn = transaction.approvedOn;
-                        transactionData.bonusApprovedOn = bonusApprovedOn;
-                      }
-
-                      // Check if isImageAvailable is changing from false to true
-                      const shouldFetchTranscript =
-                        existingTransaction &&
-                        existingTransaction.isImageAvailable === false &&
-                        transaction.isImageAvailable === true;
-
-                      await Transaction.findOneAndUpdate(
-                        { orderId: transaction.orderID }, // find criteria
-                        transactionData, // update data
-                        {
-                          upsert: true, // create if doesn't exist
-                          new: true, // return updated doc
-                          runValidators: true, // run schema validators
-                        }
-                      );
-
+                      
+                      const shouldFetchTranscript = await transactionUtil.processAndSaveTransaction(transaction, false);
                       // Only fetch transcript if isImageAvailable changed from false to true
                       if (shouldFetchTranscript) {
-                        await this.fetchTranscript(transaction.orderID, authToken);
+                        await this.fetchTranscript(
+                          transaction.orderID,
+                          authToken
+                        );
                       }
                     } catch (transactionError) {
                       logger.error("Error processing individual transaction:", {
@@ -1193,10 +965,10 @@ class NetworkInterceptor {
                         error: transactionError.message,
                       });
                       sentryUtil.captureException(transactionError, {
-                        context: 'monitorPendingWithdrawals_transaction_update',
+                        context: "monitorPendingWithdrawals_transaction_update",
                         orderId: transaction?.orderID,
-                        method: 'monitorPendingWithdrawals',
-                        transactionType: 'withdrawal'
+                        method: "monitorPendingWithdrawals",
+                        transactionType: "withdrawal",
                       });
                     }
                   }
@@ -1207,10 +979,10 @@ class NetworkInterceptor {
                   error: err.message,
                 });
                 sentryUtil.captureException(err, {
-                  context: 'monitorPendingWithdrawals_api_response',
+                  context: "monitorPendingWithdrawals_api_response",
                   url: url,
-                  method: 'monitorPendingWithdrawals',
-                  statusCode: err.response?.status || 'unknown'
+                  method: "monitorPendingWithdrawals",
+                  statusCode: err.response?.status || "unknown",
                 });
               }
             }
@@ -1330,7 +1102,7 @@ class NetworkInterceptor {
           let url = interceptedResponse.url();
 
           // Handle login response
-          await this._handleLoginResponse(interceptedResponse, false);
+          await this._handleLoginResponse(interceptedResponse);
 
           // Handle withdrawal list API
           if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -1350,92 +1122,13 @@ class NetworkInterceptor {
               for (const transaction of transactions) {
                 if (transaction.amount < 0) {
                   try {
-                    await transactionService.findOrCreateAgent(
-                      transaction.franchiseName.split(" (")[0]
-                    );
+                    const shouldFetchTranscript = await transactionUtil.processAndSaveTransaction(transaction, false);
 
-                    // Create the transaction data object
-                    const transactionData = {
-                      orderId: transaction.orderID,
-                      userId: transaction.userID,
-                      userName: transaction.userName,
-                      name: transaction.name,
-                      statusId: transaction.StatusID,
-                      transactionStatus: transaction.transactionStatus,
-                      amount: transaction.amount,
-                      requestDate: transaction.requestDate,
-                      paymentMethod: transaction.paymentMethod,
-                      holderName: transaction.holderName,
-                      bankName: transaction.bankName,
-                      accountNumber: transaction.number,
-                      iban: transaction.iBAN,
-                      cardNo: transaction.cardNo,
-                      utr: transaction.uTR,
-                      approvedOn: transaction.approvedOn,
-                      rejectedOn: transaction.rejectedOn,
-                      firstDeposit: transaction.firstDeposit,
-                      approvedBy: transaction.approvedBy,
-                      franchiseName: transaction.franchiseName,
-                      truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
-                      remarks: transaction.remarks,
-                      bonusIncluded: transaction.bonusIncluded,
-                      bonusExcluded: transaction.bonusExcluded,
-                      bonusThreshold: transaction.bonusThreshold,
-                      lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                      auditStatusId: transaction.auditStatusID,
-                      auditStatus: transaction.auditStatus,
-                      authorizedUserRemarks: transaction.authorizedUserRemarks,
-                      isImageAvailable: transaction.isImageAvailable,
-                    };
-
-                    // Use findOneAndUpdate with upsert option to create or update
-                    const existingTransaction = await Transaction.findOne({
-                      orderId: transaction.orderID,
-                    });
-                    let checkingDeptApprovedOn = null;
-                    let bonusApprovedOn = null;
-
-                    if (
-                      existingTransaction &&
-                      existingTransaction.auditStatus ===
-                        TRANSACTION_STATUS.PENDING &&
-                      (transaction.auditStatus === TRANSACTION_STATUS.SUCCESS ||
-                        transaction.auditStatus === TRANSACTION_STATUS.REJECTED)
-                    ) {
-                      checkingDeptApprovedOn = transaction.approvedOn;
-                      transactionData.checkingDeptApprovedOn =
-                        checkingDeptApprovedOn;
-                    }
-
-                    // Check if bonusIncluded or bonusExcluded is changing from 0 to non-zero
-                    if (
-                      existingTransaction &&
-                      ((existingTransaction.bonusIncluded === 0 &&
-                        transaction.bonusIncluded !== 0) ||
-                        (existingTransaction.bonusExcluded === 0 &&
-                          transaction.bonusExcluded !== 0))
-                    ) {
-                      bonusApprovedOn = transaction.approvedOn;
-                      transactionData.bonusApprovedOn = bonusApprovedOn;
-                    }
-
-                    // Check if isImageAvailable is changing from false to true
-                    const shouldFetchTranscript =
-                      existingTransaction &&
-                      existingTransaction.isImageAvailable === false &&
-                      transaction.isImageAvailable === true;
-
-                    await Transaction.findOneAndUpdate(
-                      { orderId: transaction.orderID },
-                      transactionData,
-                      {
-                        upsert: true,
-                        new: true,
-                        runValidators: true,
-                      }
-                    );
                     if (shouldFetchTranscript) {
-                      await this.fetchTranscript(transaction.orderID, authToken);
+                      await this.fetchTranscript(
+                        transaction.orderID,
+                        authToken
+                      );
                     }
                   } catch (transactionError) {
                     logger.error(
@@ -1447,10 +1140,10 @@ class NetworkInterceptor {
                       }
                     );
                     sentryUtil.captureException(transactionError, {
-                      context: 'monitorApprovedWithdrawals_transaction_update',
+                      context: "monitorApprovedWithdrawals_transaction_update",
                       orderId: transaction?.orderID,
-                      method: 'monitorApprovedWithdrawals',
-                      transactionType: 'withdrawal'
+                      method: "monitorApprovedWithdrawals",
+                      transactionType: "withdrawal",
                     });
                   }
                 } else {
@@ -1540,9 +1233,9 @@ class NetworkInterceptor {
         stack: error.stack,
       });
       sentryUtil.captureException(error, {
-        context: 'monitorApprovedWithdrawals_main_error',
-        method: 'monitorApprovedWithdrawals',
-        statusCode: error.response?.status || 'unknown'
+        context: "monitorApprovedWithdrawals_main_error",
+        method: "monitorApprovedWithdrawals",
+        statusCode: error.response?.status || "unknown",
       });
       await this.cleanupApprovedWithdrawals();
       throw error;
@@ -1581,7 +1274,7 @@ class NetworkInterceptor {
           let url = interceptedResponse.url();
 
           // Handle login response
-          await this._handleLoginResponse(interceptedResponse, false);
+          await this._handleLoginResponse(interceptedResponse);
 
           // Handle withdrawal list API
           if (url.includes("/accounts/GetListOfRequestsForFranchise")) {
@@ -1698,7 +1391,10 @@ class NetworkInterceptor {
                       }
                     );
                     if (shouldFetchTranscript) {
-                      await this.fetchTranscript(transaction.orderID, authToken);
+                      await this.fetchTranscript(
+                        transaction.orderID,
+                        authToken
+                      );
                     }
                   } catch (transactionError) {
                     logger.error(
@@ -1710,10 +1406,10 @@ class NetworkInterceptor {
                       }
                     );
                     sentryUtil.captureException(transactionError, {
-                      context: 'monitorRejectedWithdrawals_transaction_update',
+                      context: "monitorRejectedWithdrawals_transaction_update",
                       orderId: transaction?.orderID,
-                      method: 'monitorRejectedWithdrawals',
-                      transactionType: 'withdrawal'
+                      method: "monitorRejectedWithdrawals",
+                      transactionType: "withdrawal",
                     });
                   }
                 } else {
@@ -1765,7 +1461,7 @@ class NetworkInterceptor {
         // Wait for the page to load and then click the rejected filter
         try {
           await this.rejectedWithdrawalsPage.waitForSelector(
-            'mat-select.mat-mdc-select',
+            "mat-select.mat-mdc-select",
             {
               timeout: 10000,
               visible: true,
@@ -1773,9 +1469,7 @@ class NetworkInterceptor {
           );
 
           // Click the status filter dropdown
-          await this.rejectedWithdrawalsPage.click(
-            'mat-select.mat-mdc-select'
-          );
+          await this.rejectedWithdrawalsPage.click("mat-select.mat-mdc-select");
 
           // Wait for the options panel to be visible
           await this.rejectedWithdrawalsPage.waitForSelector("mat-option", {
@@ -1784,7 +1478,7 @@ class NetworkInterceptor {
           });
 
           // Find and click the "Reject" option
-          const options = await this.rejectedWithdrawalsPage.$$('mat-option');
+          const options = await this.rejectedWithdrawalsPage.$$("mat-option");
 
           let rejectedSelected = false;
           for (const option of options) {
@@ -1816,22 +1510,23 @@ class NetworkInterceptor {
             stack: error.stack,
           });
           sentryUtil.captureException(error, {
-            context: 'monitor_rejected_withdraws_filter_change_failed',
-            method: 'monitorRejectedWithdraws',
-            statusCode: error.response?.status || 'unknown'
+            context: "monitor_rejected_withdraws_filter_change_failed",
+            method: "monitorRejectedWithdraws",
+            statusCode: error.response?.status || "unknown",
           });
 
           // Try alternative approach - find mat-select directly
           try {
-            const matSelects = await this.rejectedWithdrawalsPage.$$('mat-select');
+            const matSelects = await this.rejectedWithdrawalsPage.$$(
+              "mat-select"
+            );
             if (matSelects.length > 0) {
               const matSelect = matSelects[0];
 
               await matSelect.click();
-              await this.rejectedWithdrawalsPage.waitForSelector(
-                "mat-option",
-                { timeout: 5000 }
-              );
+              await this.rejectedWithdrawalsPage.waitForSelector("mat-option", {
+                timeout: 5000,
+              });
               const options = await this.rejectedWithdrawalsPage.$$(
                 "mat-option"
               );
@@ -1850,7 +1545,8 @@ class NetworkInterceptor {
 
               if (rejectedSelected) {
                 await new Promise((resolve) => setTimeout(resolve, 1000));
-                const submitButtonSelector = 'button[mat-raised-button][type="submit"]';
+                const submitButtonSelector =
+                  'button[mat-raised-button][type="submit"]';
                 await this.rejectedWithdrawalsPage.waitForSelector(
                   submitButtonSelector,
                   { visible: true, timeout: 5000 }
@@ -1909,9 +1605,9 @@ class NetworkInterceptor {
         stack: error.stack,
       });
       sentryUtil.captureException(error, {
-        context: 'monitorRejectedWithdrawals_main_error',
-        method: 'monitorRejectedWithdrawals',
-        statusCode: error.response?.status || 'unknown'
+        context: "monitorRejectedWithdrawals_main_error",
+        method: "monitorRejectedWithdrawals",
+        statusCode: error.response?.status || "unknown",
       });
       await this.cleanupRejectedWithdrawals();
       throw error;
@@ -2036,6 +1732,7 @@ class NetworkInterceptor {
   }
 
   async runTranscriptFetchScheduler() {
+    logger.info("Executing FETCH PENDING TRANSCRIPTS");
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
@@ -2067,24 +1764,6 @@ class NetworkInterceptor {
     }
   }
 
-  async monitorDepositApproval() {
-    try {
-      if (!response.ok()) {
-        throw new Error(
-          `Failed to load deposit approval page: ${response.status()} ${response.statusText()}`
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, 30000)); // Monitor for 30 seconds
-    } catch (error) {
-      logger.error("Error monitoring deposit approval:", {
-        error: error.message,
-        stack: error.stack,
-        // currentUrl: this.page ? this.page.url() : 'N/A'
-      });
-      throw error;
-    }
-  }
-
   async close() {
     await this.cleanup();
     this.isLoggedIn = false;
@@ -2102,20 +1781,20 @@ class NetworkInterceptor {
    */
   async getAuthToken() {
     try {
-      const key = 'SCRAPING_AUTH_TOKEN'
-      let token = Cache.get(key)
+      const key = "SCRAPING_AUTH_TOKEN";
+      let token = Cache.get(key);
       if (token) return token;
 
       const tokenData = await Constant.findOne({ key });
       if (!tokenData) {
-        logger.error('No auth token found in constants');
+        logger.error("No auth token found in constants");
         return null;
       }
 
       Cache.set(key, tokenData.value);
       return tokenData.value;
     } catch (error) {
-      logger.error('Error fetching auth token:', error);
+      logger.error("Error fetching auth token:", error);
       return null;
     }
   }
@@ -2132,7 +1811,7 @@ class NetworkInterceptor {
     try {
       authToken ||= await this.getAuthToken();
       if (!authToken) {
-        logger.error('No auth token found');
+        logger.error("No auth token found");
         return false;
       }
 
@@ -2141,23 +1820,37 @@ class NetworkInterceptor {
         { orderID: orderId },
         {
           headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json'
-          }
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json",
+          },
         }
       );
-  
+
       if (response.data) {
         // Update transaction with transcript link
         await Transaction.findOneAndUpdate(
           { orderId },
-          { 
+          {
             transcriptLink: response.data.imageData,
-            lastTranscriptUpdate: new Date()
+            lastTranscriptUpdate: new Date(),
           }
         );
+        logger.error(
+          `Fetch Transcript Success, inside if block, orderId - ${orderId}}`
+        );
         return true;
+      } else {
+        logger.error(
+          `Fetch Transcript Error, inside else block, orderId - ${orderId}, response - ${JSON.stringify(
+            response
+          )}`
+        );
       }
+      logger.error(
+        `Fetch Transcript Error, outside if-else block, orderId - ${orderId}, response - ${JSON.stringify(
+          response
+        )}`
+      );
       return false;
     } catch (error) {
       if (error.response && error.response.status === 401) {
@@ -2167,7 +1860,7 @@ class NetworkInterceptor {
           // Retry with new token
           const newAuthToken = await this.getAuthToken();
           if (!newAuthToken) {
-            logger.error('Failed to get new auth token after refresh');
+            logger.error("Failed to get new auth token after refresh");
             return false;
           }
 
@@ -2176,25 +1869,28 @@ class NetworkInterceptor {
             { orderID: orderId },
             {
               headers: {
-                'Authorization': `Bearer ${newAuthToken}`,
-                'Content-Type': 'application/json'
-              }
+                Authorization: `Bearer ${newAuthToken}`,
+                "Content-Type": "application/json",
+              },
             }
           );
 
           if (retryResponse.data) {
             await Transaction.findOneAndUpdate(
               { orderId },
-              { 
+              {
                 transcriptLink: retryResponse.data.imageData,
-                lastTranscriptUpdate: new Date()
+                lastTranscriptUpdate: new Date(),
               }
             );
             return true;
           }
           return false;
         } catch (refreshError) {
-          logger.error(`Error refreshing token for transcript ${orderId}:`, refreshError);
+          logger.error(
+            `Error refreshing token for transcript ${orderId}:`,
+            refreshError
+          );
           return false;
         }
       }
@@ -2205,14 +1901,14 @@ class NetworkInterceptor {
 
   /**
    * Process transaction notifications based on time difference
-  */
+   */
   async processTransactionNotification() {
-    logger.info('Sending Pending Transaction Messages')
+    logger.info("Sending Pending Transaction Messages");
     try {
       const pendingTransactions = await Transaction.find({
-        transactionStatus: TRANSACTION_STATUS.PENDING
+        transactionStatus: TRANSACTION_STATUS.PENDING,
       });
-      
+
       for (const [index, transaction] of pendingTransactions.entries()) {
         const franchiseName = transaction.truncatedFranchiseName ? transaction.truncatedFranchiseName : 'Unknown';
         const currentTime = new Date();
@@ -2227,10 +1923,10 @@ class NetworkInterceptor {
         );
       }
     } catch (error) {
-      logger.error('Error processing transaction notification:', {
+      logger.error("Error processing transaction notification:", {
         franchiseName,
         orderId: transactionDetails?.orderId,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -2241,7 +1937,7 @@ class NetworkInterceptor {
   async refreshAuthToken() {
     let browser = null;
     let page = null;
-    
+
     try {
       const executablePath = await this.findChromePath();
       browser = await puppeteer.launch({
@@ -2284,7 +1980,7 @@ class NetworkInterceptor {
                 },
                 { upsert: true }
               );
-              logger.info('Auth token refreshed successfully');
+              logger.info("Auth token refreshed successfully");
             }
           } catch (error) {
             logger.error("Error processing login response:", error);
