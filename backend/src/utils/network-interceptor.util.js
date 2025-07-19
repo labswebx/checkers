@@ -142,7 +142,7 @@ class NetworkInterceptor {
    * @param {puppeteer.Response} interceptedResponse - The Puppeteerintercepted response.
    */
   async _handleLoginResponse(
-    interceptedResponse,
+    interceptedResponse
   ) {
     if (interceptedResponse.url().includes("/accounts/login")) {
       try {
@@ -204,33 +204,10 @@ class NetworkInterceptor {
     try {
       // Clean up existing pending deposits browser instance first
       await this.cleanupPendingDeposits();
-
-      const executablePath = await this.findChromePath();
       this.pendingDepositsBrowser = await this._launchBrowser();
-
       this.pendingDepositsPage = await this.pendingDepositsBrowser.newPage();
 
       try {
-        // If browser exists but page is closed/crashed, clean up first
-        if (this.pendingDepositsBrowser) {
-          try {
-            const pages = await this.pendingDepositsBrowser.pages();
-            if (
-              pages.length === 0 ||
-              !this.pendingDepositsPage ||
-              this.pendingDepositsPage.isClosed()
-            ) {
-              // await this.cleanupPendingDeposits();
-            }
-          } catch (error) {
-            sentryUtil.captureException(error, {
-              context: "monitor_pending_deposits_failed_4",
-              method: "monitorPendingDeposits",
-              transactionType: "deposit",
-            });
-            // await this.cleanupPendingDeposits();
-          }
-        }
 
         await new Promise((resolve) =>
           setTimeout(resolve, Math.random() * 2000 + 1000)
@@ -411,7 +388,6 @@ class NetworkInterceptor {
       // Clean up existing recent deposits browser instance first
       await this.cleanupRecentDeposits();
 
-      const executablePath = await this.findChromePath();
       this.recentDepositsBrowser = await this._launchBrowser();
 
       this.recentDepositsPage = await this.recentDepositsBrowser.newPage();
@@ -595,7 +571,6 @@ class NetworkInterceptor {
       // Clean up existing rejected deposits browser instance first
       await this.cleanupRejectedDeposits();
 
-      const executablePath = await this.findChromePath();
       this.rejectedDepositsBrowser = await this._launchBrowser();
 
       this.rejectedDepositsPage = await this.rejectedDepositsBrowser.newPage();
@@ -870,28 +845,12 @@ class NetworkInterceptor {
       // Clean up existing pending withdrawals browser instance first
       await this.cleanupPendingWithdrawals();
 
-      const executablePath = await this.findChromePath();
       this.pendingWithdrawlsBrowser = await this._launchBrowser();
 
       this.pendingWithdrawlsPage =
         await this.pendingWithdrawlsBrowser.newPage();
 
       try {
-        // If browser exists but page is closed/crashed, clean up first
-        if (this.pendingWithdrawlsBrowser) {
-          try {
-            const pages = await this.pendingWithdrawlsBrowser.pages();
-            if (
-              pages.length === 0 ||
-              !this.pendingWithdrawlsPage ||
-              this.pendingWithdrawlsPage.isClosed()
-            ) {
-              // await this.cleanupPendingDeposits();
-            }
-          } catch (error) {
-            // await this.cleanupPendingDeposits();
-          }
-        }
 
         await new Promise((resolve) =>
           setTimeout(resolve, Math.random() * 2000 + 1000)
@@ -1058,7 +1017,6 @@ class NetworkInterceptor {
       // Clean up existing approved withdrawals browser instance first
       await this.cleanupApprovedWithdrawals();
 
-      const executablePath = await this.findChromePath();
       this.approvedWithdrawalsBrowser = await this._launchBrowser();
 
       this.approvedWithdrawalsPage =
@@ -1247,7 +1205,6 @@ class NetworkInterceptor {
       // Clean up existing rejected withdrawals browser instance first
       await this.cleanupRejectedWithdrawals();
 
-      const executablePath = await this.findChromePath();
       this.rejectedWithdrawalsBrowser = await this._launchBrowser();
 
       this.rejectedWithdrawalsPage =
@@ -1853,47 +1810,47 @@ class NetworkInterceptor {
       );
       return false;
     } catch (error) {
-      if (error.response && error.response.status === 401) {
-        logger.warn(`401 error for transcript ${orderId}, refreshing token`);
-        try {
-          await this.refreshAuthToken();
-          // Retry with new token
-          const newAuthToken = await this.getAuthToken();
-          if (!newAuthToken) {
-            logger.error("Failed to get new auth token after refresh");
-            return false;
-          }
+      // if (error.response && error.response.status === 401) {
+      //   logger.warn(`401 error for transcript ${orderId}, refreshing token`);
+      //   try {
+      //     await this.refreshAuthToken();
+      //     // Retry with new token
+      //     const newAuthToken = await this.getAuthToken();
+      //     if (!newAuthToken) {
+      //       logger.error("Failed to get new auth token after refresh");
+      //       return false;
+      //     }
 
-          const retryResponse = await axios.post(
-            `${process.env.SCRAPING_WEBSITE_URL}/accounts/GetSnap`,
-            { orderID: orderId },
-            {
-              headers: {
-                Authorization: `Bearer ${newAuthToken}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
+      //     const retryResponse = await axios.post(
+      //       `${process.env.SCRAPING_WEBSITE_URL}/accounts/GetSnap`,
+      //       { orderID: orderId },
+      //       {
+      //         headers: {
+      //           Authorization: `Bearer ${newAuthToken}`,
+      //           "Content-Type": "application/json",
+      //         },
+      //       }
+      //     );
 
-          if (retryResponse.data) {
-            await Transaction.findOneAndUpdate(
-              { orderId },
-              {
-                transcriptLink: retryResponse.data.imageData,
-                lastTranscriptUpdate: new Date(),
-              }
-            );
-            return true;
-          }
-          return false;
-        } catch (refreshError) {
-          logger.error(
-            `Error refreshing token for transcript ${orderId}:`,
-            refreshError
-          );
-          return false;
-        }
-      }
+      //     if (retryResponse.data) {
+      //       await Transaction.findOneAndUpdate(
+      //         { orderId },
+      //         {
+      //           transcriptLink: retryResponse.data.imageData,
+      //           lastTranscriptUpdate: new Date(),
+      //         }
+      //       );
+      //       return true;
+      //     }
+      //     return false;
+      //   } catch (refreshError) {
+      //     logger.error(
+      //       `Error refreshing token for transcript ${orderId}:`,
+      //       refreshError
+      //     );
+      //     return false;
+      //   }
+      // }
       logger.error(`Error fetching transcript for order ${orderId}:`, error);
       return false;
     }
@@ -1934,68 +1891,68 @@ class NetworkInterceptor {
   /**
    * Refreshes the auth token by performing a fresh login using Puppeteer
    */
-  async refreshAuthToken() {
-    let browser = null;
-    let page = null;
+  // async refreshAuthToken() {
+  //   let browser = null;
+  //   let page = null;
 
-    try {
-      const executablePath = await this.findChromePath();
-      browser = await puppeteer.launch({
-        headless: "new",
-        executablePath,
-        product: "chrome",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-web-security",
-          "--disable-gpu",
-        ],
-        defaultViewport: { width: 1920, height: 1080 },
-        ignoreHTTPSErrors: true,
-      });
+  //   try {
+  //     const executablePath = await this.findChromePath();
+  //     browser = await puppeteer.launch({
+  //       headless: "new",
+  //       executablePath,
+  //       product: "chrome",
+  //       args: [
+  //         "--no-sandbox",
+  //         "--disable-setuid-sandbox",
+  //         "--disable-dev-shm-usage",
+  //         "--disable-web-security",
+  //         "--disable-gpu",
+  //       ],
+  //       defaultViewport: { width: 1920, height: 1080 },
+  //       ignoreHTTPSErrors: true,
+  //     });
 
-      page = await browser.newPage();
-      await page.setRequestInterception(true);
+  //     page = await browser.newPage();
+  //     await page.setRequestInterception(true);
 
-      page.on("request", async (interceptedRequest) => {
-        try {
-          if (!interceptedRequest.isInterceptResolutionHandled()) {
-            await interceptedRequest.continue();
-          }
-        } catch (error) {}
-      });
+  //     page.on("request", async (interceptedRequest) => {
+  //       try {
+  //         if (!interceptedRequest.isInterceptResolutionHandled()) {
+  //           await interceptedRequest.continue();
+  //         }
+  //       } catch (error) {}
+  //     });
 
-      page.on("response", async (interceptedResponse) => {
-        let url = interceptedResponse.url();
-        if (url.includes("/accounts/login")) {
-          try {
-            const responseData = await interceptedResponse.json();
-            if (responseData && responseData.detail.token) {
-              await Constant.findOneAndUpdate(
-                { key: "SCRAPING_AUTH_TOKEN" },
-                {
-                  value: responseData.detail.token,
-                  lastUpdated: new Date(),
-                },
-                { upsert: true }
-              );
-              logger.info("Auth token refreshed successfully");
-            }
-          } catch (error) {
-            logger.error("Error processing login response:", error);
-          }
-        }
-      });
+  //     page.on("response", async (interceptedResponse) => {
+  //       let url = interceptedResponse.url();
+  //       if (url.includes("/accounts/login")) {
+  //         try {
+  //           const responseData = await interceptedResponse.json();
+  //           if (responseData && responseData.detail.token) {
+  //             await Constant.findOneAndUpdate(
+  //               { key: "SCRAPING_AUTH_TOKEN" },
+  //               {
+  //                 value: responseData.detail.token,
+  //                 lastUpdated: new Date(),
+  //               },
+  //               { upsert: true }
+  //             );
+  //             logger.info("Auth token refreshed successfully");
+  //           }
+  //         } catch (error) {
+  //           logger.error("Error processing login response:", error);
+  //         }
+  //       }
+  //     });
 
-      await this._performLogin(page);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    } finally {
-      if (browser) {
-        await browser.close();
-      }
-    }
-  }
+  //     await this._performLogin(page);
+  //     await new Promise((resolve) => setTimeout(resolve, 2000));
+  //   } finally {
+  //     if (browser) {
+  //       await browser.close();
+  //     }
+  //   }
+  // }
 }
 
 module.exports = new NetworkInterceptor();
