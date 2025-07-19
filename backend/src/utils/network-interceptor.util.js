@@ -267,14 +267,7 @@ class NetworkInterceptor {
                       transaction,
                       true
                     );
-
-                    let fetchTranscriptResponse = await this.fetchTranscript(
-                      transaction.orderID,
-                      authToken
-                    );
-                    logger.info(
-                      `fetchTranscriptResponse - ${fetchTranscriptResponse}, orderId - ${transaction.orderID}`
-                    );
+                    await this.fetchTranscript(transaction.orderID, authToken);
                   } catch (transactionError) {
                     logger.error("Error processing individual transaction:", {
                       orderId: transaction?.orderID,
@@ -1104,10 +1097,6 @@ class NetworkInterceptor {
                       transactionType: "withdrawal",
                     });
                   }
-                } else {
-                  logger.debug(
-                    `[ApprovedWithdrawals] Skipping transaction with non-negative amount ${transaction.orderID}`
-                  );
                 }
               }
             } catch (err) {
@@ -1296,15 +1285,9 @@ class NetworkInterceptor {
                       isImageAvailable: transaction.isImageAvailable,
                     };
 
-                    logger.debug(
-                      `[RejectedWithdrawals] Prepared transactionData ${transaction.orderID}`
-                    );
                     const existingTransaction = await Transaction.findOne({
                       orderId: transaction.orderID,
                     });
-                    logger.debug(
-                      `[RejectedWithdrawals] Existing transaction ${transaction.orderID}`
-                    );
                     let checkingDeptApprovedOn = null;
                     let bonusApprovedOn = null;
 
@@ -1369,11 +1352,6 @@ class NetworkInterceptor {
                       transactionType: "withdrawal",
                     });
                   }
-                } else {
-                  logger.debug(
-                    "[RejectedWithdrawals] Skipping transaction with non-negative amount",
-                    { orderId: transaction.orderID, amount: transaction.amount }
-                  );
                 }
               }
             } catch (err) {
@@ -1791,9 +1769,6 @@ class NetworkInterceptor {
             transcriptLink: response.data.imageData,
             lastTranscriptUpdate: new Date(),
           }
-        );
-        logger.error(
-          `Fetch Transcript Success, inside if block, orderId - ${orderId}}`
         );
         return true;
       } else {
