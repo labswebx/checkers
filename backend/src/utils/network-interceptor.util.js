@@ -428,18 +428,8 @@ class NetworkInterceptor {
             const json = await interceptedResponse.json();
             let transactions = Array.isArray(json) ? json : json.data || [];
 
-            // Filter transactions approved within last 10 minutes
-            // const sixtyMinutesAgo = new Date(Date.now() - (6 * 60 * 60 * 1000));
-            // const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
-            // transactions = transactions.filter(transaction => {
-            //   if (!transaction.approvedOn) return false;
-            //   const approvedDate = new Date(transaction.approvedOn);
-            //   return approvedDate >= sixtyMinutesAgo;
-            // });
-
             // Process transactions
             for (const [index, transaction] of transactions.entries()) {
-              // logger.info(`Traversing Approvde ${index + 1} / ${transactions.length} with orderID - ${transaction.orderID}`)
               if (transaction.amount >= 0) {
                 try {
                   // skip the update is transaction is already in Success status in the database
@@ -595,23 +585,9 @@ class NetworkInterceptor {
             const json = await interceptedResponse.json();
             let transactions = Array.isArray(json) ? json : json.data || [];
 
-            // Updating only the transactions from last 10 minutes because others will be updated in the previous interation
-            // const sixtyMinutesAgo = new Date(Date.now() - (6 * 60 * 60 * 1000));
-            // const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
-            // transactions = transactions.filter(transaction => {
-            //   if (!transaction.approvedOn) return false;
-            //   const approvedDate = new Date(transaction.approvedOn);
-            //   return approvedDate >= sixtyMinutesAgo;
-            // });
-
-            // console.log(`Rejected Length - ${transactions.length}`)
-            // console.log(transactions.filter(t => t.orderID === 3606280 || t.orderID === '3606280'), '========')
-
             for (const [index, transaction] of transactions.entries()) {
               if (transaction.amount >= 0) {
-                // logger.info(`Traversing Rejected ${index + 1} / ${transactions.length} with orderID - ${transaction.orderID}`)
                 try {
-                  // logger.info(`Inside rejected deposits for orderId - ${transaction.orderID}`)
                   // skip the update is transaction is already in Rejected status in the database
                   const existingTransaction = await Transaction.findOne({
                     orderId: transaction.orderID,
@@ -1062,14 +1038,6 @@ class NetworkInterceptor {
               const json = await interceptedResponse.json();
               let transactions = Array.isArray(json) ? json : json.data || [];
 
-              // const sixtyMinutesAgo = new Date(Date.now() - (5 * 60 * 60 * 1000 + 50 * 60 * 1000));
-              // const sixtyMinutesAgo = new Date(Date.now() - (60 * 60 * 1000));
-              // transactions = transactions.filter(transaction => {
-              //   if (!transaction.approvedOn) return false;
-              //   const approvedDate = new Date(transaction.approvedOn);
-              //   return approvedDate >= sixtyMinutesAgo;
-              // });
-
               for (const transaction of transactions) {
                 if (transaction.amount < 0) {
                   try {
@@ -1231,89 +1199,8 @@ class NetworkInterceptor {
               for (const transaction of transactions) {
                 if (transaction.amount < 0) {
                   try {
-                    await transactionService.findOrCreateAgent(
-                      transaction.franchiseName.split(" (")[0]
-                    );
+                    const shouldFetchTranscript = await transactionUtil.processAndSaveTransaction(transaction, false);
 
-                    // Create the transaction data object
-                    const transactionData = {
-                      orderId: transaction.orderID,
-                      userId: transaction.userID,
-                      userName: transaction.userName,
-                      name: transaction.name,
-                      statusId: transaction.StatusID,
-                      transactionStatus: transaction.transactionStatus,
-                      amount: transaction.amount,
-                      requestDate: transaction.requestDate,
-                      paymentMethod: transaction.paymentMethod,
-                      holderName: transaction.holderName,
-                      bankName: transaction.bankName,
-                      accountNumber: transaction.number,
-                      iban: transaction.iBAN,
-                      cardNo: transaction.cardNo,
-                      utr: transaction.uTR,
-                      approvedOn: transaction.approvedOn,
-                      rejectedOn: transaction.rejectedOn,
-                      firstDeposit: transaction.firstDeposit,
-                      approvedBy: transaction.approvedBy,
-                      franchiseName: transaction.franchiseName,
-                      truncatedFranchiseName: transaction.franchiseName.split(" (")[0],
-                      remarks: transaction.remarks,
-                      bonusIncluded: transaction.bonusIncluded,
-                      bonusExcluded: transaction.bonusExcluded,
-                      bonusThreshold: transaction.bonusThreshold,
-                      lastUpdatedUTROn: transaction.lastUpdatedUTROn,
-                      auditStatusId: transaction.auditStatusID,
-                      auditStatus: transaction.auditStatus,
-                      authorizedUserRemarks: transaction.authorizedUserRemarks,
-                      isImageAvailable: transaction.isImageAvailable,
-                    };
-
-                    const existingTransaction = await Transaction.findOne({
-                      orderId: transaction.orderID,
-                    });
-                    let checkingDeptApprovedOn = null;
-                    let bonusApprovedOn = null;
-
-                    if (
-                      existingTransaction &&
-                      existingTransaction.auditStatus ===
-                        TRANSACTION_STATUS.PENDING &&
-                      (transaction.auditStatus === TRANSACTION_STATUS.SUCCESS ||
-                        transaction.auditStatus === TRANSACTION_STATUS.REJECTED)
-                    ) {
-                      checkingDeptApprovedOn = transaction.approvedOn;
-                      transactionData.checkingDeptApprovedOn =
-                        checkingDeptApprovedOn;
-                    }
-
-                    // Check if bonusIncluded or bonusExcluded is changing from 0 to non-zero
-                    if (
-                      existingTransaction &&
-                      ((existingTransaction.bonusIncluded === 0 &&
-                        transaction.bonusIncluded !== 0) ||
-                        (existingTransaction.bonusExcluded === 0 &&
-                          transaction.bonusExcluded !== 0))
-                    ) {
-                      bonusApprovedOn = transaction.approvedOn;
-                      transactionData.bonusApprovedOn = bonusApprovedOn;
-                    }
-
-                    // Check if isImageAvailable is changing from false to true
-                    const shouldFetchTranscript =
-                      existingTransaction &&
-                      existingTransaction.isImageAvailable === false &&
-                      transaction.isImageAvailable === true;
-
-                    await Transaction.findOneAndUpdate(
-                      { orderId: transaction.orderID },
-                      transactionData,
-                      {
-                        upsert: true,
-                        new: true,
-                        runValidators: true,
-                      }
-                    );
                     if (shouldFetchTranscript) {
                       await this.fetchTranscript(
                         transaction.orderID,
